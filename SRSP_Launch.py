@@ -7,10 +7,13 @@ import random
 import csv
 import itertools
 import time
+import os
 
 stepthrough=0
 step_summ=0
 step_new=0
+
+DATA_DIR = '/home/jamie/Insync/fairbrot@lancaster.ac.uk/OneDrive Biz - Shared/SRSP data files'
 
 Policy='Alternate' #FCFS, Perm, SA, GA or Alternate
 
@@ -3246,7 +3249,7 @@ print('*** Importing the Wiener array...')
 wiener_cdf=[[0]*(1000) for _ in range(12000)]
 weather_cdf=[[0]*(1000) for _ in range(12000)]
 if wiener_sig==0.1:
-	with open('wiener_array_sig0point1.csv', 'r') as csvfile:
+	with open(os.path.join(DATA_DIR, 'wiener_array_sig0point1.csv'), 'r') as csvfile:
 		datareader = csv.reader(csvfile, delimiter=',', quotechar='|')
 		inputdata=list(datareader)
 		for i in range(12000):
@@ -3254,7 +3257,7 @@ if wiener_sig==0.1:
 				wiener_cdf[i][j]=float(inputdata[i][j])
 				weather_cdf[i][j]=float(inputdata[i][j])
 elif wiener_sig==0.3:
-	with open('wiener_array_sig0point3.csv', 'r') as csvfile:
+	with open(os.path.join(DATA_DIR, 'wiener_array_sig0point3.csv'), 'r') as csvfile:
 		datareader = csv.reader(csvfile, delimiter=',', quotechar='|')
 		inputdata=list(datareader)
 		for i in range(12000):
@@ -3262,7 +3265,7 @@ elif wiener_sig==0.3:
 				wiener_cdf[i][j]=float(inputdata[i][j])
 				weather_cdf[i][j]=float(inputdata[i][j])
 elif wiener_sig==0.5:
-	with open('wiener_array_sig0point5.csv', 'r') as csvfile:
+	with open(os.path.join(DATA_DIR, 'wiener_array_sig0point5.csv'), 'r') as csvfile:
 		datareader = csv.reader(csvfile, delimiter=',', quotechar='|')
 		inputdata=list(datareader)
 		for i in range(12000):
@@ -3270,7 +3273,7 @@ elif wiener_sig==0.5:
 				wiener_cdf[i][j]=float(inputdata[i][j])
 				weather_cdf[i][j]=float(inputdata[i][j])
 elif wiener_sig==0.7:
-	with open('wiener_array_sig0point7.csv', 'r') as csvfile:
+	with open(os.path.join(DATA_DIR, 'wiener_array_sig0point7.csv'), 'r') as csvfile:
 		datareader = csv.reader(csvfile, delimiter=',', quotechar='|')
 		inputdata=list(datareader)
 		for i in range(12000):
@@ -3278,7 +3281,7 @@ elif wiener_sig==0.7:
 				wiener_cdf[i][j]=float(inputdata[i][j])
 				weather_cdf[i][j]=float(inputdata[i][j])
 elif wiener_sig==0.9:
-	with open('wiener_array_sig0point9.csv', 'r') as csvfile:
+	with open(os.path.join(DATA_DIR, 'wiener_array_sig0point9.csv'), 'r') as csvfile:
 		datareader = csv.reader(csvfile, delimiter=',', quotechar='|')
 		inputdata=list(datareader)
 		for i in range(12000):
@@ -3300,7 +3303,7 @@ else:
 
 #Import the normal cdf
 normcdf=[0]*(10001)
-with open('norm_cdf.csv', 'r') as csvfile:
+with open(os.path.join(DATA_DIR, 'norm_cdf.csv'), 'r') as csvfile:
 	datareader = csv.reader(csvfile, delimiter=',', quotechar='|')
 	inputdata=list(datareader)
 	for i in range(10001):
@@ -3387,7 +3390,7 @@ while rep<no_reps:
 
 	AC=0
 	#earliest_ps_time=0
-	with open('flight_pretac_data.csv', 'r') as csvfile: #DON'T CHANGE THIS FILE
+	with open(os.path.join(DATA_DIR, 'flight_pretac_data.csv'), 'r') as csvfile: #DON'T CHANGE THIS FILE
 		datareader = csv.reader(csvfile, delimiter=',', quotechar='|')
 		inputdata=list(datareader)
 		for i in range(1,688): #start from 1 because there's a title row
