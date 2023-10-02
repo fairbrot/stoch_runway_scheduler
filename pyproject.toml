@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "stoch-runway-scheduler"
+version = "0.1.0"
+description = ""
+authors = ["Rob Shone, <r.shone@lancaster.ac.uk>", "Jamie Fairbrother, <j.fairbrother@lancaster.ac.uk>"]
+readme = "README.md"
+packages = [{include = "stoch_runway_scheduler"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
