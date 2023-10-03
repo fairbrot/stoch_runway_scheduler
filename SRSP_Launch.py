@@ -79,40 +79,7 @@ st4=open("elap_out.csv", "w")
 
 f.write('Policy'+',''Rep'+','+'AC'+','+'Flight Num'+','+'Prev Class'+','+'Cur Class'+','+'Time Sep'+','+'Orig PS time'+','+'PS time'+','+'Pool Arrival'+','+'Release Time'+','+'Travel Time'+','+'Weather Coeff'+','+'Enters Serv'+','+'Actual Serv'+','+'Ends Serv'+','+'Lateness'+','+'Queue Delay'+','+'Pax Weight'+','+'Cost'+','+'counter'+','+'qp'+','+'Predicted total'+'\n')
 
-def FCFS_rule(Ac_Info,Arr_Pool,Dep_Pool): #Not using this anymore
 
-    start_time=time.time()
-
-    Ac_added=[]
-
-    while len(Arr_Pool)+len(Dep_Pool)>len(Ac_added):
-
-        if len(Arr_Pool)>0 and len(Dep_Pool)>0:
-            arr_ac=Arr_Pool[0]
-            dep_ac=Dep_Pool[0]
-            if Ac_Info[arr_ac][2]<=Ac_Info[dep_ac][2]:
-                Ac_added.append(arr_ac)
-                #print('* Added aircraft '+str(arr_ac)+' arrival to the queue.')
-            else:
-                Ac_added.append(dep_ac)
-                #print('* Added aircraft '+str(dep_ac)+' departure to the queue.')
-        elif len(Arr_Pool)>0:
-            arr_ac=Arr_Pool[0]
-            Ac_added.append(arr_ac)
-            #print('* Added aircraft '+str(arr_ac)+' arrival to the queue.')
-        else:
-            dep_ac=Dep_Pool[0]
-            Ac_added.append(dep_ac)
-            #print('* Added aircraft '+str(dep_ac)+' departure to the queue.')
-
-    end_time=time.time()
-    elap=(end_time-start_time)/conv_factor #convert into minutes
-    if elap<0.001:
-        elap=0.001
-
-    #elap=fixed_elap/conv_factor
-
-    return Ac_added,elap
 
 def Calculate_FCFS(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,pool_max,list_min,wlb_tm,wub_tm):
 
