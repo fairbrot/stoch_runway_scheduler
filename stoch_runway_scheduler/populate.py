@@ -1,6 +1,7 @@
 from typing import List
 import math
 import random
+import itertools
 import time
 
 def Repopulate_VNS(GA_PopList,GA_Info,Arr_Pool,Arr_NotReady,GA_PopSize,Opt_Seq,OptCost,Opt_List,Opt_Size, Max_LookAhead: int ,VNS_counter,VNS_limit,tot_mut, stepthrough: int, step_summ: int, step_new: int):

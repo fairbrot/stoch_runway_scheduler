@@ -9,7 +9,7 @@ import itertools
 import time
 import os
 
-from stoch_runway_scheduler import weather, Genetic, Genetic_determ, Populate, Repopulate_VNS, sample_cond_gamma, getcost
+from stoch_runway_scheduler import weather, Genetic, Genetic_determ, Populate, Repopulate_VNS, sample_cond_gamma, getcost, Normal_GetServ
 
 # JF: these three options seem to be for logging purposes
 #     they are broken for now as a separate output stream is created for each one, and all these currently
@@ -119,58 +119,58 @@ def FCFS_rule(Ac_Info,Arr_Pool,Dep_Pool): #Not using this anymore
 
 
 
+# JF: there are two versions of this function - this one has more arguments than the second and does not seem to be used so commenting out
+# def Annealing_Cost(Anneal_Seq,Ac_Info,ArrTime,ArrTime_Sorted,ServTime,Trav_Time,output,tm,stored_prev_class,queue_complete,AC_remaining,no_scenarios,use_determ):
 
-def Annealing_Cost(Anneal_Seq,Ac_Info,ArrTime,ArrTime_Sorted,ServTime,Trav_Time,output,tm,stored_prev_class,queue_complete,AC_remaining,no_scenarios,use_determ):
+# 	totcost=0
+# 	ee=0
 
-	totcost=0
-	ee=0
+# 	# f2.write('Time '+','+str(tm)+'\n')
+# 	# f2.write('Arr Pool is '+','+str(Arr_Pool)+'\n')
+# 	# f2.write('Arr NotReady is '+','+str(Arr_NotReady)+'\n')
+# 	# f2.write('ArrTime_Sorted is '+','+str(ArrTime_Sorted)+'\n')
+# 	# f2.write('Stored prev class is '+str(stored_prev_class)+'\n')
+# 	# f2.write('Testing the sequence '+','+str(Anneal_Seq)+'\n'+'\n')
 
-	# f2.write('Time '+','+str(tm)+'\n')
-	# f2.write('Arr Pool is '+','+str(Arr_Pool)+'\n')
-	# f2.write('Arr NotReady is '+','+str(Arr_NotReady)+'\n')
-	# f2.write('ArrTime_Sorted is '+','+str(ArrTime_Sorted)+'\n')
-	# f2.write('Stored prev class is '+str(stored_prev_class)+'\n')
-	# f2.write('Testing the sequence '+','+str(Anneal_Seq)+'\n'+'\n')
+# 	for sc in range(no_scenarios):
 
-	for sc in range(no_scenarios):
+# 		ArrTime_sc=ArrTime[sc]
+# 		ArrTime_Sorted_sc=ArrTime_Sorted[sc]
+# 		ServTime_sc=ServTime[sc]
+# 		Trav_Time_sc=Trav_Time[sc]
 
-		ArrTime_sc=ArrTime[sc]
-		ArrTime_Sorted_sc=ArrTime_Sorted[sc]
-		ServTime_sc=ServTime[sc]
-		Trav_Time_sc=Trav_Time[sc]
+# 		anneal_prev_class=stored_prev_class
+# 		anneal_queue_complete=queue_complete[sc]
+# 		anneal_tm=tm
+# 		anneal_weather_state=weather_state
 
-		anneal_prev_class=stored_prev_class
-		anneal_queue_complete=queue_complete[sc]
-		anneal_tm=tm
-		anneal_weather_state=weather_state
+# 		for i in range(AC_remaining):
+# 			AC=Anneal_Seq[i]
+# 			release_time=max(ArrTime_sc[AC],anneal_tm)
+# 			cur_class=Ac_Info[AC][1]
 
-		for i in range(AC_remaining):
-			AC=Anneal_Seq[i]
-			release_time=max(ArrTime_sc[AC],anneal_tm)
-			cur_class=Ac_Info[AC][1]
+# 			if no_scenarios==1 and use_determ==1:
+# 				t1=release_time+tau
+# 				t2=anneal_queue_complete+Time_Sep[anneal_prev_class][cur_class]/60
+# 				AC_FinishTime=max(t1,t2)
+# 			else:
+# 				if NormalApprox==0:
+# 					anneal_weather_state=weather(release_time,wlb,wub)
+# 					AC_FinishTime,straight_into_service=GetServTime(Trav_Time_sc[AC],ServTime_sc[AC],release_time,anneal_prev_class,cur_class,anneal_queue_complete,k,ee,anneal_weather_state)
+# 				else:
+# 					AC_FinishTime,straight_into_service=Normal_GetServ(release_time,anneal_prev_class,anneal_class,anneal_queue_complete,weather_state, Time_Sep, normcdf, w_rho, k)
 
-			if no_scenarios==1 and use_determ==1:
-				t1=release_time+tau
-				t2=anneal_queue_complete+Time_Sep[anneal_prev_class][cur_class]/60
-				AC_FinishTime=max(t1,t2)
-			else:
-				if NormalApprox==0:
-					anneal_weather_state=weather(release_time,wlb,wub)
-					AC_FinishTime,straight_into_service=GetServTime(Trav_Time_sc[AC],ServTime_sc[AC],release_time,anneal_prev_class,cur_class,anneal_queue_complete,k,ee,anneal_weather_state)
-				else:
-					AC_FinishTime,straight_into_service=Normal_GetServ(release_time,anneal_prev_class,anneal_class,anneal_queue_complete,weather_state)
+# 			#f2.write('AC '+str(AC)+','+'anneal_tm '+str(anneal_tm)+','+'release_time'+str(release_time)+','+'anneal_queue_complete'+str(anneal_queue_complete)+','+'anneal_prev_class'+str(anneal_prev_class)+','+'cur_class'+str(cur_class)+','+'Time Sep '+str(Time_Sep[anneal_prev_class][cur_class]/60)+','+'AC_FinishTime '+str(AC_FinishTime)+'\n')
 
-			#f2.write('AC '+str(AC)+','+'anneal_tm '+str(anneal_tm)+','+'release_time'+str(release_time)+','+'anneal_queue_complete'+str(anneal_queue_complete)+','+'anneal_prev_class'+str(anneal_prev_class)+','+'cur_class'+str(cur_class)+','+'Time Sep '+str(Time_Sep[anneal_prev_class][cur_class]/60)+','+'AC_FinishTime '+str(AC_FinishTime)+'\n')
+# 			ps_time=Ac_Info[AC][18]
+# 			totcost+=getcost(ps_time,ArrTime_sc[AC],Trav_Time_sc[AC],AC_FinishTime,Ac_Info[AC][10],thres1,thres2, lam1, lam2)
+# 			anneal_tm=release_time
+# 			anneal_prev_class=cur_class
+# 			anneal_queue_complete=AC_FinishTime
 
-			ps_time=Ac_Info[AC][18]
-			totcost+=getcost(ps_time,ArrTime_sc[AC],Trav_Time_sc[AC],AC_FinishTime,Ac_Info[AC][10],thres1,thres2, lam1, lam2)
-			anneal_tm=release_time
-			anneal_prev_class=cur_class
-			anneal_queue_complete=AC_FinishTime
+# 		#f2.write('\n')
 
-		#f2.write('\n')
-
-	return totcost/no_scenarios
+# 	return totcost/no_scenarios
 
 def Calculate_FCFS(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,pool_max,list_min,wlb_tm,wub_tm):
 
@@ -404,6 +404,7 @@ def Perm_Heur(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,pool_max,list_min,wlb_tm,w
 
 	return totcost,AC_Used
 
+# JF: This isn't used anywhere at the moment
 def GA_Heur(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,GA_PopSize,wlb_tm,wub_tm):
 
 	start_time=time.time()
@@ -489,6 +490,7 @@ def GA_Heur(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,GA_PopSize,wlb_tm,wub_tm):
 		GA_Info.sort(key=lambda x: x[2])
 		totcost=GA_Info[0][2]
 
+		# JF - the Repopulate function doesn't exist
 		GA_PopList,GA_Info,run_time,Tabu_List,Opt_Seq,OptCost,Opt_List=Repopulate(GA_PopList,GA_Info,Arr_Pool,Arr_NotReady,GA_PopSize,Tabu_List,Tabu_Size,Opt_Seq,OptCost,Opt_List,Opt_Size,stepthrough, step_summ, step_new)
 
 		iter_no+=1
@@ -498,6 +500,7 @@ def GA_Heur(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,GA_PopSize,wlb_tm,wub_tm):
 
 	return totcost,iter_no
 
+# JF: This isn't used anywhere right now
 def SA_Heur(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm):
 
 	start_time=time.time()
@@ -1213,32 +1216,8 @@ def GetServTime_Future(trav_time,serv_time,rel_time,prev_class,cur_class,tm,ee,w
 
 
 
-def truncnorm(Mn,SD,min_x): #Generate a value x from the truncated normal distribution
-	Min_U=math.ceil(ncdf((min_x-Mn)/SD)*10000)
-	Max_U=10000 #int(ncdf((max_x-Mn)/SD)*10000)
-	U1=int(Min_U+int(random.random()*(Max_U-Min_U+1)))
-	x=normcdf[U1]*SD+Mn
-	#print('Mn: '+str(Mn)+' SD: '+str(SD)+' min_x: '+str(min_x)+' max_x: '+str(max_x)+' Min_U: '+str(Min_U)+' Max_U: '+str(Max_U)+' U1: '+str(U1)+' x: '+str(x)+' Exp value: '+str(truncexp(Mn,SD,min_x,max_x)))
-	return x
 
-def truncexp(Mn,SD,min_x): #Mean of the truncated normal distribution
-	phi1=npdf((min_x-Mn)/SD)
-	#phi2=npdf((max_x-Mn)/SD)
-	phi2=1
-	Phi1=ncdf((min_x-Mn)/SD)
-	#Phi2=ncdf((max_x-Mn)/SD)
-	Phi2=1
-	if Phi1==1:
-		texp=min_x
-	else:
-		texp=Mn+SD*((phi1-phi2)/(Phi2-Phi1))
-	return texp
 
-def ncdf(x): #Standard Normal dist CDF
-	return 0.5+0.5*math.erf(x/(2**0.5))
-
-def npdf(x): #Standard Normal dist PDF
-	return math.exp(-(x**2/2))/(math.sqrt(2*math.pi))
 
 def sample_gamma(k,beta):
 
@@ -1456,7 +1435,7 @@ def Serv_Completions(Ac_Info,Ac_queue,prev_class,totserv,Ac_finished,tm,next_com
 				totserv+=1
 			else:
 				Ac_Infoi[0]=6
-				arr_cost+=getcost(Ac_Infoi[18],Ac_Infoi[9],Ac_Infoi[6],finish_time,Ac_Infoi[10],thres1,thres2)
+				arr_cost+=getcost(Ac_Infoi[18],Ac_Infoi[9],Ac_Infoi[6],finish_time,Ac_Infoi[10],thres1,thres2, lam1, lam2)
 
 			f.write(str(SubPolicy)+','+str(rep)+','+str(AC)+','+str(Ac_Infoi[19])+','+str(prev_class)+','+str(current_class)+','+str(Time_Sep[prev_class][current_class]/60)+','+str(Ac_Infoi[18])+','+str(Ac_Infoi[2])+','+str(Ac_Infoi[9])+','+str(Ac_Infoi[4])+','+str(Ac_Infoi[6])+','+str(Ac_Infoi[12])+','+str(Ac_Infoi[5])+','+str(Ac_Infoi[8])+','+str(Ac_Infoi[16])+','+str(max(0,finish_time-(Ac_Infoi[2]+thres1)))+','+str(finish_time-(Ac_Infoi[9]+Ac_Infoi[6]))+','+str(Ac_Infoi[10])+','+str(getcost(Ac_Infoi[2],Ac_Infoi[9],Ac_Infoi[6],finish_time,Ac_Infoi[10],thres1,thres2, lam1, lam2))+',')
 			f.write(str(Ac_Infoi[13])+','+str(Ac_Infoi[14])+',')
@@ -2178,7 +2157,7 @@ while rep<no_reps:
 				#print('soln_evals_tot: '+str(soln_evals_tot))
 				# if tm>=0 and int(tm*100)!=int(old_tm*100):
 				# 	rr.write('Genetic'+',')
-				Ac_added,counter,qp,max_d,pruned,GA_CheckSize,GA_counter,soln_evals_tot,soln_evals_num=Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,max(tm,0),NoA,k,prev_class,GA_PopList,GA_Info,wiener_cdf,GA_LoopSize,GA_CheckSize,GA_counter,tot_arr_cost+tot_dep_cost,wlb,wub,weather_cdf,Opt_List,max_d,soln_evals_tot,soln_evals_num,gamma_cdf,normcdf, norm_approx_min, tau, Max_LookAhead, Time_Sep, thres1, thres2, lam1, lam2, GA_Check_Increment, Opt_Size, stepthrough, step_summ, step_new)
+				Ac_added,counter,qp,max_d,pruned,GA_CheckSize,GA_counter,soln_evals_tot,soln_evals_num=Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,max(tm,0),NoA,k,prev_class,GA_PopList,GA_Info,wiener_cdf,GA_LoopSize,GA_CheckSize,GA_counter,tot_arr_cost+tot_dep_cost,wlb,wub,weather_cdf,Opt_List,max_d,soln_evals_tot,soln_evals_num,gamma_cdf,normcdf, norm_approx_min, tau, Max_LookAhead, Time_Sep, thres1, thres2, lam1, lam2, GA_Check_Increment, Opt_Size, w_rho, stepthrough, step_summ, step_new)
 				Ov_GA_counter+=1
 				#GA_counter+=1
 				if stepthrough==1:
@@ -2187,7 +2166,7 @@ while rep<no_reps:
 				#print('tm: '+str(tm)+' Opt_Seq: '+str(Tabu_List[0][0])+' Cost: '+str(Tabu_List[0][2]))
 				#print('tm: '+str(tm)+' Opt_Seq: '+str(Opt_Seq)+' Cost: '+str(OptCost))
 			elif SubPolicy=='VNSD':
-				Ac_added,counter,qp,stored_queue_complete=Genetic_determ(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,max(tm,0),NoA,k,prev_class,GA_PopList,GA_Info,wiener_cdf,wlb,wub,Opt_List, norm_approx_min, tau, Max_LookAhead, Time_Sep, thres1, thres2, lam1, lam2, stepthrough, step_summ, step_new)
+				Ac_added,counter,qp,stored_queue_complete=Genetic_determ(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,max(tm,0),NoA,k,prev_class,GA_PopList,GA_Info,wiener_cdf,wlb,wub,Opt_List, norm_approx_min, tau, Max_LookAhead, Time_Sep, thres1, thres2, lam1, lam2, tot_arr_cost, tot_dep_cost, w_rho, stepthrough, step_summ, step_new)
 				Ov_GA_counter+=1
 				GA_counter+=1
 				if stepthrough==1:

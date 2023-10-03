@@ -45,7 +45,7 @@ def sample_cond_gamma(t,gamma_cdf):
 	return y
 
 
-def Gamma_GetServ(k: int, Time_Sep: List[List[int]], rel_time,trav_time,prev_class,cur_class,tm,weather_state,gamma_cdf):
+def Gamma_GetServ(k: int, Time_Sep: List[List[int]], rel_time,trav_time,prev_class,cur_class,tm,weather_state,gamma_cdf, w_rho: float):
 
 	#This is for ACs that are already in the queue but not yet in service
 
@@ -70,7 +70,7 @@ def Gamma_GetServ(k: int, Time_Sep: List[List[int]], rel_time,trav_time,prev_cla
 
 	return t_out,straight_into_service
 
-def Gamma_GetServ_Future(k: int, Time_Sep: List[List[int]], rel_time,serv_time,trav_time,prev_class,cur_class,tm,weather_state):
+def Gamma_GetServ_Future(k: int, Time_Sep: List[List[int]], rel_time,serv_time,trav_time,prev_class,cur_class,tm,weather_state, w_rho: float):
 
 	#This is for ACs that have not yet been added to the queue
 
@@ -94,7 +94,7 @@ def Gamma_GetServ_Future(k: int, Time_Sep: List[List[int]], rel_time,serv_time,t
 
 	return t_out,straight_into_service
 
-def Gamma_Conditional_GetServ(k: int, Time_Sep: List[List[int]], trav_time,rel_time,sv_time,prev_class,cur_class,tm,weather_state,gamma_cdf):
+def Gamma_Conditional_GetServ(k: int, Time_Sep: List[List[int]], trav_time,rel_time,sv_time,prev_class,cur_class,tm,weather_state,gamma_cdf, w_rho: float):
 
 	#This is for the AC currently in service
 

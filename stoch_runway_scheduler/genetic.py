@@ -5,7 +5,7 @@ import time
 from .utils import weather, getcost, Normal_GetServ, Normal_GetServ_Future, Normal_Conditional_GetServ
 from .gamma import Gamma_GetServ, Gamma_GetServ_Future, Gamma_Conditional_GetServ
 
-def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_class,GA_PopList,GA_Info,wiener_cdf,GA_LoopSize,GA_CheckSize,GA_counter,basecost,wlb,wub,weather_cdf,Opt_List,max_d,soln_evals_tot,soln_evals_num,gamma_cdf,normcdf, norm_approx_min: float, tau: int, Max_LookAhead: int, Time_Sep: List[List[int]], thres1: int, thres2: int, lam1: float, lam2: float, GA_Check_Increment: int, Opt_Size: int, stepthrough: int, step_summ: int, step_new: int):
+def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_class,GA_PopList,GA_Info,wiener_cdf,GA_LoopSize,GA_CheckSize,GA_counter,basecost,wlb,wub,weather_cdf,Opt_List,max_d,soln_evals_tot,soln_evals_num,gamma_cdf,normcdf, norm_approx_min: float, tau: int, Max_LookAhead: int, Time_Sep: List[List[int]], thres1: int, thres2: int, lam1: float, lam2: float, GA_Check_Increment: int, Opt_Size: int, w_rho: float, stepthrough: int, step_summ: int, step_new: int):
 
 	# if len(Arr_Pool)+len(Ac_queue)>0:
 	# 	print('Genetic')
@@ -184,7 +184,7 @@ def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_clas
 				sched=int(10*round(Ac_Infoi[3]-tm,1))
 				trav_time=wiener_cdf[sched][z]
 
-			queue_complete,straight_into_service=Gamma_Conditional_GetServ(k, Time_Sep, trav_time,rel_time,sv_time,prev_class,cur_class,tm,weather_state,gamma_cdf)
+			queue_complete,straight_into_service=Gamma_Conditional_GetServ(k, Time_Sep, trav_time,rel_time,sv_time,prev_class,cur_class,tm,weather_state,gamma_cdf, w_rho)
 			basecost+=getcost(Ac_Infoi[18],Ac_Infoi[9],trav_time,queue_complete,Ac_Infoi[10],thres1,thres2, lam1, lam2)
 			perm_prev_class=cur_class
 
@@ -204,7 +204,7 @@ def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_clas
 				sched=int(10*round(Ac_Infoi[3]-tm,1))
 				trav_time=wiener_cdf[sched][z]
 
-			queue_complete,straight_into_service=Normal_Conditional_GetServ(trav_time,rel_time,sv_time,prev_class,cur_class,tm,weather_state)
+			queue_complete,straight_into_service=Normal_Conditional_GetServ(trav_time,rel_time,sv_time,prev_class,cur_class,tm,weather_state, Time_Sep, normcdf, w_rho, k)
 			basecost+=getcost(Ac_Infoi[18],Ac_Infoi[9],trav_time,queue_complete,Ac_Infoi[10],thres1,thres2, lam1, lam2)
 			perm_prev_class=cur_class
 
@@ -243,13 +243,13 @@ def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_clas
 				# basecost+=getcost(Ac_Infoi[18],Ac_Infoi[9],trav_time,queue_complete,Ac_Infoi[10],thres1,thres2,lam1,lam2)
 
 
-				queue_complete,straight_into_service=Gamma_GetServ(k, Time_Sep, rel_time,trav_time,perm_prev_class,cur_class,queue_complete,weather_state,gamma_cdf)
+				queue_complete,straight_into_service=Gamma_GetServ(k, Time_Sep, rel_time,trav_time,perm_prev_class,cur_class,queue_complete,weather_state,gamma_cdf, w_rho)
 				perm_prev_class=cur_class
 				basecost+=getcost(Ac_Infoi[18],Ac_Infoi[9],trav_time,queue_complete,Ac_Infoi[10],thres1,thres2, lam1, lam2)
 
 			else:
 
-				queue_complete,straight_into_service=Normal_GetServ(rel_time,trav_time,perm_prev_class,cur_class,queue_complete,weather_state)
+				queue_complete,straight_into_service=Normal_GetServ(rel_time,trav_time,perm_prev_class,cur_class,queue_complete,weather_state, Time_Sep, normcdf, w_rho, k)
 				perm_prev_class=cur_class
 				basecost+=getcost(Ac_Infoi[18],Ac_Infoi[9],trav_time,queue_complete,Ac_Infoi[10],thres1,thres2, lam1, lam2)
 
@@ -306,9 +306,9 @@ def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_clas
 			if NormalApprox==0:
 				#perm_weather_state=weather(reltime,wlb,wub)
 				#AC_FinishTime,straight_into_service=GetServTime_Future(Trav_Time[AC],ServTime[AC],reltime,perm_prev_class,perm_class,perm_queue_complete,ee,weather_state)
-				AC_FinishTime,straight_into_service=Gamma_GetServ_Future(k, Time_Sep, reltime,ServTime[AC],Trav_Time[AC],perm_prev_class,perm_class,perm_queue_complete,weather_state)
+				AC_FinishTime,straight_into_service=Gamma_GetServ_Future(k, Time_Sep, reltime,ServTime[AC],Trav_Time[AC],perm_prev_class,perm_class,perm_queue_complete,weather_state, w_rho)
 			else:
-				AC_FinishTime,straight_into_service=Normal_GetServ_Future(reltime,ServTime[AC],Trav_Time[AC],perm_prev_class,perm_class,perm_queue_complete,weather_state)
+				AC_FinishTime,straight_into_service=Normal_GetServ_Future(reltime,ServTime[AC],Trav_Time[AC],perm_prev_class,perm_class,perm_queue_complete,weather_state, Time_Sep, w_rho, k)
 			GA_Infoj[3][index]=(1-gam)*GA_Infoj[3][index]+gam*straight_into_service
 
 			permcost+=getcost(Ac_Infoi[18],ArrTime[AC],Trav_Time[AC],AC_FinishTime,Ac_Infoi[10],thres1,thres2, lam1, lam2) #Ac_Infoi[10]*(AC_FinishTime-(Ac_Infoi[2]+thres))**2
@@ -391,9 +391,9 @@ def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_clas
 			if NormalApprox==0:
 				#perm_weather_state=weather(reltime,wlb,wub)
 				#AC_FinishTime,straight_into_service=GetServTime_Future(Trav_Time[AC],ServTime[AC],reltime,perm_prev_class,perm_class,perm_queue_complete,ee,weather_state)
-				AC_FinishTime,straight_into_service=Gamma_GetServ_Future(k, Time_Sep, reltime,ServTime[AC],Trav_Time[AC],perm_prev_class,perm_class,perm_queue_complete,weather_state)
+				AC_FinishTime,straight_into_service=Gamma_GetServ_Future(k, Time_Sep, reltime,ServTime[AC],Trav_Time[AC],perm_prev_class,perm_class,perm_queue_complete,weather_state, w_rho)
 			else:
-				AC_FinishTime,straight_into_service=Normal_GetServ_Future(reltime,ServTime[AC],Trav_Time[AC],perm_prev_class,perm_class,perm_queue_complete,weather_state)
+				AC_FinishTime,straight_into_service=Normal_GetServ_Future(reltime,ServTime[AC],Trav_Time[AC],perm_prev_class,perm_class,perm_queue_complete,weather_state, Time_Sep, w_rho, k)
 			Opt_Listj[3][index]=(1-gam)*Opt_Listj[3][index]+gam*straight_into_service
 
 			permcost+=getcost(Ac_Infoi[18],ArrTime[AC],Trav_Time[AC],AC_FinishTime,Ac_Infoi[10],thres1,thres2, lam1, lam2) #Ac_Infoi[10]*(AC_FinishTime-(Ac_Infoi[2]+thres))**2
