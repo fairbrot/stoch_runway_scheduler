@@ -2,13 +2,15 @@
 #-generated values of k, thres1, pax weights, start & end times for bad weather (& need to also include random lam1 & lam2)
 
 from __future__ import print_function, division
+import sys
 import math
+import logging
 import random
 import csv
 import time
 import os
 
-from stoch_runway_scheduler import weather, Genetic, Genetic_determ, Populate, Repopulate_VNS, sample_cond_gamma, getcost, Normal_GetServ, Annealing_Cost, Perm_Heur, Perm_Heur_New
+from stoch_runway_scheduler import weather, Genetic, Genetic_determ, Populate, Repopulate_VNS, sample_cond_gamma, getcost, Annealing_Cost, Perm_Heur, Perm_Heur_New
 
 # JF: these three options seem to be for logging purposes
 #     they are broken for now as a separate output stream is created for each one, and all these currently
@@ -16,6 +18,17 @@ from stoch_runway_scheduler import weather, Genetic, Genetic_determ, Populate, R
 stepthrough=0
 step_summ=0
 step_new=0
+
+# Logs can similarly be set up for step_summ and step_new
+stepthrough_logger = logging.getLogger('stepthrough')
+stepthrough_logger.setLevel(level=logging.ERROR)
+c_handler = logging.FileHandler("SRSP_stepthrough.log", mode='w')
+# c_format = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
+# c_handler.setFormatter(c_format)
+stepthrough_logger.addHandler(c_handler)
+
+step_summ_logger = logging.getLogger('step_summ')
+step_new_logger = logging.getLogger('step_new')
 
 DATA_DIR = '/home/jamie/Insync/fairbrot@lancaster.ac.uk/OneDrive Biz - Shared/SRSP data files'
 
@@ -67,12 +80,13 @@ f1=open("Perm_Heur_out_%s_%s.csv" % (Policy, conv_factor), "w")
 
 #f5=open("Wiener_Test_%s_%s.csv" % (Policy, conv_factor), "w")
 
-if stepthrough==1:
-    st=open("SRSP_stepthrough.csv", "w")
-if step_summ==1:
-    st2=open("SRSP_step_summarised.csv", "w")
-if step_new==1:
-    st3=open("SRSP_step_new.csv", "w")
+# if stepthrough==1:
+#     # JF: CSV extension is used, but prints don't always follow this format
+#     st=open("SRSP_stepthrough.csv", "w")
+# if step_summ==1:
+#     st2=open("SRSP_step_summarised.csv", "w")
+# if step_new==1:
+#     st3=open("SRSP_step_new.csv", "w")
 
 st4=open("elap_out.csv", "w")
 
@@ -210,7 +224,7 @@ def GetServTime(trav_time,rel_time,prev_class,cur_class,tm,sv_time,ee,weather_st
     t2=sv_time+cond_serv #t2+=rem_serv
 
     if ee==1 and stepthrough==1:
-        st.write(str(t2-tm)+',')
+        stepthrough_logger.info(str(t2-tm)+',')
 
     # if len(Ac_queue)==2 and ee==1:
     # 	print('Trav time completed at '+str(t1)+', serv time completed at '+str(t2))
@@ -256,7 +270,7 @@ def GetServTime_Future(trav_time,serv_time,rel_time,prev_class,cur_class,tm,ee,w
     # 	t2+=(-1/rate)*math.log(serv_time[m])
 
     if ee==1 and stepthrough==1:
-        st.write(str(t2-tm)+',')
+        stepthrough_logger.info(str(t2-tm)+',')
 
     # if len(Ac_queue)==2 and ee==1:
     # 	print('Trav time completed at '+str(t1)+', serv time completed at '+str(t2))
@@ -293,7 +307,7 @@ def GetServTime_Future(trav_time,serv_time,rel_time,prev_class,cur_class,tm,ee,w
 # 		t2+=(-1/rate)*math.log(serv_time[m])
 
 # 	if ee==1 and stepthrough==1:
-# 		st.write(str(t2-tm)+',')
+# 		stepthrough_logger.info(str(t2-tm)+',')
 
 # 	# if len(Ac_queue)==2 and ee==1:
 # 	# 	print('Trav time completed at '+str(t1)+', serv time completed at '+str(t2))
@@ -400,12 +414,9 @@ def Update_ETAs(Ac_Info,Arr_NotReady,Dep_NotReady,Ac_queue,tm,Brown_Motion):
         if tm>=Ac_Infoi[9]:
             Arr_Pool.append(AC)
             #print('* Added aircraft '+str(AC)+' to the arrival pool at time '+str(tm)+' (new readiness time is '+str(Ac_Infoi[9]+tau)+')')
-            if stepthrough==1:
-                st.write('* Added aircraft '+str(AC)+' to the arrival pool at time '+str(tm)+' (new readiness time is '+str(Ac_Infoi[9]+tau)+')'+'\n'+'\n')
-            if step_summ==1:
-                st2.write('* Added aircraft '+str(AC)+' to the arrival pool at time '+str(tm)+' (new readiness time is '+str(Ac_Infoi[9]+tau)+')'+'\n'+'\n')
-            if step_new==1:
-                st3.write('* Added aircraft '+str(AC)+' to the arrival pool at time '+str(tm)+' (new readiness time is '+str(Ac_Infoi[9]+tau)+')'+'\n'+'\n')
+            stepthrough_logger.info('* Added aircraft '+str(AC)+' to the arrival pool at time '+str(tm)+' (new readiness time is '+str(Ac_Infoi[9]+tau)+')'+'\n'+'\n')
+            step_summ_logger.info('* Added aircraft '+str(AC)+' to the arrival pool at time '+str(tm)+' (new readiness time is '+str(Ac_Infoi[9]+tau)+')'+'\n'+'\n')
+            step_new_logger.info('* Added aircraft '+str(AC)+' to the arrival pool at time '+str(tm)+' (new readiness time is '+str(Ac_Infoi[9]+tau)+')'+'\n'+'\n')
             Arr_NotReady.remove(AC)
             Ac_Infoi[0]+=1
             Ac_Infoi[3]=Ac_Infoi[9]+tau
@@ -427,10 +438,8 @@ def Update_ETAs(Ac_Info,Arr_NotReady,Dep_NotReady,Ac_queue,tm,Brown_Motion):
             trav_time=Ac_Infoi[6]
             if rounded_trav_so_far>=trav_time:
                 #print('* Aircraft '+str(AC)+' has finished its travel time at '+str(tm)+'; still waiting for service time.')
-                if stepthrough==1:
-                    st.write('* Aircraft '+str(AC)+' has finished its travel time at '+str(tm)+'; still waiting for service time.'+'\n'+'\n')
-                if step_summ==1:
-                    st2.write('* Aircraft '+str(AC)+' has finished its travel time at '+str(tm)+'; still waiting for service time.'+'\n'+'\n')
+                stepthrough_logger.info('* Aircraft '+str(AC)+' has finished its travel time at '+str(tm)+'; still waiting for service time.'+'\n'+'\n')
+                step_summ_logger.info('* Aircraft '+str(AC)+' has finished its travel time at '+str(tm)+'; still waiting for service time.'+'\n'+'\n')
                 Ac_Infoi[11]=1
             else:
                 Ac_Infoi[3]=Brown_Motion[AC][int((Ac_Infoi[9]+rounded_trav_so_far)*100)]
@@ -518,10 +527,8 @@ def Serv_Completions(Ac_Info,Ac_queue,prev_class,totserv,Ac_finished,tm,next_com
             #print('* Service phase '+str(phase)+' completed for aircraft '+str(Ac_queue[0])+' at time '+str(tm+delta))
             Ac_finished[AC]=finish_time
             #print('* Service completion finished for aircraft '+str(AC))
-            if stepthrough==1:
-                st.write('* Service completion finished for aircraft '+str(AC)+'\n'+'\n')
-            if step_summ==1:
-                st2.write('* Service completion finished for aircraft '+str(AC)+'\n'+'\n')
+            stepthrough_logger.info('* Service completion finished for aircraft '+str(AC)+'\n'+'\n')
+            step_summ_logger.info('* Service completion finished for aircraft '+str(AC)+'\n'+'\n')
             if Ac_Infoi[0]==2:
                 Ac_Infoi[0]=3
                 arr_cost+=getcost(Ac_Infoi[18],Ac_Infoi[9],Ac_Infoi[6],finish_time,Ac_Infoi[10],thres1,thres2, lam1, lam2)
@@ -930,12 +937,11 @@ while rep<no_reps:
                 chk=2
                 break
 
-    if stepthrough==1:
-        st.write('AC'+','+'Class'+','+'PS time'+','+'Pool arrival'+','+'Travel time'+','+'Runway time'+'\n')
-        for AC in range(NoA):
-            Ac_Infoi=Ac_Info[AC]
-            st.write(str(AC)+','+str(Ac_Infoi[1])+','+str(Ac_Infoi[2])+','+str(Ac_Infoi[9])+','+str(Ac_Infoi[6])+','+str(Ac_Infoi[9]+Ac_Infoi[6])+'\n')
-        st.write('\n')
+    stepthrough_logger.info('AC'+','+'Class'+','+'PS time'+','+'Pool arrival'+','+'Travel time'+','+'Runway time'+'\n')
+    for AC in range(NoA):
+        Ac_Infoi=Ac_Info[AC]
+        stepthrough_logger.info(str(AC)+','+str(Ac_Infoi[1])+','+str(Ac_Infoi[2])+','+str(Ac_Infoi[9])+','+str(Ac_Infoi[6])+','+str(Ac_Infoi[9]+Ac_Infoi[6])+'\n')
+    stepthrough_logger.info('\n')
 
     print('*** Generating the weather transition array...')
     weather_lb=[0]*(int(S*t*8*100)+1)
@@ -980,8 +986,7 @@ while rep<no_reps:
         old_lb=new_lb
         old_ub=new_ub
 
-    if stepthrough==1:
-        st.write('wlb_tm:'+','+str(wlb_tm)+','+'wub_tm'+','+str(wub_tm)+'\n'+'\n')
+    stepthrough_logger.info('wlb_tm:'+','+str(wlb_tm)+','+'wub_tm'+','+str(wub_tm)+'\n'+'\n')
 
     # if SubPolicy=='SA':
     # 	Anneal_Seq=[0]*NoA
@@ -1024,11 +1029,10 @@ while rep<no_reps:
         print('GA_CheckSize: '+str(GA_CheckSize))
         Ov_GA_counter=0
 
-        if stepthrough==1:
-            st.write('Initial population of sequences:'+'\n')
-            for j in range(len(GA_PopList)):
-                st.write(str(j)+','+str(GA_PopList[j])+'\n')
-            st.write('\n')
+        stepthrough_logger.info('Initial population of sequences:'+'\n')
+        for j in range(len(GA_PopList)):
+            stepthrough_logger.info(str(j)+','+str(GA_PopList[j])+'\n')
+        stepthrough_logger.info('\n')
 
         print('Ov_GA_counter: '+str(Ov_GA_counter))
 
@@ -1115,13 +1119,12 @@ while rep<no_reps:
 
         # latest_timer=time.time()
 
-        if stepthrough==1:
-            st.write('tm is '+','+str(tm)+'\n')
-            st.write('Arr_NotReady is '+','+str(Arr_NotReady)+'\n')
-            st.write('Arr_Pool is '+','+str(Arr_Pool)+'\n')
-            st.write('Ac_queue is '+','+str(Ac_queue)+'\n')
-            st.write('Left_queue is '+','+str(Left_queue)+'\n')
-            st.write('Ac_added is '+','+str(Ac_added)+'\n'+'\n')
+        stepthrough_logger.info('tm is '+','+str(tm)+'\n')
+        stepthrough_logger.info('Arr_NotReady is '+','+str(Arr_NotReady)+'\n')
+        stepthrough_logger.info('Arr_Pool is '+','+str(Arr_Pool)+'\n')
+        stepthrough_logger.info('Ac_queue is '+','+str(Ac_queue)+'\n')
+        stepthrough_logger.info('Left_queue is '+','+str(Left_queue)+'\n')
+        stepthrough_logger.info('Ac_added is '+','+str(Ac_added)+'\n'+'\n')
 
         # if SubPolicy=='GAD' and tm>28.5:
         # 	GA_Info.sort(key=lambda x: x[2])
@@ -1159,12 +1162,9 @@ while rep<no_reps:
                     elif SubPolicy in ('GA','GAD','VNS','VNSD'):
                         #print('Added AC '+str(AC)+' to the queue, counter is '+str(Ov_GA_counter)+', qp is '+str(qp))
                         Ac_Info[AC][15]=pred_cost
-                        if stepthrough==1:
-                            st.write('Added AC '+str(AC)+' to the queue, counter is '+str(Ov_GA_counter)+', qp is '+str(qp)+'\n')
-                        if step_summ==1:
-                            st2.write('Added AC '+str(AC)+' to the queue, counter is '+str(Ov_GA_counter)+', qp is '+str(qp)+'\n')
-                        if step_new==1:
-                            st3.write('Added AC '+str(AC)+' to the queue, counter is '+str(Ov_GA_counter)+', qp is '+str(qp)+'\n')
+                        stepthrough_logger.info('Added AC '+str(AC)+' to the queue, counter is '+str(Ov_GA_counter)+', qp is '+str(qp)+'\n')
+                        step_summ_logger.info('Added AC '+str(AC)+' to the queue, counter is '+str(Ov_GA_counter)+', qp is '+str(qp)+'\n')
+                        step_new_logger.info('Added AC '+str(AC)+' to the queue, counter is '+str(Ov_GA_counter)+', qp is '+str(qp)+'\n')
                         base_seq.remove(AC)
 
                     else:
@@ -1251,11 +1251,10 @@ while rep<no_reps:
                 #print('soln_evals_tot: '+str(soln_evals_tot))
                 # if tm>=0 and int(tm*100)!=int(old_tm*100):
                 # 	rr.write('Genetic'+',')
-                Ac_added,counter,qp,max_d,pruned,GA_CheckSize,GA_counter,soln_evals_tot,soln_evals_num=Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,max(tm,0),NoA,k,prev_class,GA_PopList,GA_Info,wiener_cdf,GA_LoopSize,GA_CheckSize,GA_counter,tot_arr_cost+tot_dep_cost,wlb,wub,weather_cdf,Opt_List,max_d,soln_evals_tot,soln_evals_num,gamma_cdf,normcdf, norm_approx_min, tau, Max_LookAhead, Time_Sep, thres1, thres2, lam1, lam2, GA_Check_Increment, Opt_Size, w_rho, stepthrough, step_summ, step_new)
+                Ac_added,counter,qp,max_d,pruned,GA_CheckSize,GA_counter,soln_evals_tot,soln_evals_num=Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,max(tm,0),NoA,k,prev_class,GA_PopList,GA_Info,wiener_cdf,GA_LoopSize,GA_CheckSize,GA_counter,tot_arr_cost+tot_dep_cost,wlb,wub,weather_cdf,Opt_List,max_d,soln_evals_tot,soln_evals_num,gamma_cdf,normcdf, norm_approx_min, tau, Max_LookAhead, Time_Sep, thres1, thres2, lam1, lam2, GA_Check_Increment, Opt_Size, w_rho, stepthrough)
                 Ov_GA_counter+=1
                 #GA_counter+=1
-                if stepthrough==1:
-                    st.write('GA_counter is '+','+str(GA_counter)+'\n')
+                stepthrough_logger.info('GA_counter is '+','+str(GA_counter)+'\n')
                 #Tabu_List.sort(key=lambda x: x[2])
                 #print('tm: '+str(tm)+' Opt_Seq: '+str(Tabu_List[0][0])+' Cost: '+str(Tabu_List[0][2]))
                 #print('tm: '+str(tm)+' Opt_Seq: '+str(Opt_Seq)+' Cost: '+str(OptCost))
@@ -1263,8 +1262,7 @@ while rep<no_reps:
                 Ac_added,counter,qp,stored_queue_complete=Genetic_determ(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,max(tm,0),NoA,k,prev_class,GA_PopList,GA_Info,wiener_cdf,wlb,wub,Opt_List, norm_approx_min, tau, Max_LookAhead, Time_Sep, thres1, thres2, lam1, lam2, tot_arr_cost, tot_dep_cost, w_rho, stepthrough, step_summ, step_new)
                 Ov_GA_counter+=1
                 GA_counter+=1
-                if stepthrough==1:
-                    st.write('GA_counter is '+','+str(GA_counter)+'\n')
+                stepthrough_logger.info('GA_counter is '+','+str(GA_counter)+'\n')
                 #Tabu_List.sort(key=lambda x: x[2])
                 #print('tm: '+str(tm)+' Opt_Seq: '+str(Tabu_List[0][0])+' Cost: '+str(Tabu_List[0][2]))
                 #print('tm: '+str(tm)+' Opt_Seq: '+str(Opt_Seq)+' Cost: '+str(OptCost))
@@ -1518,11 +1516,11 @@ f1.close()
 
 #f5.close()
 
-if stepthrough==1:
-    st.close()
-if step_summ==1:
-    st2.close()
-if step_new==1:
-    st3.close()
+# if stepthrough==1:
+#     st.close()
+# if step_summ==1:
+#     st2.close()
+# if step_new==1:
+#     st3.close()
 
 st4.close()

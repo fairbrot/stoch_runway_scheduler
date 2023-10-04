@@ -1,14 +1,17 @@
 from typing import List
+import logging
 import random
 import math
 import time
 from .utils import weather, getcost, Normal_GetServ, Normal_GetServ_Future, Normal_Conditional_GetServ
 from .gamma import Gamma_GetServ, Gamma_GetServ_Future, Gamma_Conditional_GetServ
 
-def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_class,GA_PopList,GA_Info,wiener_cdf,GA_LoopSize,GA_CheckSize,GA_counter,basecost,wlb,wub,weather_cdf,Opt_List,max_d,soln_evals_tot,soln_evals_num,gamma_cdf,normcdf, norm_approx_min: float, tau: int, Max_LookAhead: int, Time_Sep: List[List[int]], thres1: int, thres2: int, lam1: float, lam2: float, GA_Check_Increment: int, Opt_Size: int, w_rho: float, stepthrough: int, step_summ: int, step_new: int):
-
+def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_class,GA_PopList,GA_Info,wiener_cdf,GA_LoopSize,GA_CheckSize,GA_counter,basecost,wlb,wub,weather_cdf,Opt_List,max_d,soln_evals_tot,soln_evals_num,gamma_cdf,normcdf, norm_approx_min: float, tau: int, Max_LookAhead: int, Time_Sep: List[List[int]], thres1: int, thres2: int, lam1: float, lam2: float, GA_Check_Increment: int, Opt_Size: int, w_rho: float, stepthrough: int):
     # if len(Arr_Pool)+len(Ac_queue)>0:
     # 	print('Genetic')
+    stepthrough_logger = logging.getLogger("stepthrough")
+    step_summ_logger = logging.getLogger("step_summ")
+    step_new_logger = logging.getLogger("step_new")
 
     output=0 #output=1 means we're printing results as we go along; output=2 means we're outputting results to "Detailed" csv file
     ee=0
@@ -23,8 +26,7 @@ def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_clas
     else:
         NormalApprox=0
 
-    if stepthrough==1:
-        st.write('Now entering Genetic procedure'+'\n')
+    stepthrough_logger.info('Now entering Genetic procedure')
 
     ArrTime=[0]*NoA
     ServTime=[0]*NoA
@@ -103,10 +105,9 @@ def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_clas
             chk=1
             #print('tm: '+str(tm)+' wlb: '+str(wlb)+' wub: '+str(wub)+' wlb_gen: '+str(wlb_gen)+' wub_gen: '+str(wub_gen))
 
-    if stepthrough==1:
-        st.write('basecost is '+','+str(basecost)+'\n'+'\n')
-        st.write('Generated results for ACs already in the queue are as follows:'+'\n')
-        st.write('AC'+','+'Class'+','+'Time Sep'+','+'Release time'+','+'Travel time'+','+'Enters serv'+','+'Actual serv'+','+'Finish time'+','+'Pax weight'+','+'Cost'+'\n')
+    stepthrough_logger.info("basecost is %s\n", basecost)
+    stepthrough_logger.info('Generated results for ACs already in the queue are as follows:')
+    stepthrough_logger.info('AC, Class, Time Sep , Release time, Travel time, Enters serv, Actual serv, Finish time, Pax weight, Cost')
 
     if len(Ac_queue)>0:
 
@@ -265,9 +266,8 @@ def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_clas
 
     for j in range(len(GA_Info)):
 
-        if stepthrough==1:
-            st.write('\n'+'Now trying sequence '+','+str(GA_Info[j][0])+'\n')
-            st.write('AC'+','+'Class'+','+'Time Sep'+','+'Arrives in pool'+','+'Release time'+','+'Travel time'+','+'Enters serv'+','+'Actual serv'+','+'Finish time'+','+'Pax weight'+','+'Cost'+'\n')
+        stepthrough_logger.info('Now trying sequence %s', GA_Info[j][0])
+        stepthrough_logger.info('AC'+','+'Class'+','+'Time Sep'+','+'Arrives in pool'+','+'Release time'+','+'Travel time'+','+'Enters serv'+','+'Actual serv'+','+'Finish time'+','+'Pax weight'+','+'Cost'+'\n')
 
         permcost=basecost
         latest_tm=tm
@@ -300,8 +300,8 @@ def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_clas
             if output==1:
                 ee=1
 
-            if stepthrough==1:
-                st.write(str(AC)+','+str(perm_class)+','+str(Time_Sep[perm_prev_class][perm_class]/60)+','+str(ArrTime[AC])+','+str(reltime)+','+str(Trav_Time[AC])+','+str(perm_queue_complete)+',')
+
+            stepthrough_logger.info(str(AC)+','+str(perm_class)+','+str(Time_Sep[perm_prev_class][perm_class]/60)+','+str(ArrTime[AC])+','+str(reltime)+','+str(Trav_Time[AC])+','+str(perm_queue_complete)+',')
 
             if NormalApprox==0:
                 #perm_weather_state=weather(reltime,wlb,wub)
@@ -314,14 +314,13 @@ def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_clas
             permcost+=getcost(Ac_Infoi[18],ArrTime[AC],Trav_Time[AC],AC_FinishTime,Ac_Infoi[10],thres1,thres2, lam1, lam2) #Ac_Infoi[10]*(AC_FinishTime-(Ac_Infoi[2]+thres))**2
             latest_tm=reltime
 
-            if stepthrough==1:
-                st.write(str(AC_FinishTime)+','+str(Ac_Infoi[10])+','+str(getcost(Ac_Infoi[2],ArrTime[AC],Trav_Time[AC],AC_FinishTime,Ac_Infoi[10],thres1,thres2, lam1, lam2))+'\n')
+
+            stepthrough_logger.info(str(AC_FinishTime)+','+str(Ac_Infoi[10])+','+str(getcost(Ac_Infoi[2],ArrTime[AC],Trav_Time[AC],AC_FinishTime,Ac_Infoi[10],thres1,thres2, lam1, lam2))+'\n')
 
             perm_queue_complete=AC_FinishTime
             perm_prev_class=perm_class
 
-        if stepthrough==1:
-            st.write('Final cost: '+','+str(permcost)+','+'Gamma: '+','+str(gam)+','+'Old cost: '+','+str(GA_Info[j][2])+',')
+        stepthrough_logger.info('Final cost: '+','+str(permcost)+','+'Gamma: '+','+str(gam)+','+'Old cost: '+','+str(GA_Info[j][2])+',')
 
         # if GA_Infoj[0]==[0,1,3,6,8,7,10,12,2,4,9,11,5,13,14,15,20,16,17,21,22,24,28,23,25,26,27,29,18,19]:
         # 	print('Evaluated cost for sequence '+str(GA_Infoj[0])+' as '+str(permcost))
@@ -335,22 +334,19 @@ def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_clas
 
         GA_Infoj[2]=(1-gam)*GA_Infoj[2]+gam*permcost
         GA_Infoj[4]+=permcost**2
-        if stepthrough==1:
-            st.write('Total cost: '+','+str(GA_Info[j][2])+','+'Queue probs: '+','+str(GA_Info[j][3])+'\n'+'\n')
+        stepthrough_logger.info('Total cost: '+','+str(GA_Info[j][2])+','+'Queue probs: '+','+str(GA_Info[j][3])+'\n'+'\n')
 
-    if step_summ==1:
-        GA_Info.sort(key=lambda x: x[0])
-        for j in range(len(GA_Info)):
-            st2.write(str(GA_Info[j][2])+',')
-        st2.write('\n')
+    GA_Info.sort(key=lambda x: x[0])
+    for j in range(len(GA_Info)):
+        step_summ_logger.info(str(GA_Info[j][2])+',')
+    step_summ_logger.info('\n')
 
     ######### NOW UPDATE OPT LIST SEQS ###################
 
     for j in range(len(Opt_List)):
 
-        if stepthrough==1:
-            st.write('\n'+'Now trying sequence '+','+str(Opt_List[j][0])+'\n')
-            st.write('AC'+','+'Class'+','+'Time Sep'+','+'Arrives in pool'+','+'Release time'+','+'Travel time'+','+'Enters serv'+','+'Actual serv'+','+'Finish time'+','+'Pax weight'+','+'Cost'+'\n')
+        stepthrough_logger.info('\n'+'Now trying sequence '+','+str(Opt_List[j][0])+'\n')
+        stepthrough_logger.info('AC'+','+'Class'+','+'Time Sep'+','+'Arrives in pool'+','+'Release time'+','+'Travel time'+','+'Enters serv'+','+'Actual serv'+','+'Finish time'+','+'Pax weight'+','+'Cost'+'\n')
 
         permcost=basecost
         latest_tm=tm
@@ -385,8 +381,8 @@ def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_clas
             if output==1:
                 ee=1
 
-            if stepthrough==1:
-                st.write(str(AC)+','+str(perm_class)+','+str(Time_Sep[perm_prev_class][perm_class]/60)+','+str(ArrTime[AC])+','+str(reltime)+','+str(Trav_Time[AC])+','+str(perm_queue_complete)+',')
+
+            stepthrough_logger.info(str(AC)+','+str(perm_class)+','+str(Time_Sep[perm_prev_class][perm_class]/60)+','+str(ArrTime[AC])+','+str(reltime)+','+str(Trav_Time[AC])+','+str(perm_queue_complete)+',')
 
             if NormalApprox==0:
                 #perm_weather_state=weather(reltime,wlb,wub)
@@ -399,14 +395,12 @@ def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_clas
             permcost+=getcost(Ac_Infoi[18],ArrTime[AC],Trav_Time[AC],AC_FinishTime,Ac_Infoi[10],thres1,thres2, lam1, lam2) #Ac_Infoi[10]*(AC_FinishTime-(Ac_Infoi[2]+thres))**2
             latest_tm=reltime
 
-            if stepthrough==1:
-                st.write(str(AC_FinishTime)+','+str(Ac_Infoi[10])+','+str(getcost(Ac_Infoi[2],ArrTime[AC],Trav_Time[AC],AC_FinishTime,Ac_Infoi[10],thres1,thres2, lam1, lam2))+'\n')
+            stepthrough_logger.info(str(AC_FinishTime)+','+str(Ac_Infoi[10])+','+str(getcost(Ac_Infoi[2],ArrTime[AC],Trav_Time[AC],AC_FinishTime,Ac_Infoi[10],thres1,thres2, lam1, lam2))+'\n')
 
             perm_queue_complete=AC_FinishTime
             perm_prev_class=perm_class
 
-        if stepthrough==1:
-            st.write('Final cost: '+','+str(permcost)+','+'Gamma: '+','+str(gam)+','+'Old cost: '+','+str(GA_Info[j][2])+',')
+        stepthrough_logger.info('Final cost: '+','+str(permcost)+','+'Gamma: '+','+str(gam)+','+'Old cost: '+','+str(GA_Info[j][2])+',')
 
         # if Opt_Listj[2]>0:
         # 	pct_diff=abs(permcost/Opt_Listj[2]-1)
@@ -418,14 +412,12 @@ def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_clas
         Opt_Listj[2]=(1-gam)*Opt_Listj[2]+gam*permcost
         Opt_Listj[4]+=permcost**2 #Sum of squares
 
-        if stepthrough==1:
-            st.write('Total cost: '+','+str(Opt_Listj[2])+','+'Queue probs: '+','+str(Opt_Listj[3])+'\n'+'\n')
+        stepthrough_logger.info('Total cost: '+','+str(Opt_Listj[2])+','+'Queue probs: '+','+str(Opt_Listj[3])+'\n'+'\n')
 
-    if step_summ==1:
-        Opt_List.sort(key=lambda x: x[0])
-        for j in range(len(Opt_List)):
-            st2.write(str(Opt_List[j][2])+',')
-        st2.write('\n')
+    Opt_List.sort(key=lambda x: x[0])
+    for j in range(len(Opt_List)):
+        step_summ_logger.info(str(Opt_List[j][2])+',')
+    step_summ_logger.info('\n')
 
     # minperm=0
     # mincost=0
@@ -441,18 +433,17 @@ def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_clas
 
     if GA_counter>=GA_CheckSize:
 
-        if step_new==1:
-            st3.write('GA_counter: '+','+str(GA_counter)+'\n')
-            st3.write('Arr_Pool: '+','+str(Arr_Pool)+'\n')
-            st3.write('Ac_queue: '+','+str(Ac_queue)+'\n'+'\n')
-            st3.write('GA_PopList:'+'\n')
-            for i in range(len(GA_Info)):
-                st3.write(str(GA_Info[i])+'\n')
-            st3.write('\n')
-            st3.write('Opt_List:'+'\n')
-            for i in range(len(Opt_List)):
-                st3.write(str(Opt_List[i])+'\n')
-            st3.write('\n')
+        step_new_logger.info('GA_counter: '+','+str(GA_counter)+'\n')
+        step_new_logger.info('Arr_Pool: '+','+str(Arr_Pool)+'\n')
+        step_new_logger.info('Ac_queue: '+','+str(Ac_queue)+'\n'+'\n')
+        step_new_logger.info('GA_PopList:'+'\n')
+        for i in range(len(GA_Info)):
+            step_new_logger.info(str(GA_Info[i])+'\n')
+        step_new_logger.info('\n')
+        step_new_logger.info('Opt_List:'+'\n')
+        for i in range(len(Opt_List)):
+            step_new_logger.info(str(Opt_List[i])+'\n')
+        step_new_logger.info('\n')
 
         # if totserv>315:
         # 	print('tm: '+str(tm)+' GA_counter: '+str(GA_counter)+' len(GA_Info): '+str(len(GA_Info))+' len(Opt_List): '+str(Opt_List))
@@ -483,16 +474,16 @@ def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_clas
 
                         if mn1>mn2+w_val:
 
-                            # if step_new==1:
-                            # 	st3.write(str(GA_Infoj[0])+','+' loses to '+','+str(GA_Infom[0])+'\n')
+
+                        # 	step_new_logger.info(str(GA_Infoj[0])+','+' loses to '+','+str(GA_Infom[0])+'\n')
 
                             GA_Infoj[2]=-1
                             break
 
                         elif mn2>mn1+w_val:
 
-                            # if step_new==1:
-                            # 	st3.write(str(GA_Infom[0])+','+' loses to '+','+str(GA_Infoj[0])+'\n')
+
+                        # 	step_new_logger.info(str(GA_Infom[0])+','+' loses to '+','+str(GA_Infoj[0])+'\n')
 
                             GA_Infom[2]=-1
 
@@ -512,16 +503,15 @@ def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_clas
 
                         if mn1>mn2+w_val:
 
-                            # if step_new==1:
-                            # 	st3.write(str(GA_Infoj[0])+','+' loses to '+','+str(Opt_Listm[0])+'\n')
+                        # 	step_new_logger.info(str(GA_Infoj[0])+','+' loses to '+','+str(Opt_Listm[0])+'\n')
 
                             GA_Infoj[2]=-1
                             break
 
                         elif mn2>mn1+w_val:
 
-                            # if step_new==1:
-                            # 	st3.write(str(Opt_Listm[0])+','+' loses to '+','+str(GA_Infoj[0])+'\n')
+
+                        # 	step_new_logger.info(str(Opt_Listm[0])+','+' loses to '+','+str(GA_Infoj[0])+'\n')
 
                             Opt_Listm[2]=-1
 
@@ -549,16 +539,14 @@ def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_clas
 
                         if mn1>mn2+w_val:
 
-                            # if step_new==1:
-                            # 	st3.write(str(Opt_Listj[0])+','+' loses to '+','+str(GA_Infom[0])+'\n')
+                        # 	step_new_logger.info(str(Opt_Listj[0])+','+' loses to '+','+str(GA_Infom[0])+'\n')
 
                             Opt_Listj[2]=-1
                             break
 
                         elif mn2>mn1+w_val:
 
-                            # if step_new==1:
-                            # 	st3.write(str(GA_Infom[0])+','+' loses to '+','+str(Opt_Listj[0])+'\n')
+                        # 	step_new_logger.info(str(GA_Infom[0])+','+' loses to '+','+str(Opt_Listj[0])+'\n')
 
                             GA_Infom[2]=-1
 
@@ -578,17 +566,14 @@ def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_clas
 
                         if mn1>mn2+w_val:
 
-                            # if step_new==1:
-                            # 	st3.write(str(Opt_Listj[0])+','+' loses to '+','+str(Opt_Listm[0])+'\n')
+                        # 	step_new_logger.info(str(Opt_Listj[0])+','+' loses to '+','+str(Opt_Listm[0])+'\n')
 
                             Opt_Listj[2]=-1
                             break
 
                         elif mn2>mn1+w_val:
 
-                            # if step_new==1:
-                            # 	st3.write(str(Opt_Listm[0])+','+' loses to '+','+str(Opt_Listj[0])+'\n')
-
+                        # 	step_new_logger.info(str(Opt_Listm[0])+','+' loses to '+','+str(Opt_Listj[0])+'\n')
                             Opt_Listm[2]=-1
 
         j=0
@@ -597,16 +582,13 @@ def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_clas
             if GA_Infoj[2]<0:
                 soln_evals_tot+=GA_Infoj[1]
                 soln_evals_num+=1
-                # if step_new==1:
-                # 	st3.write('soln_evals_tot: '+str(soln_evals_tot)+'\n')
-                # 	st3.write('soln_evals_num: '+str(soln_evals_num)+'\n')
-                # 	st3.write('soln_evals_avg: '+str(soln_evals_tot/soln_evals_num)+'\n')
+            # 	step_new_logger.info('soln_evals_tot: '+str(soln_evals_tot)+'\n')
+            # 	step_new_logger.info('soln_evals_num: '+str(soln_evals_num)+'\n')
+            # 	step_new_logger.info('soln_evals_avg: '+str(soln_evals_tot/soln_evals_num)+'\n')
                 GA_Info.remove([GA_Infoj[0],GA_Infoj[1],GA_Infoj[2],GA_Infoj[3],GA_Infoj[4]])
-                # if step_new==1:
-                # 	st3.write('Removed entry '+str(j)+' from GA_PopList'+'\n')
+            # 	step_new_logger.info('Removed entry '+str(j)+' from GA_PopList'+'\n')
             else:
-                if step_new==1:
-                    st3.write('Retained sequence '+','+str(GA_Infoj)+','+' in GA_PopList'+'\n')
+                step_new_logger.info('Retained sequence '+','+str(GA_Infoj)+','+' in GA_PopList'+'\n')
                 j+=1
 
         j=0
@@ -615,16 +597,13 @@ def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_clas
             if Opt_Listj[2]<0:
                 soln_evals_tot+=Opt_Listj[1]
                 soln_evals_num+=1
-                # if step_new==1:
-                # 	st3.write('soln_evals_tot: '+str(soln_evals_tot)+'\n')
-                # 	st3.write('soln_evals_num: '+str(soln_evals_num)+'\n')
-                # 	st3.write('soln_evals_avg: '+str(soln_evals_tot/soln_evals_num)+'\n')
+            # 	step_new_logger.info('soln_evals_tot: '+str(soln_evals_tot)+'\n')
+            # 	step_new_logger.info('soln_evals_num: '+str(soln_evals_num)+'\n')
+            # 	step_new_logger.info('soln_evals_avg: '+str(soln_evals_tot/soln_evals_num)+'\n')
                 Opt_List.remove([Opt_Listj[0],Opt_Listj[1],Opt_Listj[2],Opt_Listj[3],Opt_Listj[4]])
-                # if step_new==1:
-                # 	st3.write('Removed entry '+str(j)+' from Opt_List'+'\n')
+            # 	step_new_logger.info('Removed entry '+str(j)+' from Opt_List'+'\n')
             else:
-                if step_new==1:
-                    st3.write('Retained sequence '+','+str(Opt_Listj)+','+' in Opt_List'+'\n')
+                step_new_logger.info('Retained sequence '+','+str(Opt_Listj)+','+' in Opt_List'+'\n')
                 j+=1
 
         if len(GA_Info)+len(Opt_List)<=Opt_Size:
@@ -637,9 +616,8 @@ def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_clas
 
         # #Old R&S code is underneath this part
 
-        # if step_new==1:
-        # 	st3.write('GA_counter: '+','+str(GA_counter)+'\n'+'\n')
-        # 	st3.write('GA_PopList:'+'\n')
+    # 	step_new_logger.info('GA_counter: '+','+str(GA_counter)+'\n'+'\n')
+    # 	step_new_logger.info('GA_PopList:'+'\n')
 
         # #Find the lowest upper CI value
         # min_uppb=0
@@ -648,26 +626,22 @@ def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_clas
         # 	test_var=(GA_Infoj[4]-(GA_Infoj[1]*(GA_Infoj[2])**2))/(GA_Infoj[1]-1)
         # 	test_lowb=GA_Infoj[2]-1.96*math.sqrt(test_var/GA_Infoj[1])
         # 	test_uppb=GA_Infoj[2]+1.96*math.sqrt(test_var/GA_Infoj[1])
-        # 	if step_new==1:
-        # 		st3.write('Seq: '+str(GA_Infoj[0])+','+'Evals: '+str(GA_Infoj[1])+' Mn: '+str(GA_Infoj[2])+' qp[0]: '+str(GA_Infoj[3][0])+' LowB: '+str(test_lowb)+' UppB: '+str(test_uppb)+'\n')
+    # 		step_new_logger.info('Seq: '+str(GA_Infoj[0])+','+'Evals: '+str(GA_Infoj[1])+' Mn: '+str(GA_Infoj[2])+' qp[0]: '+str(GA_Infoj[3][0])+' LowB: '+str(test_lowb)+' UppB: '+str(test_uppb)+'\n')
         # 	if j==0 or test_uppb<min_uppb:
         # 		min_uppb=test_uppb
 
-        # if step_new==1:
-        # 	st3.write('\n'+'Opt_List:'+'\n')
+    # 	step_new_logger.info('\n'+'Opt_List:'+'\n')
 
         # for j in range(len(Opt_List)):
         # 	Opt_Listj=Opt_List[j]
         # 	test_var=(Opt_Listj[4]-(Opt_Listj[1]*(Opt_Listj[2])**2))/(Opt_Listj[1]-1)
         # 	test_lowb=Opt_Listj[2]-1.96*math.sqrt(test_var/Opt_Listj[1])
         # 	test_uppb=Opt_Listj[2]+1.96*math.sqrt(test_var/Opt_Listj[1])
-        # 	if step_new==1:
-        # 		st3.write('Seq: '+str(Opt_Listj[0])+','+'Evals: '+str(Opt_Listj[1])+' Mn: '+str(Opt_Listj[2])+' qp[0]: '+str(Opt_Listj[3][0])+' LowB: '+str(test_lowb)+' UppB: '+str(test_uppb)+'\n')
+    # 		step_new_logger.info('Seq: '+str(Opt_Listj[0])+','+'Evals: '+str(Opt_Listj[1])+' Mn: '+str(Opt_Listj[2])+' qp[0]: '+str(Opt_Listj[3][0])+' LowB: '+str(test_lowb)+' UppB: '+str(test_uppb)+'\n')
         # 	if test_uppb<min_uppb:
         # 		min_uppb=test_uppb
 
-        # if step_new==1:
-        # 	st3.write('\n'+' Min_uppb is '+str(min_uppb)+'\n'+'\n')
+    # 	step_new_logger.info('\n'+' Min_uppb is '+str(min_uppb)+'\n'+'\n')
 
         # j=len(GA_Info)-1
         # while j>=0:
@@ -678,8 +652,7 @@ def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_clas
         # 		GA_Info.remove([GA_Infoj[0],GA_Infoj[1],GA_Infoj[2],GA_Infoj[3],GA_Infoj[4]])
         # 		soln_evals_tot+=GA_Infoj[1]
         # 		soln_evals_num+=1
-        # 		if step_new==1:
-        # 			st3.write('Removed entry '+str(j)+' from GA_PopList'+'\n')
+    # 			step_new_logger.info('Removed entry '+str(j)+' from GA_PopList'+'\n')
         # 		if len(GA_Info)+len(Opt_List)==Opt_Size:
         # 			soln_evals_tot+=(Opt_Size*GA_LoopSize)
         # 			soln_evals_num+=Opt_Size
@@ -698,8 +671,7 @@ def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_clas
         # 			Opt_List.remove([Opt_Listj[0],Opt_Listj[1],Opt_Listj[2],Opt_Listj[3],Opt_Listj[4]])
         # 			soln_evals_tot+=Opt_Listj[1]
         # 			soln_evals_num+=1
-        # 			if step_new==1:
-        # 				st3.write('Removed entry '+str(j)+' from Opt_List'+'\n')
+    # 				step_new_logger.info('Removed entry '+str(j)+' from Opt_List'+'\n')
         # 			if len(GA_Info)+len(Opt_List)==Opt_Size:
         # 				soln_evals_tot+=(Opt_Size*GA_LoopSize)
         # 				soln_evals_num+=Opt_Size
@@ -714,8 +686,7 @@ def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_clas
             soln_evals_num+=solns_left
         else:
             GA_CheckSize+=GA_Check_Increment
-        if step_new==1:
-            st3.write('New GA_CheckSize: '+str(GA_CheckSize)+'\n'+'\n')
+        step_new_logger.info('New GA_CheckSize: '+str(GA_CheckSize)+'\n'+'\n')
 
     Ac_added=[]
 
@@ -746,8 +717,7 @@ def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_clas
                     while perm[3][j]>0: #0.05:
                         AC=perm[0][j]
                         Ac_added.append(AC)
-                        if step_new==1:
-                            st3.write('Counter is '+','+str(counter)+', ss_prob is '+','+str(perm[3][j])+', Adding AC '+','+str(AC)+'\n')
+                        step_new_logger.info('Counter is '+','+str(counter)+', ss_prob is '+','+str(perm[3][j])+', Adding AC '+','+str(AC)+'\n')
                         j+=1
                         if j==len(perm[0]):
                             break
