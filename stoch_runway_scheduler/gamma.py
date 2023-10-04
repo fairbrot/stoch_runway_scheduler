@@ -2,7 +2,80 @@ from typing import List
 import random
 import math
 
-def sample_cond_gamma(t,gamma_cdf):
+
+def sample_gamma(k,beta):
+
+    #gamma dist with mean k*beta and variance k*beta^2
+
+    n=int(k)
+    delt=k-n
+
+    #Generate a Gamma(k,1) RV
+    #https://en.wikipedia.org/wiki/Gamma_distribution#Generating_gamma-distributed_random_variables
+
+    #First do the integer part
+    intpart=0
+    for m in range(n):
+        z=random.random()
+        intpart+=-math.log(z)
+
+    #Now do the fractional part
+
+    c=0
+
+    while c==0:
+
+        u=random.random()
+        v=random.random()
+        w=random.random()
+
+        if u<=math.exp(1)/(math.exp(1)+delt):
+            xi=max(0.0001,v**(1/delt)) #altered due to numerical errors
+            #print('k: '+str(k)+' n: '+str(n)+' delt: '+str(delt)+' u: '+str(u)+' v: '+str(v)+' w: '+str(w)+' xi: '+str(xi))
+            eta=w*xi**(delt-1)
+        else:
+            xi=1-math.log(v)
+            eta=w*math.exp(-xi)
+        if eta<=(xi**(delt-1))*math.exp(-xi):
+            c=1
+
+    #Finally, scale the RV
+
+    x=beta*(xi+intpart)
+
+    return x
+
+def gamma_create_cdf(k):
+
+    t=0
+    dt=0.001
+    tot_x=0 #total prob so far
+
+    p=0 #thousandth
+
+    gamma_cdf=[0]*1001
+    gamma_cdf[0]=0
+
+    p=1
+
+    while p<=999:
+
+        tot_x+=(t**(k-1)*math.exp(-t)/math.factorial(k-1))*dt
+
+        if tot_x>=p/1000:
+            gamma_cdf[p]=t
+            p+=1
+            #print(str(p))
+
+        t+=dt
+
+    gamma_cdf[1000]=gamma_cdf[999]
+
+    return gamma_cdf
+
+
+
+def sample_cond_gamma(t, gamma_cdf):
 
     #print('sample_cond_gamma')
 
