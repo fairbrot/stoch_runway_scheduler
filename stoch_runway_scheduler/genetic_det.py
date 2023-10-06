@@ -3,6 +3,8 @@ import time
 from .utils import weather, getcost, truncexp
 from .gamma import gamma_cond_exp
 
+# JF: This is the main deterministic heuristic
+# Name may not be best choice
 def Genetic_determ(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_class,GA_PopList,GA_Info,wiener_cdf,wlb,wub,Opt_List, norm_approx_min: float, tau: int, Max_LookAhead: int, Time_Sep: List[List[int]], thres1:int, thres2: int, lam1: float, lam2: float, tot_arr_cost: float, tot_dep_cost: float, w_rho: float, stepthrough:int, step_summ:int, step_new: int):
 
     output=0 #output==1 means we're printing results as we go along; output==2 means we're outputting results to "Detailed" csv file

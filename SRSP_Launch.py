@@ -32,6 +32,8 @@ step_new_logger = logging.getLogger('step_new')
 
 DATA_DIR = '/home/jamie/Insync/fairbrot@lancaster.ac.uk/OneDrive Biz - Shared/SRSP data files'
 
+# JF: policy is an scheduling policy algorithm - may not affect anything now
+# Alternate means sway between VNS and VNSD
 Policy='Alternate' #FCFS, Perm, SA, GA or Alternate
 
 Use_VNS=1
@@ -46,8 +48,8 @@ if Use_VNSD==1:
 # if Use_FCFS==1:
 # 	Policies.append('FCFS')
 
-NoA=700 #temporary value which will get changed later
-S=40
+NoA=700 # number of aircraft - temporary value which will get changed later
+S=40 # number of time slots (Rob not sure whether this is needed)
 #thres1=15 #will get changed later
 #thres2=0 #will get changed later
 
@@ -61,19 +63,19 @@ S=40
 # thres=0
 
 max_FCFS=NoA #int(NoA/2)
-conv_factor=1 #1 #0.1 #3 #no. of seconds in a minute for conversion purposes
-norm_approx_min=100 #100
-Max_LookAhead=100 #15 #15 #30 #5 #30 #NoA #This is the length of a sequence, equivalent to parameter l in paper
+conv_factor=1 #1 #0.1 #3 # no. of seconds in a minute for conversion purposes
+norm_approx_min=100 #100 - Erlang can be approximated well for large k by Normal
+Max_LookAhead=15 #15 #15 #30 #5 #30 #NoA #This is the length of a sequence, equivalent to parameter l in paper  - in paper this is 15
 w_rho=10/9 #separation multiplier for bad weather (multiplies mean, not rate, so should be >1); we have used a reduction of 10% due to bad weather based on Odoni et al (2011) cited in Shone et al (2021)
 
 #max_FCFS=0
 
-f=open("SRSP_out_%s_%s.csv" % (Policy, conv_factor), "w")
+f=open("SRSP_out_%s_%s.csv" % (Policy, conv_factor), "w") # detailed results - for each rep what happened for each aircraft
 g=open("AC_predictions_%s_%s.csv" % (Policy, conv_factor), "w")
 #h=open("cost_log_%s_%s.csv" % (Policy, conv_factor), "w")
-gg=open("SRSP_rep_results_%s_%s.csv" % (Policy, conv_factor), "w")
+gg=open("SRSP_rep_results_%s_%s.csv" % (Policy, conv_factor), "w")  # summaries for each rep
 
-f1=open("Perm_Heur_out_%s_%s.csv" % (Policy, conv_factor), "w")
+f1=open("Perm_Heur_out_%s_%s.csv" % (Policy, conv_factor), "w") # output from a particular heuristic - may not be needed (can remove if you like)
 #f2=open("Detailed_Out_%s_%s.csv" % (Policy, conv_factor), "w")
 
 #rr=open("Runtime_Tracker_%s_%s.csv" % (Policy, conv_factor), "w")
@@ -88,6 +90,7 @@ f1=open("Perm_Heur_out_%s_%s.csv" % (Policy, conv_factor), "w")
 # if step_new==1:
 #     st3=open("SRSP_step_new.csv", "w")
 
+# not needed anymore
 st4=open("elap_out.csv", "w")
 
 f.write('Policy'+',''Rep'+','+'AC'+','+'Flight Num'+','+'Prev Class'+','+'Cur Class'+','+'Time Sep'+','+'Orig PS time'+','+'PS time'+','+'Pool Arrival'+','+'Release Time'+','+'Travel Time'+','+'Weather Coeff'+','+'Enters Serv'+','+'Actual Serv'+','+'Ends Serv'+','+'Lateness'+','+'Queue Delay'+','+'Pax Weight'+','+'Cost'+','+'counter'+','+'qp'+','+'Predicted total'+'\n')
@@ -104,7 +107,7 @@ f.write('Policy'+',''Rep'+','+'AC'+','+'Flight Num'+','+'Prev Class'+','+'Cur Cl
 wiener_sig=0.1 #0.1 #1 #0.1 #standard deviation for Brownian motion
 weather_sig=wiener_sig #this assumption is being made in the paper for simplicity
 
-#Import the Wiener cdf
+#Import the Wiener cdf - JF: could simplify
 print('*** Importing the Wiener array...')
 #wiener_cdf=[[0]*(1000) for _ in range(12000)]
 wiener_cdf=[[0]*(1000) for _ in range(12000)]
@@ -150,7 +153,7 @@ elif wiener_sig==0.9:
                 wiener_cdf[i][j]=float(inputdata[i][j])
                 weather_cdf[i][j]=float(inputdata[i][j])
 else:
-    assert 1==2
+    assert 1==2 # JF: raise an exception instead
 
 # #Import the weather cdf
 # print('*** Importing the weather array...')
@@ -172,9 +175,9 @@ with open(os.path.join(DATA_DIR, 'norm_cdf.csv'), 'r') as csvfile:
 
 #Set the parameters
 
-NoC=4 #no. of customer classes
+NoC=4 #no. of aircraft classes
 
-Ac_finished=[0]*NoA
+Ac_finished=[0]*NoA # finished ususally means whether aircraft has actually been served in queue
 pred_serv=[0]*NoA
 
 #k=15 #30000 #100 #500000 #Erlang phase parameter
@@ -216,16 +219,17 @@ perm_length=4
 # 			break
 # 	f5.write(str(trav)+'\n')
 
-Dis_Sep=[[2,3,4],[3,4,5],[4,5,6]] #Distance separation requirements in miles
+# Dis_Sep=[[2,3,4],[3,4,5],[4,5,6]] #Distance separation requirements in miles - not sued anymore
 #Time_Sep=[[96,138,240],[60,72,162],[60,72,102],[60,72,102]] #Time separations in seconds taken from Solak et al (2018) appendix; the 4th array is for the situation where there is no leading aircraft
+# sep also includes separation when there is not "leading" aircraft - maybe last row should be 0s
 Time_Sep=[[97,121,121,145],[72,72,72,97,97],[72,72,72,72],[72,72,72,72],[72,72,72,72]] #Time separations in seconds taken from Bennell et al (2017) with H, U, M, S as the 4 classes; the 5th array is for the situation where there is no leading aircraft
 # JF: Time_Sep is List[List[int]]
 
 Ac_Info=[0]*NoA
 Ac_class=[0]*NoA
-Arr_Ps=[0]*NoA
-Dep_Ps=[0]*NoA
-Orig_Ps=[0]*NoA
+Arr_Ps=[0]*NoA # JF: scheduled time after pre-tactical delay
+Dep_Ps=[0]*NoA # JF: probably can be removed
+Orig_Ps=[0]*NoA # Original prescheduled times of aircraft
 flight_id=[0]*NoA
 pax_weight=[0]*NoA
 

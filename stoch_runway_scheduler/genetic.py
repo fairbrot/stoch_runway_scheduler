@@ -6,6 +6,7 @@ import time
 from .utils import weather, getcost, Normal_GetServ, Normal_GetServ_Future, Normal_Conditional_GetServ
 from .gamma import Gamma_GetServ, Gamma_GetServ_Future, Gamma_Conditional_GetServ
 
+# JF: this is the main sim heuristic
 def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_class,GA_PopList,GA_Info,wiener_cdf,GA_LoopSize,GA_CheckSize,GA_counter,basecost,wlb,wub,weather_cdf,Opt_List,max_d,soln_evals_tot,soln_evals_num,gamma_cdf,normcdf, norm_approx_min: float, tau: int, Max_LookAhead: int, Time_Sep: List[List[int]], thres1: int, thres2: int, lam1: float, lam2: float, GA_Check_Increment: int, Opt_Size: int, w_rho: float, stepthrough: int):
     # if len(Arr_Pool)+len(Ac_queue)>0:
     # 	print('Genetic')
