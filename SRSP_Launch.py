@@ -110,10 +110,10 @@ weather_sig=wiener_sig #this assumption is being made in the paper for simplicit
 #Import the Wiener cdf - JF: could simplify
 print('*** Importing the Wiener array...')
 #wiener_cdf=[[0]*(1000) for _ in range(12000)]
-wiener_cdf=[[0]*(1000) for _ in range(12000)]
-weather_cdf=[[0]*(1000) for _ in range(12000)]
+wiener_cdf=[[0]*(1000) for _ in range(12000)] #This array is used to store quantiles of the Inverse Gaussian distribution (see equation (7) in 1st revision of paper). Rows represent different values for the difference between current time and ETA. Columns are for different quantiles (from 0 to 1 in increments of 0.001).
+weather_cdf=[[0]*(1000) for _ in range(12000)] #This array will be identical to wiener_cdf for simplicity.
 if wiener_sig==0.1:
-    with open(os.path.join(DATA_DIR, 'wiener_array_sig0point1.csv'), 'r') as csvfile:
+    with open(os.path.join(DATA_DIR, 'wiener_array_sig0point1.csv'), 'r') as csvfile: #this data file contains pre-generated quantiles of the Inverse Gaussian distribution with sigma=0.1 (Rob has Python scripts to generate these)
         datareader = csv.reader(csvfile, delimiter=',', quotechar='|')
         inputdata=list(datareader)
         for i in range(12000):
@@ -121,7 +121,7 @@ if wiener_sig==0.1:
                 wiener_cdf[i][j]=float(inputdata[i][j])
                 weather_cdf[i][j]=float(inputdata[i][j])
 elif wiener_sig==0.3:
-    with open(os.path.join(DATA_DIR, 'wiener_array_sig0point3.csv'), 'r') as csvfile:
+    with open(os.path.join(DATA_DIR, 'wiener_array_sig0point3.csv'), 'r') as csvfile: #Inverse Gaussian with sigma=0.3
         datareader = csv.reader(csvfile, delimiter=',', quotechar='|')
         inputdata=list(datareader)
         for i in range(12000):
@@ -129,7 +129,7 @@ elif wiener_sig==0.3:
                 wiener_cdf[i][j]=float(inputdata[i][j])
                 weather_cdf[i][j]=float(inputdata[i][j])
 elif wiener_sig==0.5:
-    with open(os.path.join(DATA_DIR, 'wiener_array_sig0point5.csv'), 'r') as csvfile:
+    with open(os.path.join(DATA_DIR, 'wiener_array_sig0point5.csv'), 'r') as csvfile: #Inverse Gaussian with sigma=0.5
         datareader = csv.reader(csvfile, delimiter=',', quotechar='|')
         inputdata=list(datareader)
         for i in range(12000):
@@ -137,7 +137,7 @@ elif wiener_sig==0.5:
                 wiener_cdf[i][j]=float(inputdata[i][j])
                 weather_cdf[i][j]=float(inputdata[i][j])
 elif wiener_sig==0.7:
-    with open(os.path.join(DATA_DIR, 'wiener_array_sig0point7.csv'), 'r') as csvfile:
+    with open(os.path.join(DATA_DIR, 'wiener_array_sig0point7.csv'), 'r') as csvfile: #Inverse Gaussian with sigma=0.7
         datareader = csv.reader(csvfile, delimiter=',', quotechar='|')
         inputdata=list(datareader)
         for i in range(12000):
@@ -145,7 +145,7 @@ elif wiener_sig==0.7:
                 wiener_cdf[i][j]=float(inputdata[i][j])
                 weather_cdf[i][j]=float(inputdata[i][j])
 elif wiener_sig==0.9:
-    with open(os.path.join(DATA_DIR, 'wiener_array_sig0point9.csv'), 'r') as csvfile:
+    with open(os.path.join(DATA_DIR, 'wiener_array_sig0point9.csv'), 'r') as csvfile: #Inverse Gaussian with sigma=0.9
         datareader = csv.reader(csvfile, delimiter=',', quotechar='|')
         inputdata=list(datareader)
         for i in range(12000):
@@ -167,7 +167,7 @@ else:
 
 #Import the normal cdf
 normcdf=[0]*(10001)
-with open(os.path.join(DATA_DIR, 'norm_cdf.csv'), 'r') as csvfile:
+with open(os.path.join(DATA_DIR, 'norm_cdf.csv'), 'r') as csvfile: #data file contains quantiles from the standard normal distribution
     datareader = csv.reader(csvfile, delimiter=',', quotechar='|')
     inputdata=list(datareader)
     for i in range(10001):
@@ -177,28 +177,26 @@ with open(os.path.join(DATA_DIR, 'norm_cdf.csv'), 'r') as csvfile:
 
 NoC=4 #no. of aircraft classes
 
-Ac_finished=[0]*NoA # finished ususally means whether aircraft has actually been served in queue
-pred_serv=[0]*NoA
+Ac_finished=[0]*NoA # 'finished' means aircraft has completed landing, i.e. service time has finished
+pred_serv=[0]*NoA #seems to be not used anymore
 
-#k=15 #30000 #100 #500000 #Erlang phase parameter
-tau=30 #30 #amount of time needed after an aircraft becomes 'ready'
-#thres=5 #threshold (in minutes) for deciding whether or not an arrival or departure is 'on-time'
-#S=16 #no. of time slots
+tau=30 #Determines when an aircraft is deemed to have entered the pool. E.g. if tau=30, aircraft enters pool when its ETA is 30 minutes away from the current time.
 t=15 #length of a time slot in minutes
+
 print('wiener_sig: '+str(wiener_sig))
 
-pool_max=6 #for perm heuristic only
-list_min=6 #for perm heuristic only
+pool_max=6 #Used as a parameter for "perm heuristic" which searches for the best landing sequence under perfect information, i.e. assumes all random information already known
+list_min=6 #Also used only for the "perm heuristic""
 
-GA_PopSize=20 #20 #3 #10 #for genetic algorithm
-Ov_GA_counter=0
-Tabu_Size=50
-VNS_limit=25
-VNS_counter=0
-tot_mut=0
+GA_PopSize=20 #Initial number of sequences in the population, written as S in paper (see Section 3.1)
+Ov_GA_counter=0 #only used for stepthrough purposes; to do with counting how many times the 'Genetic' function has been called
+Tabu_Size=50 #only used by a Tabu search heuristic which we're not using anymore
+VNS_limit=25 #important parameter, determines how many non-improving heuristic moves need to be made before a mutation is carried out; this is written as m_{mut} in paper (see the flow chart, Figure 3)
+VNS_counter=0 #this counts how many non-improving heuristic moves we've made since the last reset
+tot_mut=0 #counts how many total mutations we've made; really just for output purposes
 
-AC_List_Length=6
-perm_length=4
+AC_List_Length=6 #doesn't seem to be used anymore
+perm_length=4 #doesn't seem to be used anymore
 
 # print('Testing the wiener array')
 # sched=240
@@ -225,56 +223,59 @@ perm_length=4
 Time_Sep=[[97,121,121,145],[72,72,72,97,97],[72,72,72,72],[72,72,72,72],[72,72,72,72]] #Time separations in seconds taken from Bennell et al (2017) with H, U, M, S as the 4 classes; the 5th array is for the situation where there is no leading aircraft
 # JF: Time_Sep is List[List[int]]
 
-Ac_Info=[0]*NoA
-Ac_class=[0]*NoA
-Arr_Ps=[0]*NoA # JF: scheduled time after pre-tactical delay
-Dep_Ps=[0]*NoA # JF: probably can be removed
-Orig_Ps=[0]*NoA # Original prescheduled times of aircraft
-flight_id=[0]*NoA
-pax_weight=[0]*NoA
+Ac_Info=[0]*NoA #this will be a multi-dimensional list storing lots of information about each aircraft; see later
+Ac_class=[0]*NoA #this will store the weight class for each aircraft
+Arr_Ps=[0]*NoA #this stores the adjusted scheduled times for aircraft after applying the random pre-tactical delay
+Dep_Ps=[0]*NoA #not needed anymore because we do not consider departures
+Orig_Ps=[0]*NoA #original pre-scheduled times of aircraft, before applying the pre-tactical delay
+flight_id=[0]*NoA #stores the aircraft flight numbers, for identification purposes
+pax_weight=[0]*NoA #stores the randomly-generated cost weightings for aircraft, based on (hypothetical) numbers of passengers carried; written as g_i in the paper (see objective function (13))
 
-no_reps=10000 #100 #100000
+no_reps=10000 #total number of random scenarios that we will simulate; in each scenario we evaluate the performances of different algorithms such as SimHeur, DetHeur, FCFS
 
 # if Policy=='Alternate':
 # 	SubPolicy='Perm'
 # else:
 # 	SubPolicy=Policy
 
-rep=0
-policy_index=0
+rep=0 #counter of which scenario we're currently on
+policy_index=0 #indicates which policy we're currently evaluating, e.g. SimHeur, DetHeur etc (if this is zero then we take the first policy from the list of policies to be evaluated)
 
 #for rep in range(no_reps):
 while rep<no_reps:
 
     repn=rep #int(rep/100+1)
-    random.seed(repn*100)
+    random.seed(repn*100) #set the random seed for generating random parameter values; seed in set according to the replication (scenario) number
 
     #Import the flight data
     print('*** Importing the flight data...')
+    #When reading in the flight data from the data file we only want to include flights with a pre-scheduled time between 6AM (360 mins) and 2PM (840 mins), including 6AM but not including 2PM
     min_ps_time=360 #inclusive
-    max_ps_time=840 #390 #840 #non-inclusive
+    max_ps_time=840 #non-inclusive
 
-    AC=0
+    AC=0 #counts how many flights have been read in so far
     #earliest_ps_time=0
-    with open(os.path.join(DATA_DIR, 'flight_pretac_data.csv'), 'r') as csvfile: #DON'T CHANGE THIS FILE
+    with open(os.path.join(DATA_DIR, 'flight_pretac_data.csv'), 'r') as csvfile: #data file includes the on-time performance data such as means, variance of lateness based on 1 year of historical info from FlightRadar [DON'T CHANGE THIS FILE]
         datareader = csv.reader(csvfile, delimiter=',', quotechar='|')
         inputdata=list(datareader)
         for i in range(1,688): #start from 1 because there's a title row
-            ps_time=float(inputdata[i][1])
+            ps_time=float(inputdata[i][1]) #pre-scheduled time
             # ft_time=float(inputdata[i][5])
             # if i==0 or ps_time<earliest_ps_time:
             # 	earlest_ps_time=ps_time
             if ps_time>=min_ps_time and ps_time<max_ps_time:
 
-                arr_time=int(inputdata[i][1])
-                dep_time=int(inputdata[i][4])
-                flight_name=str(inputdata[i][3])
-                sched_time=int(inputdata[i][5])
-                lateness_mn=float(inputdata[i][6])
-                lateness_var=float(inputdata[i][7])
+                arr_time=int(inputdata[i][1]) #initially we set this equal to the pre-scheduled time but it will get adjusted later by applying a random pre-tactical delay
+                dep_time=int(inputdata[i][4]) #departure time from the origin airport
+                flight_name=str(inputdata[i][3]) #flight number
+                sched_time=int(inputdata[i][5]) #scheduled flight time, i.e. difference between scheduled departure and arrival time
+                lateness_mn=float(inputdata[i][6]) #mean lateness based on historical data
+                lateness_var=float(inputdata[i][7]) #variance of lateness based on historical data
 
-                Ac_class[AC]=int(inputdata[i][2])
-                Orig_Ps[AC]=arr_time
+                Ac_class[AC]=int(inputdata[i][2]) #weight class
+                Orig_Ps[AC]=arr_time #original pre-scheduled time (as opposed to scheduled time following pre-tactical delay)
+
+                #The equations for xi_bar, si2, h_i, alpha and beta below are for calculating the parameters of the gamma distribution used for the pre-tactical delay. Details of this method are in Section 4 of the paper.
 
                 xibar=arr_time+lateness_mn
                 si2=lateness_var
@@ -284,23 +285,23 @@ while rep<no_reps:
                 beta=(xibar-h_i)/(si2-(wiener_sig**2)*(xibar-h_i))
 
                 if alpha>0 and beta>0:
-                    pretac_delay=sample_gamma(alpha,1/beta)-(arr_time-h_i)
+                    pretac_delay=sample_gamma(alpha,1/beta)-(arr_time-h_i) #Here we sample from a gamma distribution to get the pre-tactical delay for the flight under consideration.
                 else:
-                    pretac_delay=lateness_mn
+                    pretac_delay=lateness_mn #In this case the pre-tactical delay is set equal to the average lateness rather than being sampled randomly.
 
-                Arr_Ps[AC]=arr_time+pretac_delay
-                Dep_Ps[AC]=h_i
-                flight_id[AC]=flight_name
+                Arr_Ps[AC]=arr_time+pretac_delay #Stores the initial ETA of the current aircraft, after adjustment based on pre-tactical delay
+                Dep_Ps[AC]=h_i #This is actually 15 minutes before the flight's scheduled departure time, and indicates the point at which we assume the ETA starts varying according to Brownian motion (see paper Section 2)
+                flight_id[AC]=flight_name #Store the flight number
 
                 AC+=1
-            elif ps_time>=max_ps_time:
+            elif ps_time>=max_ps_time: #Indicates that we have got to the end of the set of flights scheduled to arrive by 2PM
                 break
 
     print('No. of ACs: '+str(AC))
     NoA=AC
     #NoA=8
 
-    for i in range(NoA): #HERE WE RE-SCALE TIME SO THAT TIME '6AM' IS COUNTED AS TIME (ZERO+60).  WE START SIMULATING FROM TIME ZERO, I.E. AN HOUR BEFORE 6AM.
+    for i in range(NoA): #HERE WE RE-SCALE TIME SO THAT TIME '6AM' IS COUNTED AS TIME (ZERO+60). WE START SIMULATING FROM TIME ZERO, I.E. AN HOUR BEFORE 6AM.
         Arr_Ps[i]+=-min_ps_time+60
         Dep_Ps[i]+=-min_ps_time+60
         Orig_Ps[i]+=-min_ps_time+60
@@ -312,16 +313,16 @@ while rep<no_reps:
         #Arr_Ps[i]=(z+(1-z)*random.random())*(S*t)
         #Passenger weight
         if Ac_class[i]==0:
-            pax_weight[i]=0.2*random.random()+0.8 #heavy class #0.5*random.random()+0.25
+            pax_weight[i]=0.2*random.random()+0.8 #Flights in the 'heavy' class have a passenger weight between 0.8 and 1
         elif Ac_class[i]==1 or Ac_class[i]==2:
-            pax_weight[i]=0.2*random.random()+0.6 #UM or LM class #0.5*random.random()+0.75
+            pax_weight[i]=0.2*random.random()+0.6 #Flights in the 'upper medium' or 'lower medium' class have a passenger weight between 0.6 and 0.8 
         else:
-            pax_weight[i]=0.2*random.random()+0.4 #Small class #0.5*random.random()+1.25
+            pax_weight[i]=0.2*random.random()+0.4 #Flights in the 'small' class have a passenger weight between 0.4 and 0.6
 
-    SubPolicy=Policies[policy_index]
+    SubPolicy=Policies[policy_index] #SubPolicy indicates the policy we are currently considering (e.g. SimHeur, DetHeur)
 
     if SubPolicy=='GA' or SubPolicy=='VNS':
-        GA_LoopSize=500 #50
+        GA_LoopSize=500 # This is
     elif SubPolicy=='GAD' or SubPolicy=='VNSD':
         GA_LoopSize=1
 
