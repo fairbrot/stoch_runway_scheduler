@@ -10,7 +10,10 @@ import csv
 import time
 import os
 
-from stoch_runway_scheduler import weather, Genetic, Genetic_determ, Populate, Repopulate_VNS, sample_cond_gamma, getcost, Annealing_Cost, Perm_Heur, Perm_Heur_New, Calculate_FCFS, sample_gamma, gamma_create_cdf, Posthoc_Check, Update_Stats, Update_ETAs, Serv_Completions
+import numpy as np 
+import scipy as sc
+
+from stoch_runway_scheduler import weather, Genetic, Genetic_determ, Populate, Repopulate_VNS, sample_cond_gamma, getcost, Annealing_Cost, Perm_Heur, Perm_Heur_New, Calculate_FCFS, sample_gamma, gamma_create_cdf, norm_create_cdf, Posthoc_Check, Update_Stats, Update_ETAs, Serv_Completions
 
 # JF: these three options seem to be for logging purposes
 #     they are broken for now as a separate output stream is created for each one, and all these currently
@@ -46,7 +49,7 @@ if Use_VNS==1:
 if Use_VNSD==1:
     Policies.append('VNSD')
 # if Use_FCFS==1:
-# 	Policies.append('FCFS')
+#   Policies.append('FCFS')
 
 NoA=700 # number of aircraft - temporary value which will get changed later
 S=40 # number of time slots (Rob not sure whether this is needed)
@@ -107,71 +110,71 @@ f.write('Policy'+',''Rep'+','+'AC'+','+'Flight Num'+','+'Prev Class'+','+'Cur Cl
 wiener_sig=0.1 #0.1 #1 #0.1 #standard deviation for Brownian motion
 weather_sig=wiener_sig #this assumption is being made in the paper for simplicity
 
-#Import the Wiener cdf - JF: could simplify
-print('*** Importing the Wiener array...')
-#wiener_cdf=[[0]*(1000) for _ in range(12000)]
-wiener_cdf=[[0]*(1000) for _ in range(12000)] #This array is used to store quantiles of the Inverse Gaussian distribution (see equation (7) in 1st revision of paper). Rows represent different values for the difference between current time and ETA. Columns are for different quantiles (from 0 to 1 in increments of 0.001).
-weather_cdf=[[0]*(1000) for _ in range(12000)] #This array will be identical to wiener_cdf for simplicity.
-if wiener_sig==0.1:
-    with open(os.path.join(DATA_DIR, 'wiener_array_sig0point1.csv'), 'r') as csvfile: #this data file contains pre-generated quantiles of the Inverse Gaussian distribution with sigma=0.1 (Rob has Python scripts to generate these)
-        datareader = csv.reader(csvfile, delimiter=',', quotechar='|')
-        inputdata=list(datareader)
-        for i in range(12000):
-            for j in range(1000):
-                wiener_cdf[i][j]=float(inputdata[i][j])
-                weather_cdf[i][j]=float(inputdata[i][j])
-elif wiener_sig==0.3:
-    with open(os.path.join(DATA_DIR, 'wiener_array_sig0point3.csv'), 'r') as csvfile: #Inverse Gaussian with sigma=0.3
-        datareader = csv.reader(csvfile, delimiter=',', quotechar='|')
-        inputdata=list(datareader)
-        for i in range(12000):
-            for j in range(1000):
-                wiener_cdf[i][j]=float(inputdata[i][j])
-                weather_cdf[i][j]=float(inputdata[i][j])
-elif wiener_sig==0.5:
-    with open(os.path.join(DATA_DIR, 'wiener_array_sig0point5.csv'), 'r') as csvfile: #Inverse Gaussian with sigma=0.5
-        datareader = csv.reader(csvfile, delimiter=',', quotechar='|')
-        inputdata=list(datareader)
-        for i in range(12000):
-            for j in range(1000):
-                wiener_cdf[i][j]=float(inputdata[i][j])
-                weather_cdf[i][j]=float(inputdata[i][j])
-elif wiener_sig==0.7:
-    with open(os.path.join(DATA_DIR, 'wiener_array_sig0point7.csv'), 'r') as csvfile: #Inverse Gaussian with sigma=0.7
-        datareader = csv.reader(csvfile, delimiter=',', quotechar='|')
-        inputdata=list(datareader)
-        for i in range(12000):
-            for j in range(1000):
-                wiener_cdf[i][j]=float(inputdata[i][j])
-                weather_cdf[i][j]=float(inputdata[i][j])
-elif wiener_sig==0.9:
-    with open(os.path.join(DATA_DIR, 'wiener_array_sig0point9.csv'), 'r') as csvfile: #Inverse Gaussian with sigma=0.9
-        datareader = csv.reader(csvfile, delimiter=',', quotechar='|')
-        inputdata=list(datareader)
-        for i in range(12000):
-            for j in range(1000):
-                wiener_cdf[i][j]=float(inputdata[i][j])
-                weather_cdf[i][j]=float(inputdata[i][j])
-else:
-    assert 1==2 # JF: raise an exception instead
+# #Import the Wiener cdf - JF: could simplify
+# print('*** Importing the Wiener array...')
+# #wiener_cdf=[[0]*(1000) for _ in range(12000)]
+# wiener_cdf=[[0]*(1000) for _ in range(12000)] #This array is used to store quantiles of the Inverse Gaussian distribution (see equation (7) in 1st revision of paper). Rows represent different values for the difference between current time and ETA. Columns are for different quantiles (from 0 to 1 in increments of 0.001).
+# weather_cdf=[[0]*(1000) for _ in range(12000)] #This array will be identical to wiener_cdf for simplicity.
+# if wiener_sig==0.1:
+#     with open(os.path.join(DATA_DIR, 'wiener_array_sig0point1.csv'), 'r') as csvfile: #this data file contains pre-generated quantiles of the Inverse Gaussian distribution with sigma=0.1 (Rob has Python scripts to generate these)
+#         datareader = csv.reader(csvfile, delimiter=',', quotechar='|')
+#         inputdata=list(datareader)
+#         for i in range(12000):
+#             for j in range(1000):
+#                 wiener_cdf[i][j]=float(inputdata[i][j])
+#                 weather_cdf[i][j]=float(inputdata[i][j])
+# elif wiener_sig==0.3:
+#     with open(os.path.join(DATA_DIR, 'wiener_array_sig0point3.csv'), 'r') as csvfile: #Inverse Gaussian with sigma=0.3
+#         datareader = csv.reader(csvfile, delimiter=',', quotechar='|')
+#         inputdata=list(datareader)
+#         for i in range(12000):
+#             for j in range(1000):
+#                 wiener_cdf[i][j]=float(inputdata[i][j])
+#                 weather_cdf[i][j]=float(inputdata[i][j])
+# elif wiener_sig==0.5:
+#     with open(os.path.join(DATA_DIR, 'wiener_array_sig0point5.csv'), 'r') as csvfile: #Inverse Gaussian with sigma=0.5
+#         datareader = csv.reader(csvfile, delimiter=',', quotechar='|')
+#         inputdata=list(datareader)
+#         for i in range(12000):
+#             for j in range(1000):
+#                 wiener_cdf[i][j]=float(inputdata[i][j])
+#                 weather_cdf[i][j]=float(inputdata[i][j])
+# elif wiener_sig==0.7:
+#     with open(os.path.join(DATA_DIR, 'wiener_array_sig0point7.csv'), 'r') as csvfile: #Inverse Gaussian with sigma=0.7
+#         datareader = csv.reader(csvfile, delimiter=',', quotechar='|')
+#         inputdata=list(datareader)
+#         for i in range(12000):
+#             for j in range(1000):
+#                 wiener_cdf[i][j]=float(inputdata[i][j])
+#                 weather_cdf[i][j]=float(inputdata[i][j])
+# elif wiener_sig==0.9:
+#     with open(os.path.join(DATA_DIR, 'wiener_array_sig0point9.csv'), 'r') as csvfile: #Inverse Gaussian with sigma=0.9
+#         datareader = csv.reader(csvfile, delimiter=',', quotechar='|')
+#         inputdata=list(datareader)
+#         for i in range(12000):
+#             for j in range(1000):
+#                 wiener_cdf[i][j]=float(inputdata[i][j])
+#                 weather_cdf[i][j]=float(inputdata[i][j])
+# else:
+#     assert 1==2 # JF: raise an exception instead
 
 # #Import the weather cdf
 # print('*** Importing the weather array...')
 # weather_cdf=[[0]*(1000) for _ in range(12000)]
 # with open('wiener_array_sig0point1.csv', 'r') as csvfile:
-# 	datareader = csv.reader(csvfile, delimiter=',', quotechar='|')
-# 	inputdata=list(datareader)
-# 	for i in range(12000):
-# 		for j in range(1000):
-# 			weather_cdf[i][j]=float(inputdata[i][j])
+#   datareader = csv.reader(csvfile, delimiter=',', quotechar='|')
+#   inputdata=list(datareader)
+#   for i in range(12000):
+#       for j in range(1000):
+#           weather_cdf[i][j]=float(inputdata[i][j])
 
-#Import the normal cdf
-normcdf=[0]*(10001)
-with open(os.path.join(DATA_DIR, 'norm_cdf.csv'), 'r') as csvfile: #data file contains quantiles from the standard normal distribution
-    datareader = csv.reader(csvfile, delimiter=',', quotechar='|')
-    inputdata=list(datareader)
-    for i in range(10001):
-        normcdf[i]=float(inputdata[i][0])
+# #Import the normal cdf
+# normcdf=[0]*(10001)
+# with open(os.path.join(DATA_DIR, 'norm_cdf.csv'), 'r') as csvfile: #data file contains quantiles from the standard normal distribution
+#     datareader = csv.reader(csvfile, delimiter=',', quotechar='|')
+#     inputdata=list(datareader)
+#     for i in range(10001):
+#         normcdf[i]=float(inputdata[i][0])
 
 #Set the parameters
 
@@ -201,21 +204,21 @@ perm_length=4 #doesn't seem to be used anymore
 # print('Testing the wiener array')
 # sched=240
 # for j in range(1000):
-# 	#First, use the wiener array
-# 	z=int(random.randrange(1,999))
-# 	trav=wiener_cdf[10*sched][z]
-# 	f5.write(str(trav)+',')
-# 	#Next, manually generate the trajectory
-# 	i=0
-# 	dt=0.01
-# 	ETA=sched
-# 	while 1==1:
-# 		i+=dt
-# 		ETA=random.gauss(ETA,0.1*wiener_sig)
-# 		if i>=ETA:
-# 			trav=i
-# 			break
-# 	f5.write(str(trav)+'\n')
+#   #First, use the wiener array
+#   z=int(random.randrange(1,999))
+#   trav=wiener_cdf[10*sched][z]
+#   f5.write(str(trav)+',')
+#   #Next, manually generate the trajectory
+#   i=0
+#   dt=0.01
+#   ETA=sched
+#   while 1==1:
+#       i+=dt
+#       ETA=random.gauss(ETA,0.1*wiener_sig)
+#       if i>=ETA:
+#           trav=i
+#           break
+#   f5.write(str(trav)+'\n')
 
 # Dis_Sep=[[2,3,4],[3,4,5],[4,5,6]] #Distance separation requirements in miles - not sued anymore
 #Time_Sep=[[96,138,240],[60,72,162],[60,72,102],[60,72,102]] #Time separations in seconds taken from Solak et al (2018) appendix; the 4th array is for the situation where there is no leading aircraft
@@ -234,9 +237,9 @@ pax_weight=[0]*NoA #stores the randomly-generated cost weightings for aircraft, 
 no_reps=10000 #total number of random scenarios that we will simulate; in each scenario we evaluate the performances of different algorithms such as SimHeur, DetHeur, FCFS
 
 # if Policy=='Alternate':
-# 	SubPolicy='Perm'
+#   SubPolicy='Perm'
 # else:
-# 	SubPolicy=Policy
+#   SubPolicy=Policy
 
 rep=0 #counter of which scenario we're currently on
 policy_index=0 #indicates which policy we're currently evaluating, e.g. SimHeur, DetHeur etc (if this is zero then we take the first policy from the list of policies to be evaluated)
@@ -262,7 +265,7 @@ while rep<no_reps:
             ps_time=float(inputdata[i][1]) #pre-scheduled time
             # ft_time=float(inputdata[i][5])
             # if i==0 or ps_time<earliest_ps_time:
-            # 	earlest_ps_time=ps_time
+            #   earlest_ps_time=ps_time
             if ps_time>=min_ps_time and ps_time<max_ps_time:
 
                 arr_time=int(inputdata[i][1]) #initially we set this equal to the pre-scheduled time but it will get adjusted later by applying a random pre-tactical delay
@@ -378,29 +381,32 @@ while rep<no_reps:
 
     if k>=norm_approx_min:
         NormalApprox=1
+        print('*** Creating the Normal CDF...')
+        norm_cdf=norm_create_cdf(k)
         gamma_cdf=[]
     else:
         NormalApprox=0
-        print('*** Creating the gamma CDF...')
+        print('*** Creating the Gamma CDF...')
         gamma_cdf=gamma_create_cdf(k)
+        norm_cdf=[]
 
     # if NormalApprox==0:
-    # 	print('*** Generating the conditional serv time arrays...')
-    # 	Serv_Pr=[[0]*(NoC) for _ in range(NoC+1)]
-    # 	last_epoch=[[0]*(NoC) for _ in range(NoC+1)]
-    # 	IFR_Serv_Pr=[[0]*(NoC) for _ in range(NoC+1)]
-    # 	IFR_last_epoch=[[0]*(NoC) for _ in range(NoC+1)]
-    # 	for i in range(NoC+1):
-    # 		for j in range(NoC):
-    # 			Serv_Pr[i][j],last_epoch[i][j]=conditional_phase_serv(S*t,0,k,i,j,1,Time_Sep)
-    # 			IFR_Serv_Pr[i][j],IFR_last_epoch[i][j]=conditional_phase_serv(S*t,0,k,i,j,1/w_rho,Time_Sep)
-    # 	print('last_epoch: '+str(last_epoch))
-    # 	print('IFR_last_epoch: '+str(IFR_last_epoch))
+    #   print('*** Generating the conditional serv time arrays...')
+    #   Serv_Pr=[[0]*(NoC) for _ in range(NoC+1)]
+    #   last_epoch=[[0]*(NoC) for _ in range(NoC+1)]
+    #   IFR_Serv_Pr=[[0]*(NoC) for _ in range(NoC+1)]
+    #   IFR_last_epoch=[[0]*(NoC) for _ in range(NoC+1)]
+    #   for i in range(NoC+1):
+    #       for j in range(NoC):
+    #           Serv_Pr[i][j],last_epoch[i][j]=conditional_phase_serv(S*t,0,k,i,j,1,Time_Sep)
+    #           IFR_Serv_Pr[i][j],IFR_last_epoch[i][j]=conditional_phase_serv(S*t,0,k,i,j,1/w_rho,Time_Sep)
+    #   print('last_epoch: '+str(last_epoch))
+    #   print('IFR_last_epoch: '+str(IFR_last_epoch))
     # else:
-    # 	Serv_Pr=[]
-    # 	IFR_Serv_Pr=[]
-    # 	last_epoch=[]
-    # 	IFR_last_epoch=[]
+    #   Serv_Pr=[]
+    #   IFR_Serv_Pr=[]
+    #   last_epoch=[]
+    #   IFR_last_epoch=[]
 
     print('*** Generating initial aircraft info...')
     Ac_Info=[0]*NoA
@@ -411,18 +417,16 @@ while rep<no_reps:
         z=int(random.random()*1001)
 
         if NormalApprox==0:
-            z=int(random.random()*1000)
-            ServPercs=gamma_cdf[z] #ServPercs is now the service time sampled from a standard Gamma(k,1) dist
+            ServPercs=np.random.gamma(k,1)
         else:
-            z=int(random.random()*10000)
-            ServPercs=normcdf[z] #ServPercs is now the service time sampled from a standard N(0,1) dist
+            ServPercs=random.gauss(0,1)
 
         # if NormalApprox==0:
-        # 	ServPercs=[0]*k
-        # 	for j in range(k):
-        # 		ServPercs[j]=random.random()
+        #   ServPercs=[0]*k
+        #   for j in range(k):
+        #       ServPercs[j]=random.random()
         # else:
-        # 	ServPercs=random.random()
+        #   ServPercs=random.random()
 
         #print('i: '+str(i)+' TravTime: '+str(TravTime))
         #Arr_Ps=(1-random.random()*random.random())*(S*t)
@@ -453,7 +457,7 @@ while rep<no_reps:
             if j>Ac_Info[i][17]: #only update ETA if we've gone beyond the AC's departure time
                 ETA=random.gauss(ETA,0.1*wiener_sig)
             # if i==6:
-            # 	print('j: '+str(j)+' ETA: '+str(ETA))
+            #   print('j: '+str(j)+' ETA: '+str(ETA))
             Brown_Motion[i][j]=ETA
             if j/100>=ETA-tau and chk==0:
                 threshold_time=round(j/100,2) #j/100 is the 'current time'
@@ -517,9 +521,9 @@ while rep<no_reps:
     stepthrough_logger.info('wlb_tm:'+','+str(wlb_tm)+','+'wub_tm'+','+str(wub_tm)+'\n'+'\n')
 
     # if SubPolicy=='SA':
-    # 	Anneal_Seq=[0]*NoA
-    # 	for i in range(NoA):
-    # 		Anneal_Seq[i]=i
+    #   Anneal_Seq=[0]*NoA
+    #   for i in range(NoA):
+    #       Anneal_Seq[i]=i
 
     if SubPolicy in ('GA','GAD','VNS','VNSD'):
         #Generate the initial population of sequences
@@ -626,7 +630,7 @@ while rep<no_reps:
     print('Ac_queue: '+str(Ac_queue))
     print('Arr_NotReady: '+str(Arr_NotReady))
     # for i in range(NoA):
-    # 	print('i: '+str(i)+' Ac_Infoi[9]: '+str(Ac_Info[i][9]))
+    #   print('i: '+str(i)+' Ac_Infoi[9]: '+str(Ac_Info[i][9]))
 
     print('*** Into main loop for rep '+str(rep)+' and policy '+str(SubPolicy)+'...')
     begin_time=time.time()
@@ -639,7 +643,7 @@ while rep<no_reps:
     while totserv<NoA:
 
         # if tm>=10:
-        # 	stepthrough=0
+        #   stepthrough=0
 
         #print('tm: '+str(tm))
 
@@ -655,8 +659,8 @@ while rep<no_reps:
         stepthrough_logger.info('Ac_added is '+','+str(Ac_added)+'\n'+'\n')
 
         # if SubPolicy=='GAD' and tm>28.5:
-        # 	GA_Info.sort(key=lambda x: x[2])
-        # 	print('Time: '+str(tm)+' Opt sequence: '+str(GA_Info[0][0]))
+        #   GA_Info.sort(key=lambda x: x[2])
+        #   print('Time: '+str(tm)+' Opt sequence: '+str(GA_Info[0][0]))
 
         if tm>=0 and len(Ac_added)>0 and Ac_added[0] in Arr_Pool:
             if SubPolicy in ('GA','GAD','VNS','VNSD'):
@@ -684,7 +688,7 @@ while rep<no_reps:
                         Anneal_Seq.remove(AC)
                     Ac_queue.append(AC)
                     # if SubPolicy=='GAD':
-                    # 	f.write('AC '+str(AC)+' added to queue, Ac_queue is '+str(Ac_queue)+', stored_queue_complete is '+str(stored_queue_complete)+'\n')
+                    #   f.write('AC '+str(AC)+' added to queue, Ac_queue is '+str(Ac_queue)+', stored_queue_complete is '+str(stored_queue_complete)+'\n')
                     if SubPolicy=='Perm':
                         continue #print('Added AC '+str(AC)+' to the queue, counter is '+str(counter)+', LPLL is '+str(len(Long_Perm_List))+', qp is '+str(qp))
                     elif SubPolicy in ('GA','GAD','VNS','VNSD'):
@@ -705,7 +709,7 @@ while rep<no_reps:
 
             if SubPolicy in ('GA','GAD','VNS','VNSD'):
                 # if tm>=0 and int(tm*100)!=int(old_tm*100):
-                # 	rr.write('Populate'+',')
+                #   rr.write('Populate'+',')
                 GA_PopList,GA_Info=Populate(Ac_Info, base_seq,Arr_Pool,Arr_NotReady,GA_PopSize,Max_LookAhead,stepthrough, step_summ, step_new)
                 queue_probs=[0]*(len(Arr_Pool)+len(Arr_NotReady))
                 # Pop_elap_tot+=Pop_elap 
@@ -744,10 +748,10 @@ while rep<no_reps:
                     #print('tm: '+str(tm)+' Best sequence is '+str(GA_Info[0][0])+' Estimated cost is '+str(GA_Info[0][2]))
                     #print('tm: '+str(tm)+' GA_counter: '+str(GA_counter)+', Repop')
                     # if SubPolicy=='GA' or SubPolicy=='GAD':
-                    # 	GA_PopList,GA_Info,Repop_elap,Tabu_List,Opt_Seq,OptCost,Opt_List=Repopulate(GA_PopList,GA_Info,Arr_Pool,Arr_NotReady,GA_PopSize,Tabu_List,Tabu_Size,Opt_Seq,OptCost,Opt_List,Opt_Size,stepthrough, step_summ, step_new)
+                    #   GA_PopList,GA_Info,Repop_elap,Tabu_List,Opt_Seq,OptCost,Opt_List=Repopulate(GA_PopList,GA_Info,Arr_Pool,Arr_NotReady,GA_PopSize,Tabu_List,Tabu_Size,Opt_Seq,OptCost,Opt_List,Opt_Size,stepthrough, step_summ, step_new)
                     # else:
                     # if tm>=0 and int(tm*100)!=int(old_tm*100):
-                    # 	rr.write('Repopulate_VNS'+',')
+                    #   rr.write('Repopulate_VNS'+',')
                     Loop_Nums+=1
                     #print('Loop_Nums: '+str(Loop_Nums))
                     Loop_Evals+=GA_counter
@@ -774,12 +778,12 @@ while rep<no_reps:
 
         if len(Arr_Pool)+len(Arr_NotReady)>0:
             # if SubPolicy=='FCFS':
-            # 	Ac_added,elap=FCFS_rule(Ac_Info,Arr_Pool,Dep_Pool)
+            #   Ac_added,elap=FCFS_rule(Ac_Info,Arr_Pool,Dep_Pool)
             if SubPolicy=='VNS':
                 #print('soln_evals_tot: '+str(soln_evals_tot))
                 # if tm>=0 and int(tm*100)!=int(old_tm*100):
-                # 	rr.write('Genetic'+',')
-                Ac_added,counter,qp,max_d,pruned,GA_CheckSize,GA_counter,soln_evals_tot,soln_evals_num=Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,max(tm,0),NoA,k,prev_class,GA_PopList,GA_Info,wiener_cdf,GA_LoopSize,GA_CheckSize,GA_counter,tot_arr_cost+tot_dep_cost,wlb,wub,weather_cdf,Opt_List,max_d,soln_evals_tot,soln_evals_num,gamma_cdf,normcdf, norm_approx_min, tau, Max_LookAhead, Time_Sep, thres1, thres2, lam1, lam2, GA_Check_Increment, Opt_Size, w_rho, stepthrough)
+                #   rr.write('Genetic'+',')
+                Ac_added,counter,qp,max_d,pruned,GA_CheckSize,GA_counter,soln_evals_tot,soln_evals_num=Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,max(tm,0),NoA,k,prev_class,GA_PopList,GA_Info,GA_LoopSize,GA_CheckSize,GA_counter,tot_arr_cost+tot_dep_cost,wlb,wub,Opt_List,max_d,soln_evals_tot,soln_evals_num,gamma_cdf,norm_cdf,norm_approx_min, tau, Max_LookAhead, Time_Sep, thres1, thres2, lam1, lam2, GA_Check_Increment, Opt_Size, w_rho, stepthrough)
                 Ov_GA_counter+=1
                 #GA_counter+=1
                 stepthrough_logger.info('GA_counter is '+','+str(GA_counter)+'\n')
@@ -787,7 +791,7 @@ while rep<no_reps:
                 #print('tm: '+str(tm)+' Opt_Seq: '+str(Tabu_List[0][0])+' Cost: '+str(Tabu_List[0][2]))
                 #print('tm: '+str(tm)+' Opt_Seq: '+str(Opt_Seq)+' Cost: '+str(OptCost))
             elif SubPolicy=='VNSD':
-                Ac_added,counter,qp,stored_queue_complete=Genetic_determ(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,max(tm,0),NoA,k,prev_class,GA_PopList,GA_Info,wiener_cdf,wlb,wub,Opt_List, norm_approx_min, tau, Max_LookAhead, Time_Sep, thres1, thres2, lam1, lam2, tot_arr_cost, tot_dep_cost, w_rho, stepthrough, step_summ, step_new)
+                Ac_added,counter,qp,stored_queue_complete=Genetic_determ(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,max(tm,0),NoA,k,prev_class,GA_PopList,GA_Info,wlb,wub,Opt_List, norm_approx_min, tau, Max_LookAhead, Time_Sep, thres1, thres2, lam1, lam2, tot_arr_cost, tot_dep_cost, w_rho, stepthrough, step_summ, step_new)
                 Ov_GA_counter+=1
                 GA_counter+=1
                 stepthrough_logger.info('GA_counter is '+','+str(GA_counter)+'\n')
@@ -802,7 +806,7 @@ while rep<no_reps:
             Ac_added,elap,counter,qp=[],0.1,0,0
 
         # if len(Arr_Pool)+len(Arr_NotReady)==18:
-        # 	print('tm: '+str(tm)+' Arr_Pool: '+str(Arr_Pool)+' Opt seq: '+str(GA_Info[0][0])+' Ac_added: '+str(Ac_added)+' counter: '+str(counter)+' qp: '+str(qp))
+        #   print('tm: '+str(tm)+' Arr_Pool: '+str(Arr_Pool)+' Opt seq: '+str(GA_Info[0][0])+' Ac_added: '+str(Ac_added)+' counter: '+str(counter)+' qp: '+str(qp))
 
         latest_time=(time.time()-initial_time)/conv_factor
 
@@ -822,14 +826,14 @@ while rep<no_reps:
 
         # else:
 
-        # 	update_elap=0
+        #   update_elap=0
 
         # print('update_elap: '+str(update_elap)+' other elap: '+str(Repop_elap+Pop_elap+elap))
         # if update_elap>Repop_elap+Pop_elap+elap:
-        # 	print('=========================>>>>>>>>>>>>>>>>>>>>>>>>>>> update_elap won')
+        #   print('=========================>>>>>>>>>>>>>>>>>>>>>>>>>>> update_elap won')
 
         # if int(tm*100)!=int(old_tm*100):
-        # 	print(str(SubPolicy)+' tm: '+str(tm)+' elap: '+str(elap))
+        #   print(str(SubPolicy)+' tm: '+str(tm)+' elap: '+str(elap))
 
         old_tm=tm
         tm=latest_time
@@ -838,15 +842,15 @@ while rep<no_reps:
         #tm+=0.01
         #tm+=Repop_elap+Pop_elap+elap
         # if SubPolicy=='FCFS' or SubPolicy=='CLS':
-        # 	tm+=0.001
+        #   tm+=0.001
         # elif len(Arr_Pool)+len(Arr_NotReady)>0:
-        # 	#tm+=((time.time()-latest_timer)/conv_factor)
-        # 	if mv_time==1:
-        # 		mv_time=0
-        # 		#print('tm: '+str(tm)+' Ov_GA_counter: '+str(Ov_GA_counter))
-        # 		tm+=0.01
+        #   #tm+=((time.time()-latest_timer)/conv_factor)
+        #   if mv_time==1:
+        #       mv_time=0
+        #       #print('tm: '+str(tm)+' Ov_GA_counter: '+str(Ov_GA_counter))
+        #       tm+=0.01
         # else:
-        # 	tm=min(next_completion_time,tm+0.01)
+        #   tm=min(next_completion_time,tm+0.01)
 
     print('Final cost is '+str(tot_arr_cost+tot_dep_cost))
     gg.write(str(SubPolicy)+','+str(tot_arr_cost+tot_dep_cost)+',')
@@ -909,9 +913,9 @@ while rep<no_reps:
         # ArrTime_Sorted=[0]*NoA
         # ServTime=[0]*NoA
         # for i in range(NoA):
-        # 	ArrTime[i]=[Ac_Info[i][9],i]
-        # 	ArrTime_Sorted[i]=[Ac_Info[i][9],i]
-        # 	ServTime[i]=Ac_Info[i][7]
+        #   ArrTime[i]=[Ac_Info[i][9],i]
+        #   ArrTime_Sorted[i]=[Ac_Info[i][9],i]
+        #   ServTime[i]=Ac_Info[i][7]
 
         # ArrTime_Sorted.sort(key=lambda x: x[0])
 
@@ -926,9 +930,9 @@ while rep<no_reps:
         # ArrTime_Sorted=[0]*NoA
         # ServTime=[0]*NoA
         # for i in range(NoA):
-        # 	ArrTime[i]=[Ac_Info[i][9],i]
-        # 	ArrTime_Sorted[i]=[Ac_Info[i][9],i]
-        # 	ServTime[i]=Ac_Info[i][7]
+        #   ArrTime[i]=[Ac_Info[i][9],i]
+        #   ArrTime_Sorted[i]=[Ac_Info[i][9],i]
+        #   ServTime[i]=Ac_Info[i][7]
 
         # ArrTime_Sorted.sort(key=lambda x: x[0])
 
@@ -943,9 +947,9 @@ while rep<no_reps:
         # ArrTime_Sorted=[0]*NoA
         # ServTime=[0]*NoA
         # for i in range(NoA):
-        # 	ArrTime[i]=[Ac_Info[i][9],i]
-        # 	ArrTime_Sorted[i]=[Ac_Info[i][9],i]
-        # 	ServTime[i]=Ac_Info[i][7]
+        #   ArrTime[i]=[Ac_Info[i][9],i]
+        #   ArrTime_Sorted[i]=[Ac_Info[i][9],i]
+        #   ServTime[i]=Ac_Info[i][7]
 
         # ArrTime_Sorted.sort(key=lambda x: x[0])
 
@@ -959,9 +963,9 @@ while rep<no_reps:
         # ArrTime_Sorted=[0]*NoA
         # ServTime=[0]*NoA
         # for i in range(NoA):
-        # 	ArrTime[i]=[Ac_Info[i][9],i]
-        # 	ArrTime_Sorted[i]=[Ac_Info[i][9],i]
-        # 	ServTime[i]=Ac_Info[i][7]
+        #   ArrTime[i]=[Ac_Info[i][9],i]
+        #   ArrTime_Sorted[i]=[Ac_Info[i][9],i]
+        #   ServTime[i]=Ac_Info[i][7]
 
         # ArrTime_Sorted.sort(key=lambda x: x[0])
 
@@ -976,9 +980,9 @@ while rep<no_reps:
         # ArrTime_Sorted=[0]*NoA
         # ServTime=[0]*NoA
         # for i in range(NoA):
-        # 	ArrTime[i]=[Ac_Info[i][9],i]
-        # 	ArrTime_Sorted[i]=[Ac_Info[i][9],i]
-        # 	ServTime[i]=Ac_Info[i][7]
+        #   ArrTime[i]=[Ac_Info[i][9],i]
+        #   ArrTime_Sorted[i]=[Ac_Info[i][9],i]
+        #   ServTime[i]=Ac_Info[i][7]
 
         # ArrTime_Sorted.sort(key=lambda x: x[0])
 
@@ -988,22 +992,22 @@ while rep<no_reps:
 
         # if 1==1: #Max_LookAhead==NoA:
 
-        # 	#Do Tabu Heuristic
-        # 	print('Starting Tabu Heuristic...')
+        #   #Do Tabu Heuristic
+        #   print('Starting Tabu Heuristic...')
 
-        # 	ArrTime=[0]*NoA
-        # 	ArrTime_Sorted=[0]*NoA
-        # 	ServTime=[0]*NoA
-        # 	for i in range(NoA):
-        # 		ArrTime[i]=[Ac_Info[i][9],i]
-        # 		ArrTime_Sorted[i]=[Ac_Info[i][9],i]
-        # 		ServTime[i]=Ac_Info[i][7]
+        #   ArrTime=[0]*NoA
+        #   ArrTime_Sorted=[0]*NoA
+        #   ServTime=[0]*NoA
+        #   for i in range(NoA):
+        #       ArrTime[i]=[Ac_Info[i][9],i]
+        #       ArrTime_Sorted[i]=[Ac_Info[i][9],i]
+        #       ServTime[i]=Ac_Info[i][7]
 
-        # 	ArrTime_Sorted.sort(key=lambda x: x[0])
+        #   ArrTime_Sorted.sort(key=lambda x: x[0])
 
-        # 	Tabu_heur_cost,iter_no=Tabu(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm)
+        #   Tabu_heur_cost,iter_no=Tabu(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm)
 
-        # 	gg.write('Tabu Heuristic'+','+str(Tabu_heur_cost)+','+str(iter_no)+',')
+        #   gg.write('Tabu Heuristic'+','+str(Tabu_heur_cost)+','+str(iter_no)+',')
 
         gg.write('\n')
         gg.flush()
@@ -1011,21 +1015,21 @@ while rep<no_reps:
         policy_index=0
 
         # if Max_LookAhead==NoA:
-        # 	Max_LookAhead=30
+        #   Max_LookAhead=30
         # else:
-        # 	Max_LookAhead=NoA
-        # 	rep+=1
+        #   Max_LookAhead=NoA
+        #   rep+=1
 
         # if rep<49:
-        # 	rep+=1
+        #   rep+=1
         # else:
-        # 	conv_factor+=0.5
-        # 	rep=0
+        #   conv_factor+=0.5
+        #   rep=0
 
         # if wiener_sig<0.9:
-        # 	wiener_sig+=0.2
+        #   wiener_sig+=0.2
         # else:
-        # 	wiener_sig=0.1
+        #   wiener_sig=0.1
 
         rep+=1
 
