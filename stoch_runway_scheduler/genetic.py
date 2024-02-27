@@ -3,11 +3,14 @@ import logging
 import random
 import math
 import time
+import numpy as np 
+import scipy as sc 
+
 from .utils import weather, getcost, Normal_GetServ, Normal_GetServ_Future, Normal_Conditional_GetServ
 from .gamma import Gamma_GetServ, Gamma_GetServ_Future, Gamma_Conditional_GetServ
 
 # JF: this is the main sim heuristic
-def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_class,GA_PopList,GA_Info,wiener_cdf,GA_LoopSize,GA_CheckSize,GA_counter,basecost,wlb,wub,weather_cdf,Opt_List,max_d,soln_evals_tot,soln_evals_num,gamma_cdf,normcdf, norm_approx_min: float, tau: int, Max_LookAhead: int, Time_Sep: List[List[int]], thres1: int, thres2: int, lam1: float, lam2: float, GA_Check_Increment: int, Opt_Size: int, w_rho: float, stepthrough: int):
+def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_class,GA_PopList,GA_Info,GA_LoopSize,GA_CheckSize,GA_counter,basecost,wlb,wub,Opt_List,max_d,soln_evals_tot,soln_evals_num,gamma_cdf,norm_cdf,norm_approx_min: float, tau: int, Max_LookAhead: int, Time_Sep: List[List[int]], thres1: int, thres2: int, lam1: float, lam2: float, GA_Check_Increment: int, Opt_Size: int, w_rho: float, stepthrough: int):
     # if len(Arr_Pool)+len(Ac_queue)>0:
     # 	print('Genetic')
     stepthrough_logger = logging.getLogger("stepthrough")
@@ -33,7 +36,7 @@ def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_clas
     ServTime=[0]*NoA
     Trav_Time=[0]*NoA
 
-    wiener_cdf_tau=wiener_cdf[int(10*tau)]
+    #wiener_cdf_tau=wiener_cdf[int(10*tau)]
 
     #Generate arrival and service time percentiles for AC not yet in queue
 
@@ -41,47 +44,46 @@ def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_clas
 
         ArrTime[AC]=max(0,Ac_Info[AC][3]-tau)
 
-        z=int(random.randrange(1,999))
-        Trav_Time[AC]=wiener_cdf_tau[z]
+        Trav_Time[AC]=np.random.wald(tau,(tau/wiener_sig)**2)
 
         if NormalApprox==0: 
-            z=int(random.random()*1000)
-            ServTime[AC]=gamma_cdf[z]
+            ServTime[AC]=np.random.gamma(k,1)
             # ServTime[AC]=[0]*k
             # for j in range(k):
-            # 	ServTime[AC][j]=random.random()
+            #   ServTime[AC][j]=random.random()
         else:
-            z=int(random.random()*10000)
-            ServTime[AC]=normcdf[z]
+            ServTime[AC]=random.gauss(0,1)
 
     for AC in Arr_NotReady:
 
-        z=int(random.randrange(1,999))
-        sched=int(10*round(Ac_Info[AC][3]-(tm+tau),1))
-        #print('tm: '+str(tm)+' AC: '+str(AC)+' sched: '+str(sched))
-        ArrTime[AC]=wiener_cdf[sched][z]+tm
+        sched=int(round(Ac_Info[AC][3]-(tm+tau),1))
+        
+        if sched<=0:
+            ArrTime[AC]=tm
+        else:
+            ArrTime[AC]=np.random.wald(sched,(sched/wiener_sig)**2)+tm
+
         #st4.write(str(tm)+','+str(Ac_Info[AC][3]-(tm+tau))+','+str(ArrTime[AC])+',')
 
-        z=int(random.randrange(1,999))
-        Trav_Time[AC]=wiener_cdf_tau[z]
+        Trav_Time[AC]=np.random.wald(tau,(tau/wiener_sig)**2)
+        
         #st4.write(str(Trav_Time[AC])+'\n')
 
         #assert 1==2 
 
         if NormalApprox==0:
-            z=int(random.random()*1000)
-            ServTime[AC]=gamma_cdf[z]
+            ServTime[AC]=np.random.gamma(k,1)
+            #wald2.write(str(ServTime[AC])+'\n')
             # ServTime[AC]=[0]*k
             # for j in range(k):
-            # 	ServTime[AC][j]=random.random()
+            #   ServTime[AC][j]=random.random()
         else:
-            z=int(random.random()*10000)
-            ServTime[AC]=normcdf[z]
+            ServTime[AC]=random.gauss(0,1)
 
         # if NormalApprox==0:
-        # 	ServTime[AC]=[0]*k
-        # 	for j in range(k):
-        # 		ServTime[AC][j]=random.random()
+        #   ServTime[AC]=[0]*k
+        #   for j in range(k):
+        #       ServTime[AC][j]=random.random()
 
     #Before proceeding, randomly generate wlb_gen and wub_gen
     chk=0
@@ -90,16 +92,21 @@ def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_clas
             wlb_gen=wlb
         else:
             #Do wlb_gen
-            z=int(random.randrange(1,999))
-            sched=int(10*round(wlb-tm,1))
-            wlb_gen=weather_cdf[sched][z]+tm
+            sched=int(round(wlb-tm,1))
+            # wald1.write(str(wlb_gen)+'\n')
+            if sched<=0:
+                wlb_gen=tm
+            else:
+                wlb_gen=np.random.wald(sched,(sched/weather_sig)**2)+tm
         if tm>=wub:
             wub_gen=wub
         else:
             #Do wub_gen
-            z=int(random.randrange(1,999))
-            sched=int(10*round(wub-tm,1))
-            wub_gen=weather_cdf[sched][z]+tm
+            sched=int(round(wub-tm,1))
+            if sched<=0:
+                wub_gen=tm
+            else:
+                wub_gen=np.random.wald(sched,(sched/weather_sig)**2)+tm
         if wlb_gen<=wub_gen:
             chk=1
         else:
@@ -182,11 +189,13 @@ def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_clas
             if tm>=Ac_Infoi[3]:
                 trav_time=Ac_Infoi[6] #travel time has already finished
             else:
-                z=int(random.randrange(1,999))
-                sched=int(10*round(Ac_Infoi[3]-tm,1))
-                trav_time=wiener_cdf[sched][z]
+                sched=int(round(Ac_Infoi[3]-tm,1))
+                if sched<=0:
+                    trav_time=0
+                else:
+                    trav_time=np.random.wald(sched,(sched/wiener_sig)**2)
 
-            queue_complete,straight_into_service=Gamma_Conditional_GetServ(k, Time_Sep, trav_time,rel_time,sv_time,prev_class,cur_class,tm,weather_state,gamma_cdf, w_rho)
+            queue_complete,straight_into_service=Gamma_Conditional_GetServ(k, Time_Sep, trav_time,rel_time,sv_time,prev_class,cur_class,tm,weather_state,w_rho)
             basecost+=getcost(Ac_Infoi[18],Ac_Infoi[9],trav_time,queue_complete,Ac_Infoi[10],thres1,thres2, lam1, lam2)
             perm_prev_class=cur_class
 
@@ -202,11 +211,13 @@ def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_clas
             if tm>=Ac_Infoi[3]:
                 trav_time=Ac_Infoi[6] #travel time has already finished
             else:
-                z=int(random.randrange(1,999))
-                sched=int(10*round(Ac_Infoi[3]-tm,1))
-                trav_time=wiener_cdf[sched][z]
+                sched=int(round(Ac_Infoi[3]-tm,1))
+                if sched<=0:
+                    trav_time=0
+                else:
+                    trav_time=np.random.wald(sched,(sched/wiener_sig)**2)
 
-            queue_complete,straight_into_service=Normal_Conditional_GetServ(trav_time,rel_time,sv_time,prev_class,cur_class,tm,weather_state, Time_Sep, normcdf, w_rho, k)
+            queue_complete,straight_into_service=Normal_Conditional_GetServ(trav_time,rel_time,sv_time,prev_class,cur_class,tm,weather_state,Time_Sep,w_rho,k,norm_cdf)
             basecost+=getcost(Ac_Infoi[18],Ac_Infoi[9],trav_time,queue_complete,Ac_Infoi[10],thres1,thres2, lam1, lam2)
             perm_prev_class=cur_class
 
@@ -219,8 +230,10 @@ def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_clas
             cur_class=Ac_Infoi[1]
             weather_state=weather(rel_time,wlb_gen,wub_gen) #weather(queue_complete,wlb_gen,wub_gen)
 
-            z=int(random.randrange(1,999))
-            trav_time=wiener_cdf_tau[z] #???????????????
+            if trav_time<=0:
+                trav_time=0
+            else:
+                trav_time=np.random.wald(tau,(tau/wiener_sig)**2)
 
             # if tm>=Ac_Infoi[3]: #this block of code is probably needed but wasn't included in the 5000 experiments for the paper
             # 	trav_time=Ac_Infoi[6] #travel time has already finished
@@ -245,13 +258,13 @@ def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_clas
                 # basecost+=getcost(Ac_Infoi[18],Ac_Infoi[9],trav_time,queue_complete,Ac_Infoi[10],thres1,thres2,lam1,lam2)
 
 
-                queue_complete,straight_into_service=Gamma_GetServ(k, Time_Sep, rel_time,trav_time,perm_prev_class,cur_class,queue_complete,weather_state,gamma_cdf, w_rho)
+                queue_complete,straight_into_service=Gamma_GetServ(k, Time_Sep, rel_time,trav_time,perm_prev_class,cur_class,queue_complete,weather_state,w_rho)
                 perm_prev_class=cur_class
                 basecost+=getcost(Ac_Infoi[18],Ac_Infoi[9],trav_time,queue_complete,Ac_Infoi[10],thres1,thres2, lam1, lam2)
 
             else:
 
-                queue_complete,straight_into_service=Normal_GetServ(rel_time,trav_time,perm_prev_class,cur_class,queue_complete,weather_state, Time_Sep, normcdf, w_rho, k)
+                queue_complete,straight_into_service=Normal_GetServ(rel_time,trav_time,perm_prev_class,cur_class,queue_complete,weather_state,Time_Sep,w_rho,k)
                 perm_prev_class=cur_class
                 basecost+=getcost(Ac_Infoi[18],Ac_Infoi[9],trav_time,queue_complete,Ac_Infoi[10],thres1,thres2, lam1, lam2)
 
