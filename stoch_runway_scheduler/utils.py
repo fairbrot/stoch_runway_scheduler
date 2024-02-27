@@ -35,7 +35,7 @@ def getcost(ps_time,pool_time,trav_time,landing_time,pax_weight,thres1,thres2, l
 
 
 
-def Normal_GetServ(rel_time,trav_time,prev_class,cur_class,tm,weather_state, Time_Sep: List[List[int]], normcdf, w_rho: float, k: int):
+def Normal_GetServ(rel_time,trav_time,prev_class,cur_class,tm,weather_state, Time_Sep: List[List[int]], w_rho: float, k: int):
 
     #This is for ACs that are already in the queue but not yet in service
 
@@ -50,9 +50,7 @@ def Normal_GetServ(rel_time,trav_time,prev_class,cur_class,tm,weather_state, Tim
 
     SD=math.sqrt(Mn**2/k)
 
-    z=int(random.random()*10000)
-
-    t2=tm+normcdf[z]*SD+Mn
+    t2=tm+random.gauss(0,1)*SD+Mn
 
     if t1<t2:
         straight_into_service=0
@@ -94,7 +92,7 @@ def Normal_GetServ_Future(rel_time,serv_time,trav_time,prev_class,cur_class,tm,w
 
 
 
-def Normal_Conditional_GetServ(trav_time,rel_time,sv_time,prev_class,cur_class,tm,weather_state, Time_Sep: List[List[int]], normcdf, w_rho: float, k: int):
+def Normal_Conditional_GetServ(trav_time,rel_time,sv_time,prev_class,cur_class,tm,weather_state, Time_Sep: List[List[int]], w_rho: float, k: int, norm_cdf):
 
     #This is for the AC currently in service
 
@@ -110,7 +108,7 @@ def Normal_Conditional_GetServ(trav_time,rel_time,sv_time,prev_class,cur_class,t
 
     SD=math.sqrt(Mn**2/k)
 
-    t2=truncnorm(sv_time+Mn,SD,tm, normcdf)
+    t2=truncnorm(sv_time+Mn,SD,tm,norm_cdf)
 
     #max_t=max(t1,t2)
 
@@ -130,12 +128,11 @@ def ncdf(x): #Standard Normal dist CDF
 def npdf(x): #Standard Normal dist PDF
     return math.exp(-(x**2/2))/(math.sqrt(2*math.pi))
 
-def truncnorm(Mn,SD,min_x, normcdf): #Generate a value x from the truncated normal distribution
-    Min_U=math.ceil(ncdf((min_x-Mn)/SD)*10000)
-    Max_U=10000 #int(ncdf((max_x-Mn)/SD)*10000)
+def truncnorm(Mn,SD,min_x,norm_cdf): #Generate a value x from the truncated normal distribution
+    Min_U=math.ceil(ncdf((min_x-Mn)/SD)*1000)
+    Max_U=1000 #int(ncdf((max_x-Mn)/SD)*10000)
     U1=int(Min_U+int(random.random()*(Max_U-Min_U+1)))
-    x=normcdf[U1]*SD+Mn
-    #print('Mn: '+str(Mn)+' SD: '+str(SD)+' min_x: '+str(min_x)+' max_x: '+str(max_x)+' Min_U: '+str(Min_U)+' Max_U: '+str(Max_U)+' U1: '+str(U1)+' x: '+str(x)+' Exp value: '+str(truncexp(Mn,SD,min_x,max_x)))
+    x=norm_cdf[U1]*SD+Mn
     return x
 
 def truncexp(Mn,SD,min_x): #Mean of the truncated normal distribution
