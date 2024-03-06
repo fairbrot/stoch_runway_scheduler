@@ -2,7 +2,6 @@
 #-generated values of k, thres1, pax weights, start & end times for bad weather (& need to also include random lam1 & lam2)
 
 from __future__ import print_function, division
-import sys
 import math
 import logging
 import random
@@ -14,6 +13,71 @@ import numpy as np
 import scipy as sc
 
 from stoch_runway_scheduler import weather, Genetic, Genetic_determ, Populate, Repopulate_VNS, sample_cond_gamma, getcost, Annealing_Cost, Perm_Heur, Perm_Heur_New, Calculate_FCFS, sample_gamma, gamma_create_cdf, norm_create_cdf, Posthoc_Check, Update_Stats, Update_ETAs, Serv_Completions
+
+#################
+# CONIFIGUATION #
+#################
+
+#-----------------#
+# Problem Options #
+#-----------------#
+
+DATA_DIR = '/home/jamie/Insync/fairbrot@lancaster.ac.uk/OneDrive Biz - Shared/SRSP data files'
+
+NoA=700 # number of aircraft - temporary value which will get changed later
+S=40 # number of time slots (Rob not sure whether this is needed)
+
+w_rho = 10/9 # separation multiplier for bad weather (multiplies mean, not rate, so should be >1); we have used a reduction of 10% due to bad weather based on Odoni et al (2011) cited in Shone et al (2021)
+wiener_sig = 0.1 # standard deviation for Brownian motion
+weather_sig = wiener_sig # this assumption is being made in the paper for simplicity
+print('wiener_sig: '+str(wiener_sig))
+
+tau = 30 # Determines when an aircraft is deemed to have entered the pool. E.g. if tau=30, aircraft enters pool when its ETA is 30 minutes away from the current time.
+t = 15 # length of a time slot in minutes
+
+NoC = 4 # no. of aircraft classes
+Time_Sep=[[97,121,121,145],[72,72,72,97,97],[72,72,72,72],[72,72,72,72],[72,72,72,72]] # Time separations in seconds taken from Bennell et al (2017) with H, U, M, S as the 4 classes; the 5th array is for the situation where there is no leading aircraft
+# JF: Time_Sep is List[List[int]]
+
+# Min and max prescheduled time to consider in solution approach
+# JF Question: are these measured in minutes from start - when is this? From midnight? (6AM-2PM is when simulation runs between)
+min_ps_time=360 # inclusive
+max_ps_time=840 # non-inclusive
+
+#-------------------#
+# Algorithm Options #
+#-------------------#
+
+# JF: policy is an scheduling policy algorithm - may not affect anything now
+# Alternate means sway between VNS and VNSD
+Policy='Alternate' #FCFS, Perm, SA, GA or Alternate
+
+Use_VNS=1
+Use_VNSD=1
+# Use_FCFS=1
+
+Policies=[]
+if Use_VNS==1:
+    Policies.append('VNS')
+if Use_VNSD==1:
+    Policies.append('VNSD')
+# if Use_FCFS==1:
+#   Policies.append('FCFS')
+
+max_FCFS = NoA #int(NoA/2)
+conv_factor = 1 # no. of seconds in a minute for conversion purposes
+norm_approx_min = 100 #100 - Erlang can be approximated well for large k by Normal
+Max_LookAhead = 15 #NoA # This is the length of a sequence, equivalent to parameter l in paper  - in paper this is 15
+
+pool_max = 6 # Used as a parameter for "perm heuristic" which searches for the best landing sequence under perfect information, i.e. assumes all random information already known
+list_min = 6 # Also used only for the "perm heuristic""
+
+GA_PopSize = 20 # Initial number of sequences in the population, written as S in paper (see Section 3.1)
+VNS_limit = 25 # important parameter, determines how many non-improving heuristic moves need to be made before a mutation is carried out; this is written as m_{mut} in paper (see the flow chart, Figure 3)
+
+###########
+# LOGGING #
+###########
 
 # JF: these three options seem to be for logging purposes
 #     they are broken for now as a separate output stream is created for each one, and all these currently
@@ -33,203 +97,33 @@ stepthrough_logger.addHandler(c_handler)
 step_summ_logger = logging.getLogger('step_summ')
 step_new_logger = logging.getLogger('step_new')
 
-DATA_DIR = '/home/jamie/Insync/fairbrot@lancaster.ac.uk/OneDrive Biz - Shared/SRSP data files'
+f = open("SRSP_out_%s_%s.csv" % (Policy, conv_factor), "w") # detailed results - for each rep what happened for each aircraft
+g = open("AC_predictions_%s_%s.csv" % (Policy, conv_factor), "w")
+#h = open("cost_log_%s_%s.csv" % (Policy, conv_factor), "w")
+gg = open("SRSP_rep_results_%s_%s.csv" % (Policy, conv_factor), "w") # summaries for each rep
 
-# JF: policy is an scheduling policy algorithm - may not affect anything now
-# Alternate means sway between VNS and VNSD
-Policy='Alternate' #FCFS, Perm, SA, GA or Alternate
-
-Use_VNS=1
-Use_VNSD=1
-# Use_FCFS=1
-
-Policies=[]
-if Use_VNS==1:
-    Policies.append('VNS')
-if Use_VNSD==1:
-    Policies.append('VNSD')
-# if Use_FCFS==1:
-#   Policies.append('FCFS')
-
-NoA=700 # number of aircraft - temporary value which will get changed later
-S=40 # number of time slots (Rob not sure whether this is needed)
-#thres1=15 #will get changed later
-#thres2=0 #will get changed later
-
-# fixed_elap=0.00015 #fixed CPU time for one "elap" for VNS algorithm
-# fixed_elap_vnsd=0.00005 #fixed CPU time for one "elap" for VNSD algorithm
-# fixed_repop_elap=0.0000825 #fixed CPU time for one "repop_elap"
-# fixed_pop_elap=0.0003 #fixed CPU time for one "pop_elap"
-
-# NoA=15
-# S=2
-# thres=0
-
-max_FCFS=NoA #int(NoA/2)
-conv_factor=1 #1 #0.1 #3 # no. of seconds in a minute for conversion purposes
-norm_approx_min=100 #100 - Erlang can be approximated well for large k by Normal
-Max_LookAhead=15 #15 #15 #30 #5 #30 #NoA #This is the length of a sequence, equivalent to parameter l in paper  - in paper this is 15
-w_rho=10/9 #separation multiplier for bad weather (multiplies mean, not rate, so should be >1); we have used a reduction of 10% due to bad weather based on Odoni et al (2011) cited in Shone et al (2021)
-
-#max_FCFS=0
-
-f=open("SRSP_out_%s_%s.csv" % (Policy, conv_factor), "w") # detailed results - for each rep what happened for each aircraft
-g=open("AC_predictions_%s_%s.csv" % (Policy, conv_factor), "w")
-#h=open("cost_log_%s_%s.csv" % (Policy, conv_factor), "w")
-gg=open("SRSP_rep_results_%s_%s.csv" % (Policy, conv_factor), "w")  # summaries for each rep
-
-f1=open("Perm_Heur_out_%s_%s.csv" % (Policy, conv_factor), "w") # output from a particular heuristic - may not be needed (can remove if you like)
-#f2=open("Detailed_Out_%s_%s.csv" % (Policy, conv_factor), "w")
-
-#rr=open("Runtime_Tracker_%s_%s.csv" % (Policy, conv_factor), "w")
-
-#f5=open("Wiener_Test_%s_%s.csv" % (Policy, conv_factor), "w")
-
-# if stepthrough==1:
-#     # JF: CSV extension is used, but prints don't always follow this format
-#     st=open("SRSP_stepthrough.csv", "w")
-# if step_summ==1:
-#     st2=open("SRSP_step_summarised.csv", "w")
-# if step_new==1:
-#     st3=open("SRSP_step_new.csv", "w")
-
-# not needed anymore
-st4=open("elap_out.csv", "w")
+f1 = open("Perm_Heur_out_%s_%s.csv" % (Policy, conv_factor), "w") # output from a particular heuristic - may not be needed (can remove if you like)
 
 f.write('Policy'+',''Rep'+','+'AC'+','+'Flight Num'+','+'Prev Class'+','+'Cur Class'+','+'Time Sep'+','+'Orig PS time'+','+'PS time'+','+'Pool Arrival'+','+'Release Time'+','+'Travel Time'+','+'Weather Coeff'+','+'Enters Serv'+','+'Actual Serv'+','+'Ends Serv'+','+'Lateness'+','+'Queue Delay'+','+'Pax Weight'+','+'Cost'+','+'counter'+','+'qp'+','+'Predicted total'+'\n')
 
+##################
+# INITIALISATION #
+##################
 
-
-
-
-
-
-
-#random.seed(100)
-
-wiener_sig=0.1 #0.1 #1 #0.1 #standard deviation for Brownian motion
-weather_sig=wiener_sig #this assumption is being made in the paper for simplicity
-
-# #Import the Wiener cdf - JF: could simplify
-# print('*** Importing the Wiener array...')
-# #wiener_cdf=[[0]*(1000) for _ in range(12000)]
-# wiener_cdf=[[0]*(1000) for _ in range(12000)] #This array is used to store quantiles of the Inverse Gaussian distribution (see equation (7) in 1st revision of paper). Rows represent different values for the difference between current time and ETA. Columns are for different quantiles (from 0 to 1 in increments of 0.001).
-# weather_cdf=[[0]*(1000) for _ in range(12000)] #This array will be identical to wiener_cdf for simplicity.
-# if wiener_sig==0.1:
-#     with open(os.path.join(DATA_DIR, 'wiener_array_sig0point1.csv'), 'r') as csvfile: #this data file contains pre-generated quantiles of the Inverse Gaussian distribution with sigma=0.1 (Rob has Python scripts to generate these)
-#         datareader = csv.reader(csvfile, delimiter=',', quotechar='|')
-#         inputdata=list(datareader)
-#         for i in range(12000):
-#             for j in range(1000):
-#                 wiener_cdf[i][j]=float(inputdata[i][j])
-#                 weather_cdf[i][j]=float(inputdata[i][j])
-# elif wiener_sig==0.3:
-#     with open(os.path.join(DATA_DIR, 'wiener_array_sig0point3.csv'), 'r') as csvfile: #Inverse Gaussian with sigma=0.3
-#         datareader = csv.reader(csvfile, delimiter=',', quotechar='|')
-#         inputdata=list(datareader)
-#         for i in range(12000):
-#             for j in range(1000):
-#                 wiener_cdf[i][j]=float(inputdata[i][j])
-#                 weather_cdf[i][j]=float(inputdata[i][j])
-# elif wiener_sig==0.5:
-#     with open(os.path.join(DATA_DIR, 'wiener_array_sig0point5.csv'), 'r') as csvfile: #Inverse Gaussian with sigma=0.5
-#         datareader = csv.reader(csvfile, delimiter=',', quotechar='|')
-#         inputdata=list(datareader)
-#         for i in range(12000):
-#             for j in range(1000):
-#                 wiener_cdf[i][j]=float(inputdata[i][j])
-#                 weather_cdf[i][j]=float(inputdata[i][j])
-# elif wiener_sig==0.7:
-#     with open(os.path.join(DATA_DIR, 'wiener_array_sig0point7.csv'), 'r') as csvfile: #Inverse Gaussian with sigma=0.7
-#         datareader = csv.reader(csvfile, delimiter=',', quotechar='|')
-#         inputdata=list(datareader)
-#         for i in range(12000):
-#             for j in range(1000):
-#                 wiener_cdf[i][j]=float(inputdata[i][j])
-#                 weather_cdf[i][j]=float(inputdata[i][j])
-# elif wiener_sig==0.9:
-#     with open(os.path.join(DATA_DIR, 'wiener_array_sig0point9.csv'), 'r') as csvfile: #Inverse Gaussian with sigma=0.9
-#         datareader = csv.reader(csvfile, delimiter=',', quotechar='|')
-#         inputdata=list(datareader)
-#         for i in range(12000):
-#             for j in range(1000):
-#                 wiener_cdf[i][j]=float(inputdata[i][j])
-#                 weather_cdf[i][j]=float(inputdata[i][j])
-# else:
-#     assert 1==2 # JF: raise an exception instead
-
-# #Import the weather cdf
-# print('*** Importing the weather array...')
-# weather_cdf=[[0]*(1000) for _ in range(12000)]
-# with open('wiener_array_sig0point1.csv', 'r') as csvfile:
-#   datareader = csv.reader(csvfile, delimiter=',', quotechar='|')
-#   inputdata=list(datareader)
-#   for i in range(12000):
-#       for j in range(1000):
-#           weather_cdf[i][j]=float(inputdata[i][j])
-
-# #Import the normal cdf
-# normcdf=[0]*(10001)
-# with open(os.path.join(DATA_DIR, 'norm_cdf.csv'), 'r') as csvfile: #data file contains quantiles from the standard normal distribution
-#     datareader = csv.reader(csvfile, delimiter=',', quotechar='|')
-#     inputdata=list(datareader)
-#     for i in range(10001):
-#         normcdf[i]=float(inputdata[i][0])
-
-#Set the parameters
-
-NoC=4 #no. of aircraft classes
-
-Ac_finished=[0]*NoA # 'finished' means aircraft has completed landing, i.e. service time has finished
-pred_serv=[0]*NoA #seems to be not used anymore
-
-tau=30 #Determines when an aircraft is deemed to have entered the pool. E.g. if tau=30, aircraft enters pool when its ETA is 30 minutes away from the current time.
-t=15 #length of a time slot in minutes
-
-print('wiener_sig: '+str(wiener_sig))
-
-pool_max=6 #Used as a parameter for "perm heuristic" which searches for the best landing sequence under perfect information, i.e. assumes all random information already known
-list_min=6 #Also used only for the "perm heuristic""
-
-GA_PopSize=20 #Initial number of sequences in the population, written as S in paper (see Section 3.1)
-Ov_GA_counter=0 #only used for stepthrough purposes; to do with counting how many times the 'Genetic' function has been called
-Tabu_Size=50 #only used by a Tabu search heuristic which we're not using anymore
-VNS_limit=25 #important parameter, determines how many non-improving heuristic moves need to be made before a mutation is carried out; this is written as m_{mut} in paper (see the flow chart, Figure 3)
+Ov_GA_counter = 0 # only used for stepthrough purposes; to do with counting how many times the 'Genetic' function has been called
 VNS_counter=0 #this counts how many non-improving heuristic moves we've made since the last reset
 tot_mut=0 #counts how many total mutations we've made; really just for output purposes
 
-AC_List_Length=6 #doesn't seem to be used anymore
-perm_length=4 #doesn't seem to be used anymore
+# Presumably indicates for each aircraft whether it has landed yet
+# 'finished' means aircraft has completed landing, i.e. service time has finished
+Ac_finished=[0]*NoA 
 
-# print('Testing the wiener array')
-# sched=240
-# for j in range(1000):
-#   #First, use the wiener array
-#   z=int(random.randrange(1,999))
-#   trav=wiener_cdf[10*sched][z]
-#   f5.write(str(trav)+',')
-#   #Next, manually generate the trajectory
-#   i=0
-#   dt=0.01
-#   ETA=sched
-#   while 1==1:
-#       i+=dt
-#       ETA=random.gauss(ETA,0.1*wiener_sig)
-#       if i>=ETA:
-#           trav=i
-#           break
-#   f5.write(str(trav)+'\n')
-
-# Dis_Sep=[[2,3,4],[3,4,5],[4,5,6]] #Distance separation requirements in miles - not sued anymore
-#Time_Sep=[[96,138,240],[60,72,162],[60,72,102],[60,72,102]] #Time separations in seconds taken from Solak et al (2018) appendix; the 4th array is for the situation where there is no leading aircraft
-# sep also includes separation when there is not "leading" aircraft - maybe last row should be 0s
-Time_Sep=[[97,121,121,145],[72,72,72,97,97],[72,72,72,72],[72,72,72,72],[72,72,72,72]] #Time separations in seconds taken from Bennell et al (2017) with H, U, M, S as the 4 classes; the 5th array is for the situation where there is no leading aircraft
-# JF: Time_Sep is List[List[int]]
-
-Ac_Info=[0]*NoA #this will be a multi-dimensional list storing lots of information about each aircraft; see later
-Ac_class=[0]*NoA #this will store the weight class for each aircraft
+Ac_Info=[0]*NoA # this will be a multi-dimensional list storing lots of information about each aircraft; see later
+Ac_class=[0]*NoA # this will store the weight class for each aircraft
 Arr_Ps=[0]*NoA #this stores the adjusted scheduled times for aircraft after applying the random pre-tactical delay
-Dep_Ps=[0]*NoA #not needed anymore because we do not consider departures
+# Not needed anymore because we do not consider departures
+# JF Question: still seems to be updated in some places - can we safely remove this?
+Dep_Ps=[0]*NoA 
 Orig_Ps=[0]*NoA #original pre-scheduled times of aircraft, before applying the pre-tactical delay
 flight_id=[0]*NoA #stores the aircraft flight numbers, for identification purposes
 pax_weight=[0]*NoA #stores the randomly-generated cost weightings for aircraft, based on (hypothetical) numbers of passengers carried; written as g_i in the paper (see objective function (13))
@@ -241,80 +135,92 @@ no_reps=10000 #total number of random scenarios that we will simulate; in each s
 # else:
 #   SubPolicy=Policy
 
-rep=0 #counter of which scenario we're currently on
-policy_index=0 #indicates which policy we're currently evaluating, e.g. SimHeur, DetHeur etc (if this is zero then we take the first policy from the list of policies to be evaluated)
+rep = 0 #counter of which scenario we're currently on
+policy_index = 0 # indicates which policy we're currently evaluating, e.g. SimHeur, DetHeur etc (if this is zero then we take the first policy from the list of policies to be evaluated)
 
 #for rep in range(no_reps):
-while rep<no_reps:
+# JF Question is rep actually being incremented here? Will this go on forever? Why is for loop not used?
+while rep < no_reps:
 
-    repn=rep #int(rep/100+1)
+    repn = rep # int(rep/100+1)
     random.seed(repn*100) #set the random seed for generating random parameter values; seed in set according to the replication (scenario) number
 
     #Import the flight data
     print('*** Importing the flight data...')
     #When reading in the flight data from the data file we only want to include flights with a pre-scheduled time between 6AM (360 mins) and 2PM (840 mins), including 6AM but not including 2PM
-    min_ps_time=360 #inclusive
-    max_ps_time=840 #non-inclusive
 
-    AC=0 #counts how many flights have been read in so far
+
+    AC = 0 #counts how many flights have been read in so far
     #earliest_ps_time=0
-    with open(os.path.join(DATA_DIR, 'flight_pretac_data.csv'), 'r') as csvfile: #data file includes the on-time performance data such as means, variance of lateness based on 1 year of historical info from FlightRadar [DON'T CHANGE THIS FILE]
+
+    #---------------------------------------------------------#
+    # Read flight data file and initialise pretactical delays #
+    #---------------------------------------------------------#
+    with open(os.path.join(DATA_DIR, 'flight_pretac_data.csv'), 'r') as csvfile: # data file includes the on-time performance data such as means, variance of lateness based on 1 year of historical info from FlightRadar [DON'T CHANGE THIS FILE]
         datareader = csv.reader(csvfile, delimiter=',', quotechar='|')
         inputdata=list(datareader)
-        for i in range(1,688): #start from 1 because there's a title row
-            ps_time=float(inputdata[i][1]) #pre-scheduled time
+        for i in range(1,688): # start from 1 because there's a title row
+            ps_time=float(inputdata[i][1]) # pre-scheduled time
             # ft_time=float(inputdata[i][5])
             # if i==0 or ps_time<earliest_ps_time:
             #   earlest_ps_time=ps_time
             if ps_time>=min_ps_time and ps_time<max_ps_time:
 
-                arr_time=int(inputdata[i][1]) #initially we set this equal to the pre-scheduled time but it will get adjusted later by applying a random pre-tactical delay
-                dep_time=int(inputdata[i][4]) #departure time from the origin airport
-                flight_name=str(inputdata[i][3]) #flight number
-                sched_time=int(inputdata[i][5]) #scheduled flight time, i.e. difference between scheduled departure and arrival time
-                lateness_mn=float(inputdata[i][6]) #mean lateness based on historical data
-                lateness_var=float(inputdata[i][7]) #variance of lateness based on historical data
+                arr_time=int(inputdata[i][1]) # initially we set this equal to the pre-scheduled time but it will get adjusted later by applying a random pre-tactical delay
+                dep_time=int(inputdata[i][4]) # departure time from the origin airport
+                flight_name=str(inputdata[i][3]) # flight number
+                # scheduled flight time, i.e. difference between scheduled departure and arrival time
+                # JF Question: I don't understand what you mean by this
+                sched_time=int(inputdata[i][5]) 
+                lateness_mn=float(inputdata[i][6]) # mean lateness based on historical data
+                lateness_var=float(inputdata[i][7]) # variance of lateness based on historical data
 
-                Ac_class[AC]=int(inputdata[i][2]) #weight class
-                Orig_Ps[AC]=arr_time #original pre-scheduled time (as opposed to scheduled time following pre-tactical delay)
+                Ac_class[AC]=int(inputdata[i][2]) # weight class
+                Orig_Ps[AC]=arr_time # original pre-scheduled time (as opposed to scheduled time following pre-tactical delay)
 
-                #The equations for xi_bar, si2, h_i, alpha and beta below are for calculating the parameters of the gamma distribution used for the pre-tactical delay. Details of this method are in Section 4 of the paper.
+                # The equations for xi_bar, si2, h_i, alpha and beta below are for calculating the parameters of the gamma distribution 
+                # used for the pre-tactical delay. Details of this method are in Section 4 of the paper.
+                xibar = arr_time + lateness_mn
+                si2 = lateness_var
+                h_i = dep_time - 15 # JF Question: this 15 probably shouldn't be hard-coded - I think this is q_i in the paper?
 
-                xibar=arr_time+lateness_mn
-                si2=lateness_var
-                h_i=dep_time-15
+                alpha = ((xibar-h_i)**2)/(si2-(wiener_sig**2)*(xibar-h_i))
+                beta = (xibar-h_i)/(si2-(wiener_sig**2)*(xibar-h_i))
 
-                alpha=((xibar-h_i)**2)/(si2-(wiener_sig**2)*(xibar-h_i))
-                beta=(xibar-h_i)/(si2-(wiener_sig**2)*(xibar-h_i))
-
-                if alpha>0 and beta>0:
-                    pretac_delay=sample_gamma(alpha,1/beta)-(arr_time-h_i) #Here we sample from a gamma distribution to get the pre-tactical delay for the flight under consideration.
+                if alpha > 0 and beta > 0:
+                    pretac_delay = sample_gamma(alpha, 1/beta) - (arr_time - h_i) # Here we sample from a gamma distribution to get the pre-tactical delay for the flight under consideration.
                 else:
-                    pretac_delay=lateness_mn #In this case the pre-tactical delay is set equal to the average lateness rather than being sampled randomly.
+                    # In this case the pre-tactical delay is set equal to the average lateness rather than being sampled randomly.
+                    # JF Question: why is this case needed?
+                    pretac_delay = lateness_mn
 
-                Arr_Ps[AC]=arr_time+pretac_delay #Stores the initial ETA of the current aircraft, after adjustment based on pre-tactical delay
-                Dep_Ps[AC]=h_i #This is actually 15 minutes before the flight's scheduled departure time, and indicates the point at which we assume the ETA starts varying according to Brownian motion (see paper Section 2)
+                Arr_Ps[AC] = arr_time + pretac_delay # Stores the initial ETA of the current aircraft, after adjustment based on pre-tactical delay
+                Dep_Ps[AC] = h_i # This is actually 15 (q_i) minutes before the flight's scheduled departure time, 
+                                 # and indicates the point at which we assume the ETA starts varying according to 
+                                 # Brownian motion (see paper Section 2)
                 flight_id[AC]=flight_name #Store the flight number
 
                 AC+=1
-            elif ps_time>=max_ps_time: #Indicates that we have got to the end of the set of flights scheduled to arrive by 2PM
+            elif ps_time >= max_ps_time: # Indicates that we have got to the end of the set of flights scheduled to arrive by 2PM
                 break
 
     print('No. of ACs: '+str(AC))
-    NoA=AC
+    NoA = AC
     #NoA=8
 
-    for i in range(NoA): #HERE WE RE-SCALE TIME SO THAT TIME '6AM' IS COUNTED AS TIME (ZERO+60). WE START SIMULATING FROM TIME ZERO, I.E. AN HOUR BEFORE 6AM.
+
+    for i in range(NoA): # HERE WE RE-SCALE TIME SO THAT TIME '6AM' IS COUNTED AS TIME (ZERO+60). WE START SIMULATING FROM TIME ZERO, I.E. AN HOUR BEFORE 6AM.
         Arr_Ps[i]+=-min_ps_time+60
         Dep_Ps[i]+=-min_ps_time+60
         Orig_Ps[i]+=-min_ps_time+60
 
+    # --------------------------- #
+    # Random parameter generation #
+    #-----------------------------#
     for i in range(NoA):
-        #Ac_class[i]=int(random.random()*3)
-        #Ac_class[i]=0
-        #z=tau/(S*t)
-        #Arr_Ps[i]=(z+(1-z)*random.random())*(S*t)
-        #Passenger weight
+        # Passenger weight
+        # JF Question: how is passenger weight used? 
+        # In objective? Shouldn't these be the same for every run?
         if Ac_class[i]==0:
             pax_weight[i]=0.2*random.random()+0.8 #Flights in the 'heavy' class have a passenger weight between 0.8 and 1
         elif Ac_class[i]==1 or Ac_class[i]==2:
@@ -337,6 +243,7 @@ while rep<no_reps:
     # z*=0.05 #z is either 0.05, 0.1, 0.15, 0.2 or 0.25; this corresponds to the coefficient of variation for service times
     # k=int(1/(z**2))
 
+    # JF Question: what is k, and why is it randomly generated for each run?
     z=random.random()*5 #*5
     if z<1:
         k=16
@@ -353,6 +260,7 @@ while rep<no_reps:
 
     print('k: '+str(k))
 
+    # JF Question: what are lam1 and lam2, and why are they randomly generated for each run?
     #Randomly generate lam1 and lam2
     z=random.random()*5 #*5
     if z<1:
@@ -372,6 +280,7 @@ while rep<no_reps:
     print('lam1: '+str(lam1)+' lam2: '+str(lam2))
 
     #Randomly generate thres1
+    # JF Question: what are thres1 and thres2, and why are they randomly generated for each run?
     z=random.random()
     if z<0.5:
         thres1=0
@@ -379,7 +288,7 @@ while rep<no_reps:
         thres1=15
     thres2=0
 
-    if k>=norm_approx_min:
+    if k >= norm_approx_min:
         NormalApprox=1
         print('*** Creating the Normal CDF...')
         norm_cdf=norm_create_cdf(k)
@@ -390,49 +299,49 @@ while rep<no_reps:
         gamma_cdf=gamma_create_cdf(k)
         norm_cdf=[]
 
-    # if NormalApprox==0:
-    #   print('*** Generating the conditional serv time arrays...')
-    #   Serv_Pr=[[0]*(NoC) for _ in range(NoC+1)]
-    #   last_epoch=[[0]*(NoC) for _ in range(NoC+1)]
-    #   IFR_Serv_Pr=[[0]*(NoC) for _ in range(NoC+1)]
-    #   IFR_last_epoch=[[0]*(NoC) for _ in range(NoC+1)]
-    #   for i in range(NoC+1):
-    #       for j in range(NoC):
-    #           Serv_Pr[i][j],last_epoch[i][j]=conditional_phase_serv(S*t,0,k,i,j,1,Time_Sep)
-    #           IFR_Serv_Pr[i][j],IFR_last_epoch[i][j]=conditional_phase_serv(S*t,0,k,i,j,1/w_rho,Time_Sep)
-    #   print('last_epoch: '+str(last_epoch))
-    #   print('IFR_last_epoch: '+str(IFR_last_epoch))
-    # else:
-    #   Serv_Pr=[]
-    #   IFR_Serv_Pr=[]
-    #   last_epoch=[]
-    #   IFR_last_epoch=[]
-
     print('*** Generating initial aircraft info...')
     Ac_Info=[0]*NoA
 
     for i in range(NoA):
+        # JF Question: which departure? From origin or destination airport? If latter, are statuss 3-6 not needed?
         Status=0 #0: not ready yet (arrival), 1: in arrival pool, 2: added to arrival queue, 3: not ready yet (departure), 4: in departure pool, 5: added to departure queue, 6: finished.
 
+
+        # JF Question: I don't think this is used?
         z=int(random.random()*1001)
 
+
+        # JF Question: What is ServPercs? Below RS says this is RNs used for service phase completions
         if NormalApprox==0:
             ServPercs=np.random.gamma(k,1)
         else:
             ServPercs=random.gauss(0,1)
 
-        # if NormalApprox==0:
-        #   ServPercs=[0]*k
-        #   for j in range(k):
-        #       ServPercs[j]=random.random()
-        # else:
-        #   ServPercs=random.random()
+        # index 2 is pre-scheduled time (plus pre-tactical delay),
+        # index 3 is latest ETA,
+        # index 4 is the time at which aircraft is released from pool,
+        # index 5 is the time at which aircraft enters service,
+        # index 6 is the travel time (generated in advance),
+        # index 7 is the list of random numbers used for service phase completions,
+        # index 8 is the actual service time s1+Z2 (worked out after class information is known,
+        # index 9 is the actual time that they join the pool (generated in advance)),
+        # index 10 is the passenger weight,
+        # index 11 is an indicator to show whether or not the AC's travel time has already been completed,
+        # index 12 is the weather state at the time of release,
+        # index 13 is the counter (for Perm only),
+        # index 14 is qp (Perm only),
+        # index 15 is predicted total cost at time of release,
+        # index 16 is the actual service completion time,
+        # index 17 is the scheduled departure time,
+        # index 18 is the original pre-scheduled arrival time before adding pre-tactical delay,
+        # index 19 is the flight number
+        Ac_Info[i]=[Status, Ac_class[i], Arr_Ps[i], Arr_Ps[i],
+                    0, 0, 0, ServPercs,
+                    0, 0, pax_weight[i],0, 
+                    1,0,0,0,
+                    0, Dep_Ps[i], Orig_Ps[i], flight_id[i]]
 
-        #print('i: '+str(i)+' TravTime: '+str(TravTime))
-        #Arr_Ps=(1-random.random()*random.random())*(S*t)
-        Ac_Info[i]=[Status,Ac_class[i],Arr_Ps[i],Arr_Ps[i],0,0,0,ServPercs,0,0,pax_weight[i],0,1,0,0,0,0,Dep_Ps[i],Orig_Ps[i],flight_id[i]] #index 2 is pre-scheduled time (plus pre-tactical delay), index 3 is latest ETA, index 4 is the time at which aircraft is released from pool, index 5 is the time at which aircraft enters service, index 6 is the travel time (generated in advance), index 7 is the list of random numbers used for service phase completions, index 8 is the actual service time s1+Z2 (worked out after class information is known, index 9 is the actual time that they join the pool (generated in advance)), index 10 is the passenger weight, index 11 is an indicator to show whether or not the AC's travel time has already been completed, index 12 is the weather state at the time of release, index 13 is the counter (for Perm only), index 14 is qp (Perm only), index 15 is predicted total cost at time of release, index 16 is the actual service completion time, index 17 is the scheduled departure time, index 18 is the original pre-scheduled arrival time before adding pre-tactical delay, index 19 is the flight number
-
-    Ac_Info.sort(key=lambda x: x[2])
+    Ac_Info.sort(key=lambda x: x[2]) # Sort by prescheduled arrival time + pre-tactical delay?
 
     print('*** Generating the ETA trajectory array...')
     Brown_Motion=[[0]*int(S*t*2*100) for _ in range(NoA)]
@@ -441,9 +350,9 @@ while rep<no_reps:
         Dep_time=Ac_Info[i][17]
         Ps_time=Ac_Info[i][2]
         if Dep_time<0:
-            ETA=random.gauss(Ps_time,math.sqrt(0-Dep_time)*wiener_sig) #Update the latest ETAs for ACs that already had their dep time before time zero
+            ETA = random.gauss(Ps_time,math.sqrt(0-Dep_time)*wiener_sig) # Update the latest ETAs for ACs that already had their dep time before time zero
         else:
-            ETA=Ac_Info[i][2] #ETA = pre-scheduled time
+            ETA = Ac_Info[i][2] # ETA = pre-scheduled time
         Brown_Motion[i][0]=ETA
         if 0>=ETA-tau:
             Ac_Info[i][9]=0 #index 9 is actual pool arrival
@@ -453,8 +362,8 @@ while rep<no_reps:
         else:
             chk=0
         while j<S*t*1.5*100:
-            j+=1 #step forward in hundredths of a minute
-            if j>Ac_Info[i][17]: #only update ETA if we've gone beyond the AC's departure time
+            j+=1 # step forward in hundredths of a minute
+            if j > Ac_Info[i][17]: # only update ETA if we've gone beyond the AC's departure time
                 ETA=random.gauss(ETA,0.1*wiener_sig)
             # if i==6:
             #   print('j: '+str(j)+' ETA: '+str(ETA))
@@ -476,15 +385,16 @@ while rep<no_reps:
     stepthrough_logger.info('\n')
 
     print('*** Generating the weather transition array...')
+    # JF Question: I don't understand exactly what is going on below regarding weather
     weather_lb=[0]*(int(S*t*8*100)+1)
     weather_ub=[0]*(int(S*t*8*100)+1)
 
-    #4 possible cases: no bad weather, 30 minutes of bad weather, 60 minutes of bad weather or 120 minutes of bad weather (bad weather is always forecast for the middle of the day)
+    # 4 possible cases: no bad weather, 30 minutes of bad weather, 60 minutes of bad weather or 120 minutes of bad weather (bad weather is always forecast for the middle of the day)
     z=random.random()*4
     #z=0
     if z<1:
-        wlb=0 #120 #Forecast for bad weather start at the beginning of day (can change this to non-zero)
-        wub=0 #180 #Forecast for bad weather end at the beginning of day (can change this to non-zero)
+        wlb=0 # 120 # Forecast for bad weather start at the beginning of day (can change this to non-zero)
+        wub=0 # 180 # Forecast for bad weather end at the beginning of day (can change this to non-zero)
     elif z<2:
         wlb=285
         wub=315 #Note: 300 is 10AM according to the rescaling of time used earlier
@@ -495,8 +405,8 @@ while rep<no_reps:
         wlb=240
         wub=360
 
-    wlb_tm=0 #Actual (randomly generated) time at which bad weather starts; leave this as zero
-    wub_tm=0 #Actual (randomly generated) time at which bad weather ends; leave this as zero
+    wlb_tm=0 # Actual (randomly generated) time at which bad weather starts; leave this as zero
+    wub_tm=0 # Actual (randomly generated) time at which bad weather ends; leave this as zero
     weather_lb[0]=wlb
     weather_ub[0]=wub
     old_lb=wlb
@@ -505,7 +415,7 @@ while rep<no_reps:
     j=0
     while j<S*t*2*100:
         j+=1
-        new_lb=random.gauss(old_lb,0.1*weather_sig) #random.gauss(old_lb,0.01)
+        new_lb=random.gauss(old_lb,0.1*weather_sig) # random.gauss(old_lb,0.01)
         new_ub=random.gauss(old_ub,0.1*weather_sig)
         if new_lb>new_ub:
             new_ub=new_lb
@@ -747,11 +657,6 @@ while rep<no_reps:
                 if GA_counter>=GA_LoopSize or pruned==1: #or max_d<0.01:
                     #print('tm: '+str(tm)+' Best sequence is '+str(GA_Info[0][0])+' Estimated cost is '+str(GA_Info[0][2]))
                     #print('tm: '+str(tm)+' GA_counter: '+str(GA_counter)+', Repop')
-                    # if SubPolicy=='GA' or SubPolicy=='GAD':
-                    #   GA_PopList,GA_Info,Repop_elap,Tabu_List,Opt_Seq,OptCost,Opt_List=Repopulate(GA_PopList,GA_Info,Arr_Pool,Arr_NotReady,GA_PopSize,Tabu_List,Tabu_Size,Opt_Seq,OptCost,Opt_List,Opt_Size,stepthrough, step_summ, step_new)
-                    # else:
-                    # if tm>=0 and int(tm*100)!=int(old_tm*100):
-                    #   rr.write('Repopulate_VNS'+',')
                     Loop_Nums+=1
                     #print('Loop_Nums: '+str(Loop_Nums))
                     Loop_Evals+=GA_counter
@@ -783,7 +688,7 @@ while rep<no_reps:
                 #print('soln_evals_tot: '+str(soln_evals_tot))
                 # if tm>=0 and int(tm*100)!=int(old_tm*100):
                 #   rr.write('Genetic'+',')
-                Ac_added,counter,qp,max_d,pruned,GA_CheckSize,GA_counter,soln_evals_tot,soln_evals_num=Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,max(tm,0),NoA,k,prev_class,GA_PopList,GA_Info,GA_LoopSize,GA_CheckSize,GA_counter,tot_arr_cost+tot_dep_cost,wlb,wub,Opt_List,max_d,soln_evals_tot,soln_evals_num,gamma_cdf,norm_cdf,norm_approx_min, tau, Max_LookAhead, Time_Sep, thres1, thres2, lam1, lam2, GA_Check_Increment, Opt_Size, w_rho, stepthrough)
+                Ac_added,counter,qp,max_d,pruned,GA_CheckSize,GA_counter,soln_evals_tot,soln_evals_num=Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,max(tm,0),NoA,k,prev_class,GA_PopList,GA_Info,GA_LoopSize,GA_CheckSize,GA_counter,tot_arr_cost+tot_dep_cost,wlb,wub,Opt_List,max_d,soln_evals_tot,soln_evals_num,gamma_cdf,norm_cdf,norm_approx_min, tau, Max_LookAhead, Time_Sep, thres1, thres2, lam1, lam2, GA_Check_Increment, Opt_Size, w_rho, stepthrough, wiener_sig, weather_sig)
                 Ov_GA_counter+=1
                 #GA_counter+=1
                 stepthrough_logger.info('GA_counter is '+','+str(GA_counter)+'\n')
@@ -872,11 +777,11 @@ while rep<no_reps:
 
     ArrTime_Sorted.sort(key=lambda x: x[0])
 
-    posthoc_cost=Posthoc_Check(Left_queue,Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm,0, NoA, NormalApprox, w_rho, k, Time_Sep, thres1, thres2, lam1, lam2)
+    posthoc_cost = Posthoc_Check(Left_queue,Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm,0, NoA, NormalApprox, w_rho, k, Time_Sep, thres1, thres2, lam1, lam2)
     gg.write('Posthoc Check'+','+str(posthoc_cost)+',')
 
     for i in range(NoA):
-        g.write(str(i)+','+str(pred_serv[i])+','+str(Ac_finished[i])+'\n')
+        g.write(str(i)+','+','+str(Ac_finished[i])+'\n')
 
     #h.write(str(rep)+','+str(tot_arr_cost+tot_dep_cost)+'\n')
 
@@ -1042,17 +947,3 @@ g.close()
 gg.close()
 
 f1.close()
-#f2.close()
-
-#rr.close()
-
-#f5.close()
-
-# if stepthrough==1:
-#     st.close()
-# if step_summ==1:
-#     st2.close()
-# if step_new==1:
-#     st3.close()
-
-st4.close()

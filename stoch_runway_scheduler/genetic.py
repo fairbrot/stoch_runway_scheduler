@@ -10,7 +10,7 @@ from .utils import weather, getcost, Normal_GetServ, Normal_GetServ_Future, Norm
 from .gamma import Gamma_GetServ, Gamma_GetServ_Future, Gamma_Conditional_GetServ
 
 # JF: this is the main sim heuristic
-def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_class,GA_PopList,GA_Info,GA_LoopSize,GA_CheckSize,GA_counter,basecost,wlb,wub,Opt_List,max_d,soln_evals_tot,soln_evals_num,gamma_cdf,norm_cdf,norm_approx_min: float, tau: int, Max_LookAhead: int, Time_Sep: List[List[int]], thres1: int, thres2: int, lam1: float, lam2: float, GA_Check_Increment: int, Opt_Size: int, w_rho: float, stepthrough: int):
+def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_class,GA_PopList,GA_Info,GA_LoopSize,GA_CheckSize,GA_counter,basecost,wlb,wub,Opt_List,max_d,soln_evals_tot,soln_evals_num,gamma_cdf,norm_cdf,norm_approx_min: float, tau: int, Max_LookAhead: int, Time_Sep: List[List[int]], thres1: int, thres2: int, lam1: float, lam2: float, GA_Check_Increment: int, Opt_Size: int, w_rho: float, stepthrough: int, wiener_sig: float, weather_sig: float):
     # if len(Arr_Pool)+len(Ac_queue)>0:
     # 	print('Genetic')
     stepthrough_logger = logging.getLogger("stepthrough")
@@ -195,7 +195,7 @@ def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_clas
                 else:
                     trav_time=np.random.wald(sched,(sched/wiener_sig)**2)
 
-            queue_complete,straight_into_service=Gamma_Conditional_GetServ(k, Time_Sep, trav_time,rel_time,sv_time,prev_class,cur_class,tm,weather_state,w_rho)
+            queue_complete,straight_into_service=Gamma_Conditional_GetServ(k, Time_Sep, trav_time,rel_time,sv_time,prev_class,cur_class,tm,weather_state, gamma_cdf, w_rho)
             basecost+=getcost(Ac_Infoi[18],Ac_Infoi[9],trav_time,queue_complete,Ac_Infoi[10],thres1,thres2, lam1, lam2)
             perm_prev_class=cur_class
 
@@ -300,7 +300,7 @@ def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_clas
 
         #print('GA_Info: '+str(GA_Info))
 
-        no_ACs=min(Max_LookAhead,len(perm)) #min(AC_List_Length,len(Arr_Pool)+len(Arr_NotReady))
+        no_ACs=min(Max_LookAhead,len(perm))
         for index in range(no_ACs):
 
             #index=perm[i]
@@ -381,7 +381,7 @@ def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_clas
         #print('GA_Info: '+str(GA_Info))
 
         #print('Opt_List: '+str(Opt_List))
-        no_ACs=min(Max_LookAhead,len(perm)) #min(AC_List_Length,len(Arr_Pool)+len(Arr_NotReady))
+        no_ACs=min(Max_LookAhead,len(perm))
         for index in range(no_ACs):
 
             #index=perm[i]
