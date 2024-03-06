@@ -1,5 +1,5 @@
-#This is set up to run numerical experiments with a preset value of wiener_sig (also used as the weather variance parameter) and randomly-
-#-generated values of k, thres1, pax weights, start & end times for bad weather (& need to also include random lam1 & lam2)
+# This is set up to run numerical experiments with a preset value of wiener_sig (also used as the weather variance parameter) and randomly-
+# -generated values of k, thres1, pax weights, start & end times for bad weather (& need to also include random lam1 & lam2)
 
 from __future__ import print_function, division
 import math
@@ -10,7 +10,6 @@ import time
 import os
 
 import numpy as np 
-import scipy as sc
 
 from stoch_runway_scheduler import weather, Genetic, Genetic_determ, Populate, Repopulate_VNS, sample_cond_gamma, getcost, Annealing_Cost, Perm_Heur, Perm_Heur_New, Calculate_FCFS, sample_gamma, gamma_create_cdf, norm_create_cdf, Posthoc_Check, Update_Stats, Update_ETAs, Serv_Completions
 
@@ -64,7 +63,7 @@ if Use_VNSD==1:
 # if Use_FCFS==1:
 #   Policies.append('FCFS')
 
-max_FCFS = NoA #int(NoA/2)
+max_FCFS = NoA # int(NoA/2)
 conv_factor = 1 # no. of seconds in a minute for conversion purposes
 norm_approx_min = 100 #100 - Erlang can be approximated well for large k by Normal
 Max_LookAhead = 15 #NoA # This is the length of a sequence, equivalent to parameter l in paper  - in paper this is 15
@@ -124,9 +123,9 @@ Arr_Ps=[0]*NoA #this stores the adjusted scheduled times for aircraft after appl
 # Not needed anymore because we do not consider departures
 # JF Question: still seems to be updated in some places - can we safely remove this?
 Dep_Ps=[0]*NoA 
-Orig_Ps=[0]*NoA #original pre-scheduled times of aircraft, before applying the pre-tactical delay
-flight_id=[0]*NoA #stores the aircraft flight numbers, for identification purposes
-pax_weight=[0]*NoA #stores the randomly-generated cost weightings for aircraft, based on (hypothetical) numbers of passengers carried; written as g_i in the paper (see objective function (13))
+Orig_Ps=[0]*NoA # original pre-scheduled times of aircraft, before applying the pre-tactical delay
+flight_id=[0]*NoA # stores the aircraft flight numbers, for identification purposes
+pax_weight=[0]*NoA # stores the randomly-generated cost weightings for aircraft, based on (hypothetical) numbers of passengers carried; written as g_i in the paper (see objective function (13))
 
 no_reps=10000 #total number of random scenarios that we will simulate; in each scenario we evaluate the performances of different algorithms such as SimHeur, DetHeur, FCFS
 
@@ -235,45 +234,16 @@ while rep < no_reps:
     elif SubPolicy=='GAD' or SubPolicy=='VNSD':
         GA_LoopSize=1
 
-    #random.seed(100)
-    #p=rep/no_reps
-
-    # #Randomly generate the Erlang service time parameter
-    # z=int(random.random()*5)+1
-    # z*=0.05 #z is either 0.05, 0.1, 0.15, 0.2 or 0.25; this corresponds to the coefficient of variation for service times
-    # k=int(1/(z**2))
+    # Randomly generate the Erlang service time parameter
 
     # JF Question: what is k, and why is it randomly generated for each run?
-    z=random.random()*5 #*5
-    if z<1:
-        k=16
-    elif z<2:
-        k=25
-    elif z<3:
-        k=44
-    elif z<4:
-        k=100
-    else:
-        k=400
-
-    #k=50
-
+    k = random.choice([16, 25, 44, 100, 400])
     print('k: '+str(k))
 
     # JF Question: what are lam1 and lam2, and why are they randomly generated for each run?
-    #Randomly generate lam1 and lam2
-    z=random.random()*5 #*5
-    if z<1:
-        lam1=0.1
-    elif z<2:
-        lam1=0.3
-    elif z<3:
-        lam1=0.5
-    elif z<4:
-        lam1=0.7
-    else:
-        lam1=0.9
-
+    # Randomly generate lam1 and lam2 - not actually random currently
+    
+    # lam1 = random.choice([0.1, 0.3, 0.5, 0.7, 0.9])     # Random lam1
     lam1=0.1
     lam2=1-lam1
 
@@ -281,12 +251,8 @@ while rep < no_reps:
 
     #Randomly generate thres1
     # JF Question: what are thres1 and thres2, and why are they randomly generated for each run?
-    z=random.random()
-    if z<0.5:
-        thres1=0
-    else:
-        thres1=15
-    thres2=0
+    thres1 = random.choice([0,15])
+    thres2 = 0
 
     if k >= norm_approx_min:
         NormalApprox=1
@@ -389,21 +355,10 @@ while rep < no_reps:
     weather_lb=[0]*(int(S*t*8*100)+1)
     weather_ub=[0]*(int(S*t*8*100)+1)
 
-    # 4 possible cases: no bad weather, 30 minutes of bad weather, 60 minutes of bad weather or 120 minutes of bad weather (bad weather is always forecast for the middle of the day)
-    z=random.random()*4
-    #z=0
-    if z<1:
-        wlb=0 # 120 # Forecast for bad weather start at the beginning of day (can change this to non-zero)
-        wub=0 # 180 # Forecast for bad weather end at the beginning of day (can change this to non-zero)
-    elif z<2:
-        wlb=285
-        wub=315 #Note: 300 is 10AM according to the rescaling of time used earlier
-    elif z<3:
-        wlb=270
-        wub=330
-    else:
-        wlb=240
-        wub=360
+    # 4 possible cases: no bad weather, 30 minutes of bad weather, 60 minutes of bad weather or 120 minutes of bad weather 
+    # (bad weather is always forecast for the middle of the day)
+    # E.g. 300 is 10AM according to the rescaling of time used earlier
+    wlb, wub = random.choice([(0,0), (285, 315), (270, 330), (240, 360)])
 
     wlb_tm=0 # Actual (randomly generated) time at which bad weather starts; leave this as zero
     wub_tm=0 # Actual (randomly generated) time at which bad weather ends; leave this as zero
