@@ -4,7 +4,6 @@ import random
 import math
 import time
 import numpy as np 
-import scipy as sc 
 
 from .utils import weather, getcost, Normal_GetServ, Normal_GetServ_Future, Normal_Conditional_GetServ
 from .gamma import Gamma_GetServ, Gamma_GetServ_Future, Gamma_Conditional_GetServ
