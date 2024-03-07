@@ -463,13 +463,6 @@ while rep < no_reps:
     soln_evals_num=0
     tot_mut=0
 
-    # elap_tot=0
-    # elap_num=0
-    # Repop_elap_tot=0
-    # Repop_elap_num=0
-    # Pop_elap_tot=0
-    # Pop_elap_num=0
-
     tot_arr_cost=0
     tot_dep_cost=0
 
@@ -507,25 +500,12 @@ while rep < no_reps:
 
     while totserv<NoA:
 
-        # if tm>=10:
-        #   stepthrough=0
-
-        #print('tm: '+str(tm))
-
-        #print('tm: '+str(tm)+' Best sequence is '+str(GA_Info[0][0])+' Estimated cost is '+str(GA_Info[0][2]))
-
-        # latest_timer=time.time()
-
         stepthrough_logger.info('tm is '+','+str(tm)+'\n')
         stepthrough_logger.info('Arr_NotReady is '+','+str(Arr_NotReady)+'\n')
         stepthrough_logger.info('Arr_Pool is '+','+str(Arr_Pool)+'\n')
         stepthrough_logger.info('Ac_queue is '+','+str(Ac_queue)+'\n')
         stepthrough_logger.info('Left_queue is '+','+str(Left_queue)+'\n')
         stepthrough_logger.info('Ac_added is '+','+str(Ac_added)+'\n'+'\n')
-
-        # if SubPolicy=='GAD' and tm>28.5:
-        #   GA_Info.sort(key=lambda x: x[2])
-        #   print('Time: '+str(tm)+' Opt sequence: '+str(GA_Info[0][0]))
 
         if tm>=0 and len(Ac_added)>0 and Ac_added[0] in Arr_Pool:
             if SubPolicy in ('GA','GAD','VNS','VNSD'):
@@ -552,8 +532,6 @@ while rep < no_reps:
                     if SubPolicy=='SA':
                         Anneal_Seq.remove(AC)
                     Ac_queue.append(AC)
-                    # if SubPolicy=='GAD':
-                    #   f.write('AC '+str(AC)+' added to queue, Ac_queue is '+str(Ac_queue)+', stored_queue_complete is '+str(stored_queue_complete)+'\n')
                     if SubPolicy=='Perm':
                         continue #print('Added AC '+str(AC)+' to the queue, counter is '+str(counter)+', LPLL is '+str(len(Long_Perm_List))+', qp is '+str(qp))
                     elif SubPolicy in ('GA','GAD','VNS','VNSD'):
@@ -573,17 +551,11 @@ while rep < no_reps:
                     break
 
             if SubPolicy in ('GA','GAD','VNS','VNSD'):
-                # if tm>=0 and int(tm*100)!=int(old_tm*100):
-                #   rr.write('Populate'+',')
                 GA_PopList,GA_Info=Populate(Ac_Info, base_seq,Arr_Pool,Arr_NotReady,GA_PopSize,Max_LookAhead,stepthrough, step_summ, step_new)
                 queue_probs=[0]*(len(Arr_Pool)+len(Arr_NotReady))
-                # Pop_elap_tot+=Pop_elap 
-                # Pop_elap_num+=1
 
                 Opt_List=[]
                 Opt_Seqs=[]
-                # Opt_List.append([base_seq[:],0,0,queue_probs,0])
-                # Opt_Seqs.append(base_seq[:])
                 c=0
                 while len(Opt_List)<Opt_Size and c<25:
                     new_seq=base_seq[:]
@@ -594,9 +566,6 @@ while rep < no_reps:
                         c=0
                     else:
                         c+=1
-
-                # Opt_List=[]
-                # Opt_List.append([base_seq[:],0,0,queue_probs,0])
                 GA_counter=0
                 GA_CheckSize=GA_Check_Increment
             else:
@@ -621,58 +590,33 @@ while rep < no_reps:
                     mv_time=1
                     if SubPolicy=='GA':
                         max_d=1
-                    # Repop_elap_tot+=Repop_elap
-                    # Repop_elap_num+=1
             else:
                 mv_time=1
         else:
             Repop_elap=0
 
-        #First, get the AC List
+        # First, get the AC List
 
         if tm>=0 and tm<=wub_tm and int(tm*100)!=int(old_tm*100):
             #Permute and update the weather
             wlb=weather_lb[int(tm*100)] #random.gauss(wlb,0.05)
             wub=weather_ub[int(tm*100)]
-            #rr.write('\n'+str(SubPolicy)+','+str(tm)+','+str(time.time()-begin_time)+',')
 
         if len(Arr_Pool)+len(Arr_NotReady)>0:
-            # if SubPolicy=='FCFS':
-            #   Ac_added,elap=FCFS_rule(Ac_Info,Arr_Pool,Dep_Pool)
             if SubPolicy=='VNS':
-                #print('soln_evals_tot: '+str(soln_evals_tot))
-                # if tm>=0 and int(tm*100)!=int(old_tm*100):
-                #   rr.write('Genetic'+',')
                 Ac_added,counter,qp,max_d,pruned,GA_CheckSize,GA_counter,soln_evals_tot,soln_evals_num=Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,max(tm,0),NoA,k,prev_class,GA_PopList,GA_Info,GA_LoopSize,GA_CheckSize,GA_counter,tot_arr_cost+tot_dep_cost,wlb,wub,Opt_List,max_d,soln_evals_tot,soln_evals_num,gamma_cdf,norm_cdf,norm_approx_min, tau, Max_LookAhead, Time_Sep, thres1, thres2, lam1, lam2, GA_Check_Increment, Opt_Size, w_rho, stepthrough, wiener_sig, weather_sig)
                 Ov_GA_counter+=1
-                #GA_counter+=1
                 stepthrough_logger.info('GA_counter is '+','+str(GA_counter)+'\n')
-                #Tabu_List.sort(key=lambda x: x[2])
-                #print('tm: '+str(tm)+' Opt_Seq: '+str(Tabu_List[0][0])+' Cost: '+str(Tabu_List[0][2]))
-                #print('tm: '+str(tm)+' Opt_Seq: '+str(Opt_Seq)+' Cost: '+str(OptCost))
             elif SubPolicy=='VNSD':
                 Ac_added,counter,qp,stored_queue_complete=Genetic_determ(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,max(tm,0),NoA,k,prev_class,GA_PopList,GA_Info,wlb,wub,Opt_List, norm_approx_min, tau, Max_LookAhead, Time_Sep, thres1, thres2, lam1, lam2, tot_arr_cost, tot_dep_cost, w_rho, stepthrough, step_summ, step_new)
                 Ov_GA_counter+=1
                 GA_counter+=1
                 stepthrough_logger.info('GA_counter is '+','+str(GA_counter)+'\n')
-                #Tabu_List.sort(key=lambda x: x[2])
-                #print('tm: '+str(tm)+' Opt_Seq: '+str(Tabu_List[0][0])+' Cost: '+str(Tabu_List[0][2]))
-                #print('tm: '+str(tm)+' Opt_Seq: '+str(Opt_Seq)+' Cost: '+str(OptCost))
-            # elap_tot+=elap
-            # elap_num+=1
-            #st4.write(str(tm)+','+str(elap)+'\n')
 
         else:
             Ac_added,elap,counter,qp=[],0.1,0,0
 
-        # if len(Arr_Pool)+len(Arr_NotReady)==18:
-        #   print('tm: '+str(tm)+' Arr_Pool: '+str(Arr_Pool)+' Opt seq: '+str(GA_Info[0][0])+' Ac_added: '+str(Ac_added)+' counter: '+str(counter)+' qp: '+str(qp))
-
         latest_time=(time.time()-initial_time)/conv_factor
-
-        # if tm>=0:
-
-        #start_update_time=time.time()
 
         if int(tm*100)!=int(old_tm*100):
             Update_ETAs(Ac_Info,Arr_NotReady,Dep_NotReady,Ac_queue,tm,Brown_Motion, Arr_Pool, tau)
@@ -682,35 +626,8 @@ while rep < no_reps:
             tot_arr_cost+=arr_cost
             tot_dep_cost+=dep_cost
 
-        #update_elap=(time.time()-start_update_time)/conv_factor
-
-        # else:
-
-        #   update_elap=0
-
-        # print('update_elap: '+str(update_elap)+' other elap: '+str(Repop_elap+Pop_elap+elap))
-        # if update_elap>Repop_elap+Pop_elap+elap:
-        #   print('=========================>>>>>>>>>>>>>>>>>>>>>>>>>>> update_elap won')
-
-        # if int(tm*100)!=int(old_tm*100):
-        #   print(str(SubPolicy)+' tm: '+str(tm)+' elap: '+str(elap))
-
         old_tm=tm
         tm=latest_time
-
-        #tm+=max(elap+Repop_elap+Pop_elap,0.00001) #max(Repop_elap+Pop_elap+elap,0.00001)
-        #tm+=0.01
-        #tm+=Repop_elap+Pop_elap+elap
-        # if SubPolicy=='FCFS' or SubPolicy=='CLS':
-        #   tm+=0.001
-        # elif len(Arr_Pool)+len(Arr_NotReady)>0:
-        #   #tm+=((time.time()-latest_timer)/conv_factor)
-        #   if mv_time==1:
-        #       mv_time=0
-        #       #print('tm: '+str(tm)+' Ov_GA_counter: '+str(Ov_GA_counter))
-        #       tm+=0.01
-        # else:
-        #   tm=min(next_completion_time,tm+0.01)
 
     print('Final cost is '+str(tot_arr_cost+tot_dep_cost))
     gg.write(str(SubPolicy)+','+str(tot_arr_cost+tot_dep_cost)+',')
@@ -738,14 +655,12 @@ while rep < no_reps:
     for i in range(NoA):
         g.write(str(i)+','+','+str(Ac_finished[i])+'\n')
 
-    #h.write(str(rep)+','+str(tot_arr_cost+tot_dep_cost)+'\n')
-
     print('Done!')
 
     policy_index+=1
     if policy_index==len(Policies):
 
-        #Do Perm Heuristic
+        # Do Perm Heuristic
 
         ArrTime=[0]*NoA
         ArrTime_Sorted=[0]*NoA
@@ -766,139 +681,15 @@ while rep < no_reps:
         perm_heur_cost,AC_Used=Perm_Heur_New(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,pool_max,list_min,wlb_tm,wub_tm, NoA, NormalApprox, w_rho, k, Time_Sep, thres1, thres2, lam1, lam2)
         gg.write('New Perm Heuristic'+','+str(perm_heur_cost)+',')
 
-        # #Do GA Heuristic
-        # print('Starting GA Heuristic...')
-
-        # ArrTime=[0]*NoA
-        # ArrTime_Sorted=[0]*NoA
-        # ServTime=[0]*NoA
-        # for i in range(NoA):
-        #   ArrTime[i]=[Ac_Info[i][9],i]
-        #   ArrTime_Sorted[i]=[Ac_Info[i][9],i]
-        #   ServTime[i]=Ac_Info[i][7]
-
-        # ArrTime_Sorted.sort(key=lambda x: x[0])
-
-        # GA_heur_cost,iter_no=GA_Heur(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,GA_PopSize,wlb_tm,wub_tm)
-
-        # gg.write('GA Heuristic'+','+str(GA_heur_cost)+','+str(iter_no)+',')
-
-        # #Do GA Heuristic (Crossover)
-        # print('Starting GA Heuristic Crossover...')
-
-        # ArrTime=[0]*NoA
-        # ArrTime_Sorted=[0]*NoA
-        # ServTime=[0]*NoA
-        # for i in range(NoA):
-        #   ArrTime[i]=[Ac_Info[i][9],i]
-        #   ArrTime_Sorted[i]=[Ac_Info[i][9],i]
-        #   ServTime[i]=Ac_Info[i][7]
-
-        # ArrTime_Sorted.sort(key=lambda x: x[0])
-
-        # GA_heur_cost,iter_no=GA_Heur_Crossover(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,GA_PopSize,wlb_tm,wub_tm)
-
-        # gg.write('GA Heuristic Crossover'+','+str(GA_heur_cost)+','+str(iter_no)+',')
-
-        # #Do ILS Heuristic
-        # print('Starting ILS Heuristic...') #iterated local search
-
-        # ArrTime=[0]*NoA
-        # ArrTime_Sorted=[0]*NoA
-        # ServTime=[0]*NoA
-        # for i in range(NoA):
-        #   ArrTime[i]=[Ac_Info[i][9],i]
-        #   ArrTime_Sorted[i]=[Ac_Info[i][9],i]
-        #   ServTime[i]=Ac_Info[i][7]
-
-        # ArrTime_Sorted.sort(key=lambda x: x[0])
-
-        # ILS_heur_cost,iter_no=ILS(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm)
-
-        # gg.write('ILS Heuristic'+','+str(ILS_heur_cost)+','+str(iter_no)+',')
-
-        # print('Starting VNS Heuristic...') #variable neighbourhood iterated local search
-
-        # ArrTime=[0]*NoA
-        # ArrTime_Sorted=[0]*NoA
-        # ServTime=[0]*NoA
-        # for i in range(NoA):
-        #   ArrTime[i]=[Ac_Info[i][9],i]
-        #   ArrTime_Sorted[i]=[Ac_Info[i][9],i]
-        #   ServTime[i]=Ac_Info[i][7]
-
-        # ArrTime_Sorted.sort(key=lambda x: x[0])
-
-        # VNS_heur_cost,iter_no=VNS(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm)
-
-        # gg.write('VNS Heuristic'+','+str(VNS_heur_cost)+','+str(iter_no)+',')
-
-        # #Do SA Heuristic
-        # print('Starting SA Heuristic...')
-
-        # ArrTime=[0]*NoA
-        # ArrTime_Sorted=[0]*NoA
-        # ServTime=[0]*NoA
-        # for i in range(NoA):
-        #   ArrTime[i]=[Ac_Info[i][9],i]
-        #   ArrTime_Sorted[i]=[Ac_Info[i][9],i]
-        #   ServTime[i]=Ac_Info[i][7]
-
-        # ArrTime_Sorted.sort(key=lambda x: x[0])
-
-        # SA_heur_cost,iter_no=SA_Heur(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm)
-
-        # gg.write('SA Heuristic'+','+str(SA_heur_cost)+','+str(iter_no)+',')
-
-        # if 1==1: #Max_LookAhead==NoA:
-
-        #   #Do Tabu Heuristic
-        #   print('Starting Tabu Heuristic...')
-
-        #   ArrTime=[0]*NoA
-        #   ArrTime_Sorted=[0]*NoA
-        #   ServTime=[0]*NoA
-        #   for i in range(NoA):
-        #       ArrTime[i]=[Ac_Info[i][9],i]
-        #       ArrTime_Sorted[i]=[Ac_Info[i][9],i]
-        #       ServTime[i]=Ac_Info[i][7]
-
-        #   ArrTime_Sorted.sort(key=lambda x: x[0])
-
-        #   Tabu_heur_cost,iter_no=Tabu(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm)
-
-        #   gg.write('Tabu Heuristic'+','+str(Tabu_heur_cost)+','+str(iter_no)+',')
-
         gg.write('\n')
         gg.flush()
 
         policy_index=0
 
-        # if Max_LookAhead==NoA:
-        #   Max_LookAhead=30
-        # else:
-        #   Max_LookAhead=NoA
-        #   rep+=1
-
-        # if rep<49:
-        #   rep+=1
-        # else:
-        #   conv_factor+=0.5
-        #   rep=0
-
-        # if wiener_sig<0.9:
-        #   wiener_sig+=0.2
-        # else:
-        #   wiener_sig=0.1
-
         rep+=1
 
-# print('Outputting Ac_Info array')
-# print(str(Ac_Info))
 
 f.close()
 g.close()
-#h.close()
 gg.close()
-
 f1.close()
