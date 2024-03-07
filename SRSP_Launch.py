@@ -5,17 +5,18 @@ from __future__ import print_function, division
 import math
 import logging
 import random
-import csv
 import time
 import os
 
 import numpy as np 
 
-from stoch_runway_scheduler import weather, Genetic, Genetic_determ, Populate, Repopulate_VNS, sample_cond_gamma, getcost, Annealing_Cost, Perm_Heur, Perm_Heur_New, Calculate_FCFS, sample_gamma, gamma_create_cdf, norm_create_cdf, Posthoc_Check, Update_Stats, Update_ETAs, Serv_Completions
+from stoch_runway_scheduler import read_flight_data, sample_pretac_delay, weather, Genetic, Genetic_determ, Populate, Repopulate_VNS, sample_cond_gamma, getcost, Annealing_Cost, Perm_Heur, Perm_Heur_New, Calculate_FCFS, sample_gamma, gamma_create_cdf, norm_create_cdf, Posthoc_Check, Update_Stats, Update_ETAs, Serv_Completions
 
 #################
 # CONIFIGUATION #
 #################
+
+no_reps = 10000 # total number of random scenarios that we will simulate; in each scenario we evaluate the performances of different algorithms such as SimHeur, DetHeur, FCFS
 
 #-----------------#
 # Problem Options #
@@ -23,6 +24,7 @@ from stoch_runway_scheduler import weather, Genetic, Genetic_determ, Populate, R
 
 DATA_DIR = '/home/jamie/Insync/fairbrot@lancaster.ac.uk/OneDrive Biz - Shared/SRSP data files'
 
+# JF: should remove this when we can as NoA is set after reading data file
 NoA = 700 # number of aircraft - temporary value which will get changed later
 S = 40 # number of time slots (Rob not sure whether this is needed)
 
@@ -63,6 +65,7 @@ if Use_VNSD == 1:
 # if Use_FCFS==1:
 #   Policies.append('FCFS')
 
+# JF Question: what is this? Would be good to avoid setting it to NoA before data has been read
 max_FCFS = NoA # int(NoA/2)
 conv_factor = 1 # no. of seconds in a minute for conversion purposes
 norm_approx_min = 100 # 100 - Erlang can be approximated well for large k by Normal
@@ -110,24 +113,14 @@ f.write('Policy'+',''Rep'+','+'AC'+','+'Flight Num'+','+'Prev Class'+','+'Cur Cl
 ##################
 
 Ov_GA_counter = 0 # only used for stepthrough purposes; to do with counting how many times the 'Genetic' function has been called
-VNS_counter=0 #this counts how many non-improving heuristic moves we've made since the last reset
-tot_mut=0 #counts how many total mutations we've made; really just for output purposes
+VNS_counter = 0 #this counts how many non-improving heuristic moves we've made since the last reset
+tot_mut = 0 #counts how many total mutations we've made; really just for output purposes
 
 # Presumably indicates for each aircraft whether it has landed yet
 # 'finished' means aircraft has completed landing, i.e. service time has finished
-Ac_finished=[0]*NoA 
-
-Ac_Info = [0]*NoA # this will be a multi-dimensional list storing lots of information about each aircraft; see later
-Ac_class = [0]*NoA # this will store the weight class for each aircraft
-Arr_Ps = [0]*NoA #this stores the adjusted scheduled times for aircraft after applying the random pre-tactical delay
-# Not needed anymore because we do not consider departures
-# JF Question: still seems to be updated in some places - can we safely remove this?
-Dep_Ps = [0]*NoA 
-Orig_Ps = [0]*NoA # original pre-scheduled times of aircraft, before applying the pre-tactical delay
-flight_id = [0]*NoA # stores the aircraft flight numbers, for identification purposes
+Ac_finished = [0]*NoA
+Ac_Info = [0]*NoA 
 pax_weight = [0]*NoA # stores the randomly-generated cost weightings for aircraft, based on (hypothetical) numbers of passengers carried; written as g_i in the paper (see objective function (13))
-
-no_reps = 10000 #total number of random scenarios that we will simulate; in each scenario we evaluate the performances of different algorithms such as SimHeur, DetHeur, FCFS
 
 # if Policy=='Alternate':
 #   SubPolicy='Perm'
@@ -143,75 +136,19 @@ while rep < no_reps:
 
     repn = rep # int(rep/100+1)
     random.seed(repn*100) #set the random seed for generating random parameter values; seed in set according to the replication (scenario) number
-
     #Import the flight data
     print('*** Importing the flight data...')
-    #When reading in the flight data from the data file we only want to include flights with a pre-scheduled time between 6AM (360 mins) and 2PM (840 mins), including 6AM but not including 2PM
-
-
-    AC = 0 #counts how many flights have been read in so far
-    #earliest_ps_time=0
+    flight_id, Ac_class, Orig_Ps, Dep_Ps, Alpha_Ps, Beta_Ps, late_means = read_flight_data(DATA_DIR + '/flight_pretac_data.csv', 
+                                                                                            min_ps_time, max_ps_time, wiener_sig)
+    pretac_delays = [sample_pretac_delay(a, b, ps_t, hi, l_mn) for (a, b, ps_t, hi, l_mn) in zip(Alpha_Ps, Beta_Ps, Orig_Ps, Dep_Ps, late_means)]
+    # this stores the adjusted scheduled times for aircraft after applying the random pre-tactical delay
+    Arr_Ps = [orig_ps + pretac_d for (orig_ps, pretac_d) in zip(Orig_Ps, pretac_delays)]
 
     #---------------------------------------------------------#
     # Read flight data file and initialise pretactical delays #
     #---------------------------------------------------------#
-    with open(os.path.join(DATA_DIR, 'flight_pretac_data.csv'), 'r') as csvfile: # data file includes the on-time performance data such as means, variance of lateness based on 1 year of historical info from FlightRadar [DON'T CHANGE THIS FILE]
-        datareader = csv.reader(csvfile, delimiter=',', quotechar='|')
-        inputdata = list(datareader)
-        for i in range(1,688): # start from 1 because there's a title row
-            ps_time = float(inputdata[i][1]) # pre-scheduled time
-            # ft_time=float(inputdata[i][5])
-            # if i==0 or ps_time<earliest_ps_time:
-            #   earlest_ps_time=ps_time
-            if ps_time >= min_ps_time and ps_time < max_ps_time:
-
-                arr_time = int(inputdata[i][1]) # initially we set this equal to the pre-scheduled time but it will get adjusted later by applying a random pre-tactical delay
-                dep_time = int(inputdata[i][4]) # departure time from the origin airport
-                flight_name = str(inputdata[i][3]) # flight number
-                # scheduled flight time, i.e. difference between scheduled departure and arrival time
-                # JF Question: I don't understand what you mean by this
-                sched_time = int(inputdata[i][5]) 
-                lateness_mn = float(inputdata[i][6]) # mean lateness based on historical data
-                lateness_var = float(inputdata[i][7]) # variance of lateness based on historical data
-
-                Ac_class[AC] = int(inputdata[i][2]) # weight class
-                Orig_Ps[AC] = arr_time # original pre-scheduled time (as opposed to scheduled time following pre-tactical delay)
-
-                # The equations for xi_bar, si2, h_i, alpha and beta below are for calculating the parameters of the gamma distribution 
-                # used for the pre-tactical delay. Details of this method are in Section 4 of the paper.
-                xibar = arr_time + lateness_mn
-                si2 = lateness_var
-                h_i = dep_time - 15 # JF Question: this 15 probably shouldn't be hard-coded - I think this is q_i in the paper?
-
-                alpha = ((xibar-h_i)**2)/(si2-(wiener_sig**2)*(xibar-h_i))
-                beta = (xibar-h_i)/(si2-(wiener_sig**2)*(xibar-h_i))
-
-                if alpha > 0 and beta > 0:
-                    pretac_delay = sample_gamma(alpha, 1/beta) - (arr_time - h_i) # Here we sample from a gamma distribution to get the pre-tactical delay for the flight under consideration.
-                else:
-                    # In this case the pre-tactical delay is set equal to the average lateness rather than being sampled randomly.
-                    # JF Question: why is this case needed?
-                    pretac_delay = lateness_mn
-
-                Arr_Ps[AC] = arr_time + pretac_delay # Stores the initial ETA of the current aircraft, after adjustment based on pre-tactical delay
-                Dep_Ps[AC] = h_i # This is actually 15 (q_i) minutes before the flight's scheduled departure time, 
-                                 # and indicates the point at which we assume the ETA starts varying according to 
-                                 # Brownian motion (see paper Section 2)
-                flight_id[AC] = flight_name #Store the flight number
-
-                AC+=1
-            elif ps_time >= max_ps_time: # Indicates that we have got to the end of the set of flights scheduled to arrive by 2PM
-                break
-
-    print('No. of ACs: '+str(AC))
-    NoA = AC
-    #NoA=8
-
-
-    for i in range(NoA): # HERE WE RE-SCALE TIME SO THAT TIME '6AM' IS COUNTED AS TIME (ZERO+60). WE START SIMULATING FROM TIME ZERO, I.E. AN HOUR BEFORE 6AM.
-        Arr_Ps[i] += -min_ps_time+60
-        Dep_Ps[i] += -min_ps_time+60
-        Orig_Ps[i] += -min_ps_time+60
+    NoA = len(flight_id)
+    print('No. of ACs: '+str(NoA))
 
     # --------------------------- #
     # Random parameter generation #
@@ -266,6 +203,7 @@ while rep < no_reps:
         norm_cdf = []
 
     print('*** Generating initial aircraft info...')
+    # this will be a multi-dimensional list storing lots of information about each aircraft; see later
     Ac_Info = [0]*NoA
 
     for i in range(NoA):
