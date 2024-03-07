@@ -41,7 +41,7 @@ Time_Sep = [[97,121,121,145],[72,72,72,97,97],[72,72,72,72],[72,72,72,72],[72,72
 # JF: Time_Sep is List[List[int]]
 
 # Min and max prescheduled time to consider in solution approach
-# JF Question: are these measured in minutes from start - when is this? From midnight? (6AM-2PM is when simulation runs between)
+# Measured in minutes from from midnight? (6AM-2PM is when simulation runs between)
 min_ps_time = 360 # inclusive
 max_ps_time = 840 # non-inclusive
 
@@ -119,7 +119,7 @@ tot_mut = 0 #counts how many total mutations we've made; really just for output 
 # Presumably indicates for each aircraft whether it has landed yet
 # 'finished' means aircraft has completed landing, i.e. service time has finished
 Ac_finished = [0]*NoA
-Ac_Info = [0]*NoA 
+Ac_Info = [0]*NoA
 pax_weight = [0]*NoA # stores the randomly-generated cost weightings for aircraft, based on (hypothetical) numbers of passengers carried; written as g_i in the paper (see objective function (13))
 
 # if Policy=='Alternate':
@@ -131,14 +131,14 @@ rep = 0 #counter of which scenario we're currently on
 policy_index = 0 # indicates which policy we're currently evaluating, e.g. SimHeur, DetHeur etc (if this is zero then we take the first policy from the list of policies to be evaluated)
 
 #for rep in range(no_reps):
-# JF Question is rep actually being incremented here? Will this go on forever? Why is for loop not used?
+# JF Question Why is for loop not used?: Rob not sure - may be fine to change back to for loop
 while rep < no_reps:
 
     repn = rep # int(rep/100+1)
     random.seed(repn*100) #set the random seed for generating random parameter values; seed in set according to the replication (scenario) number
     #Import the flight data
     print('*** Importing the flight data...')
-    flight_id, Ac_class, Orig_Ps, Dep_Ps, Alpha_Ps, Beta_Ps, late_means = read_flight_data(DATA_DIR + '/flight_pretac_data.csv', 
+    flight_id, Ac_class, Orig_Ps, Dep_Ps, Alpha_Ps, Beta_Ps, late_means = read_flight_data(DATA_DIR + '/flight_pretac_data.csv',
                                                                                             min_ps_time, max_ps_time, wiener_sig)
     pretac_delays = [sample_pretac_delay(a, b, ps_t, hi, l_mn) for (a, b, ps_t, hi, l_mn) in zip(Alpha_Ps, Beta_Ps, Orig_Ps, Dep_Ps, late_means)]
     # this stores the adjusted scheduled times for aircraft after applying the random pre-tactical delay
@@ -155,8 +155,10 @@ while rep < no_reps:
     #-----------------------------#
     for i in range(NoA):
         # Passenger weight
-        # JF Question: how is passenger weight used? 
-        # In objective? Shouldn't these be the same for every run?
+        # JF Question: how is passenger weight used?
+        # In objective? Shouldn't these be the same for every run? Rob says perhaps, but decided to use random ones for each replication.
+        # Rob views this as similar to changing the weather.
+        # this is called g_i in the paper
         if Ac_class[i] == 0:
             pax_weight[i] = 0.2*random.random() + 0.8 #Flights in the 'heavy' class have a passenger weight between 0.8 and 1
         elif Ac_class[i] == 1 or Ac_class[i] == 2:
@@ -164,7 +166,7 @@ while rep < no_reps:
         else:
             pax_weight[i] = 0.2*random.random() + 0.4 #Flights in the 'small' class have a passenger weight between 0.4 and 0.6
 
-    SubPolicy = Policies[policy_index] #SubPolicy indicates the policy we are currently considering (e.g. SimHeur, DetHeur)
+    SubPolicy = Policies[policy_index] # SubPolicy indicates the policy we are currently considering (e.g. SimHeur, DetHeur)
 
     if SubPolicy == 'GA' or SubPolicy == 'VNS':
         GA_LoopSize = 500 # This is
@@ -173,22 +175,23 @@ while rep < no_reps:
 
     # Randomly generate the Erlang service time parameter
 
-    # JF Question: what is k, and why is it randomly generated for each run?
+    # k controls variances of service times - larger means less variance
+    # Chosen values correspond to specified values of coefficients of variation
+    # Results can be stratified by k (roughlt 1 fifth of runs for each value of k)
     k = random.choice([16, 25, 44, 100, 400])
     print('k: '+str(k))
 
-    # JF Question: what are lam1 and lam2, and why are they randomly generated for each run?
-    # Randomly generate lam1 and lam2 - not actually random currently
-    
-    # lam1 = random.choice([0.1, 0.3, 0.5, 0.7, 0.9])     # Random lam1
-    lam1 = 0.1
+    # These are random for similar reasons pax_weight (g_i in paper) - results may be stratified by this as well
+    lam1 = random.choice([0.1, 0.3, 0.5, 0.7, 0.9])     # Random lam1
+    # lam1 and lam2 are the weights of scheduling delay and airborne holding delays - these are called theta^S and theta^W in the paper
     lam2 = 1-lam1
 
     print('lam1: '+str(lam1)+' lam2: '+str(lam2))
 
-    #Randomly generate thres1
-    # JF Question: what are thres1 and thres2, and why are they randomly generated for each run?
-    thres1 = random.choice([0,15])
+    # Randomly generate thres1
+    # These correspond to gamma^S (thres1) and gamma^W (thres2) in paper
+    # Random so results could potentially be stratified
+    thres1 = random.choice([0,15]) # 15 means allow 15 minutes schedule delay
     thres2 = 0
 
     if k >= norm_approx_min:
@@ -207,15 +210,12 @@ while rep < no_reps:
     Ac_Info = [0]*NoA
 
     for i in range(NoA):
-        # JF Question: which departure? From origin or destination airport? If latter, are statuss 3-6 not needed?
+        # JF Question: which departure? From origin or destination airport? If latter, are status 3-6 not needed?
+        # Legacy code - Status might not even be used
         Status = 0 #0: not ready yet (arrival), 1: in arrival pool, 2: added to arrival queue, 3: not ready yet (departure), 4: in departure pool, 5: added to departure queue, 6: finished.
 
-
-        # JF Question: I don't think this is used?
-        z = int(random.random()*1001)
-
-
-        # JF Question: What is ServPercs? Below RS says this is RNs used for service phase completions
+        # Generating service times for arrivals - these are scheduled to have the right mean later
+        # JF Question: What is ServPercs? Below RS says this is RNs used for service time
         if NormalApprox==0:
             ServPercs=np.random.gamma(k,1)
         else:
@@ -229,7 +229,7 @@ while rep < no_reps:
         # index 7 is the list of random numbers used for service phase completions,
         # index 8 is the actual service time s1+Z2 (worked out after class information is known,
         # index 9 is the actual time that they join the pool (generated in advance)),
-        # index 10 is the passenger weight,
+        # index 10 is the passenger weight (g_i),
         # index 11 is an indicator to show whether or not the AC's travel time has already been completed,
         # index 12 is the weather state at the time of release,
         # index 13 is the counter (for Perm only),
@@ -248,34 +248,41 @@ while rep < no_reps:
     Ac_Info.sort(key=lambda x: x[2]) # Sort by prescheduled arrival time + pre-tactical delay?
 
     print('*** Generating the ETA trajectory array...')
+    # Trajectories are generated for whole 8 hour period for each flight
     Brown_Motion = [[0]*int(S*t*2*100) for _ in range(NoA)]
     for i in range(NoA):
         j = 0
         Dep_time = Ac_Info[i][17]
         Ps_time = Ac_Info[i][2]
+        # For flights with scheduled departure less than 0 we need to initially simulate where BM would be at time 0
         if Dep_time < 0:
-            ETA = random.gauss(Ps_time,math.sqrt(0-Dep_time)*wiener_sig) # Update the latest ETAs for ACs that already had their dep time before time zero
+            ETA = random.gauss(Ps_time, math.sqrt(0-Dep_time)*wiener_sig) # Update the latest ETAs for ACs that already had their dep time before time zero
         else:
             ETA = Ac_Info[i][2] # ETA = pre-scheduled time
         Brown_Motion[i][0] = ETA
+
+        # i.e. when ETA is within 30 minutes of current time (0)
         if 0 >= ETA-tau:
-            Ac_Info[i][9] = 0 #index 9 is actual pool arrival
+            Ac_Info[i][9] = 0 # index 9 is actual pool arrival
             chk = 1
             ETA = tau
             threshold_time = 0
         else:
             chk = 0
-        while j < S*t*1.5*100:
+        # S = 40, t=15 above S*T is duration of day (5-3) - 1.5 factor allows extension of BM to account for late arrivals
+        # We step forward in 1/100 minute intervals
+        while j < S*t*1.5*100: 
             j += 1 # step forward in hundredths of a minute
             if j > Ac_Info[i][17]: # only update ETA if we've gone beyond the AC's departure time
                 ETA = random.gauss(ETA,0.1*wiener_sig)
             Brown_Motion[i][j] = ETA
             if j/100 >= ETA-tau and chk == 0:
                 threshold_time = round(j/100,2) # j/100 is the 'current time'
-                Ac_Info[i][9] = threshold_time
+                Ac_Info[i][9] = threshold_time # pool arrival time
                 chk = 1
             elif j/100 >= ETA and chk == 1:
                 runway_time = round(j/100,2)
+                # Plan arrives at runway
                 Ac_Info[i][6] = runway_time-threshold_time # index 6 is travel time
                 chk = 2
                 break
@@ -288,23 +295,29 @@ while rep < no_reps:
 
     print('*** Generating the weather transition array...')
     # JF Question: I don't understand exactly what is going on below regarding weather
-    weather_lb = [0]*(int(S*t*8*100)+1)
-    weather_ub = [0]*(int(S*t*8*100)+1)
+    weather_lb = [0]*(int(S*t*8*100)+1) # Dynamically forcast for start of bad weather T_0(t)
+    weather_ub = [0]*(int(S*t*8*100)+1) # Dynamically forcast for end of bad weather T_1(t)
 
     # 4 possible cases: no bad weather, 30 minutes of bad weather, 60 minutes of bad weather or 120 minutes of bad weather 
     # (bad weather is always forecast for the middle of the day)
     # E.g. 300 is 10AM according to the rescaling of time used earlier
+
+    # *Predicted* start and end times of bad weather
+    # Random for result stratification wlb is T_0(0) and wub is T_1(0) in paper
     wlb, wub = random.choice([(0,0), (285, 315), (270, 330), (240, 360)])
 
+    # called U_0 and U_1 in the paper
     wlb_tm = 0 # Actual (randomly generated) time at which bad weather starts; leave this as zero
     wub_tm = 0 # Actual (randomly generated) time at which bad weather ends; leave this as zero
-    weather_lb[0] = wlb
+    weather_lb[0] = wlb # Set initial forecasted values
     weather_ub[0] = wub
     old_lb = wlb
     old_ub = wub
 
     j = 0
-    while j < S*t*2*100:
+    # Brownian motion again used to get dynamic forecast prediction
+    # Could add break statement for when we get past bad weather period
+    while j < S*t*2*100: # S = 40, t=15 above
         j += 1
         new_lb = random.gauss(old_lb,0.1*weather_sig) # random.gauss(old_lb,0.01)
         new_ub = random.gauss(old_ub,0.1*weather_sig)
@@ -326,6 +339,7 @@ while rep < no_reps:
     #   for i in range(NoA):
     #       Anneal_Seq[i]=i
 
+    # 'GA' and 'GAD' possibly redundant
     if SubPolicy in ('GA','GAD','VNS','VNSD'):
         #Generate the initial population of sequences
         print('Generating initial population of sequences...')

@@ -48,7 +48,7 @@ def sample_gamma(k,beta):
 def sample_pretac_delay(alpha: float, beta: float, ps_time: float, h: float, lateness_mn: float) -> float:
     if alpha > 0 and beta > 0:
         pretac_delay = sample_gamma(alpha, 1/beta) - (ps_time - h) # Here we sample from a gamma distribution to get the pre-tactical delay for the flight under consideration.
-    else:
+    else: # in this case there isn't a well defined Gamma distribution
         # In this case the pre-tactical delay is set equal to the average lateness rather than being sampled randomly.
         # JF Question: why is this case needed?
         pretac_delay = lateness_mn

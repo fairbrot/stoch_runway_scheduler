@@ -6,9 +6,7 @@ import random
 def read_flight_data(data_fn: str, min_time: int, max_time: int, wiener_sig: float):
     Ac_class = [] # this will store the weight class for each aircraft
     Orig_Ps = [] # original pre-scheduled times of aircraft, before applying the pre-tactical delay
-    # Not needed anymore because we do not consider departures
-    # JF Question: still seems to be updated in some places - can we safely remove this?
-    Dep_Ps = []  # JF Question: h (i.e. time at which tactical uncertainty begins)
+    Dep_Ps = []  # h (i.e. time at which tactical uncertainty begins)
     flight_id = []
     Alpha_Ps = [] # Alpha parameters for Gamma dist for sampling pretactical delays
     Beta_Ps = []  # Beta parameters
@@ -31,7 +29,7 @@ def read_flight_data(data_fn: str, min_time: int, max_time: int, wiener_sig: flo
                 lateness_mn = float(inputdata[i][6]) # mean lateness based on historical data
                 lateness_var = float(inputdata[i][7]) # variance of lateness based on historical data
 
-                h = dep_time - 15 # JF Question: this 15 probably shouldn't be hard-coded - I think this is q_i in the paper?
+                h = dep_time - 15 # JF Question: this 15 probably shouldn't be hard-coded - I think this is q_i in the paper? Probably yes
 
                 ## Transform times ##
                 # HERE WE RE-SCALE TIME SO THAT TIME '6AM' IS COUNTED AS TIME (ZERO+60).
@@ -44,7 +42,7 @@ def read_flight_data(data_fn: str, min_time: int, max_time: int, wiener_sig: flo
                 xibar = ps_time + lateness_mn
                 si2 = lateness_var 
 
-                alpha = ((xibar-h)**2)/(si2-(wiener_sig**2)*(xibar-h))
+                alpha = ((xibar-h)**2)/(si2-(wiener_sig**2)*(xibar-h)) # Can be negative via denominator
                 beta = (xibar-h)/(si2-(wiener_sig**2)*(xibar-h))
 
                 Ac_class.append(ac_class)
