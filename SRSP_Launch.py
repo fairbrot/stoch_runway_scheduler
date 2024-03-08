@@ -10,7 +10,7 @@ import os
 
 import numpy as np 
 
-from stoch_runway_scheduler import read_flight_data, sample_pretac_delay, weather, Genetic, Genetic_determ, Populate, Repopulate_VNS, sample_cond_gamma, getcost, Annealing_Cost, Perm_Heur, Perm_Heur_New, Calculate_FCFS, sample_gamma, gamma_create_cdf, norm_create_cdf, Posthoc_Check, Update_Stats, Update_ETAs, Serv_Completions
+from stoch_runway_scheduler import generate_trajectory, read_flight_data, sample_pretac_delay, weather, Genetic, Genetic_determ, Populate, Repopulate_VNS, sample_cond_gamma, getcost, Annealing_Cost, Perm_Heur, Perm_Heur_New, Calculate_FCFS, sample_gamma, gamma_create_cdf, norm_create_cdf, Posthoc_Check, Update_Stats, Update_ETAs, Serv_Completions
 
 #################
 # CONIFIGUATION #
@@ -186,7 +186,6 @@ while rep < no_reps:
 
     # Randomly generate the Erlang service time parameter
 
-
     # Results can be stratified by k (roughlt 1 fifth of runs for each value of k)
     k = random.choice(pot_k)
     print('k: '+str(k))
@@ -232,7 +231,7 @@ while rep < no_reps:
         # index 3 is latest ETA,
         # index 4 is the time at which aircraft is released from pool,
         # index 5 is the time at which aircraft enters service,
-        # index 6 is the travel time (generated in advance),
+        # index 6 is the travel time (generated in advance), # JF Question note from entering pool to runway?
         # index 7 is the list of random numbers used for service phase completions,
         # index 8 is the actual service time s1+Z2 (worked out after class information is known,
         # index 9 is the actual time that they join the pool (generated in advance)),
@@ -256,43 +255,14 @@ while rep < no_reps:
 
     print('*** Generating the ETA trajectory array...')
     # Trajectories are generated for whole 8 hour period for each flight
-    Brown_Motion = [[0]*int(S*t*2*100) for _ in range(NoA)]
-    for i in range(NoA):
-        j = 0
-        Dep_time = Ac_Info[i][17]
-        Ps_time = Ac_Info[i][2]
-        # For flights with scheduled departure less than 0 we need to initially simulate where BM would be at time 0
-        if Dep_time < 0:
-            ETA = random.gauss(Ps_time, math.sqrt(0-Dep_time)*wiener_sig) # Update the latest ETAs for ACs that already had their dep time before time zero
-        else:
-            ETA = Ac_Info[i][2] # ETA = pre-scheduled time
-        Brown_Motion[i][0] = ETA
 
-        # i.e. when ETA is within 30 minutes of current time (0)
-        if 0 >= ETA-tau:
-            Ac_Info[i][9] = 0 # index 9 is actual pool arrival
-            chk = 1
-            ETA = tau
-            threshold_time = 0
-        else:
-            chk = 0
-        # S = 40, t=15 above S*T is duration of day (5-3) - 1.5 factor allows extension of BM to account for late arrivals
-        # We step forward in 1/100 minute intervals
-        while j < S*t*1.5*100: 
-            j += 1 # step forward in hundredths of a minute
-            if j > Ac_Info[i][17]: # only update ETA if we've gone beyond the AC's departure time
-                ETA = random.gauss(ETA,0.1*wiener_sig)
-            Brown_Motion[i][j] = ETA
-            if j/100 >= ETA-tau and chk == 0:
-                threshold_time = round(j/100,2) # j/100 is the 'current time'
-                Ac_Info[i][9] = threshold_time # pool arrival time
-                chk = 1
-            elif j/100 >= ETA and chk == 1:
-                runway_time = round(j/100,2)
-                # Plan arrives at runway
-                Ac_Info[i][6] = runway_time-threshold_time # index 6 is travel time
-                chk = 2
-                break
+    Brown_Motion = []
+    for i in range(NoA):
+        Ps_time, Dep_time,  = Ac_Info[i][2], Ac_Info[i][17]
+        pool_arr_time, travel_time, brown_motion = generate_trajectory(Dep_time, Ps_time, tau, wiener_sig)
+        Ac_Info[i][6] = travel_time
+        Ac_Info[i][9] = pool_arr_time
+        Brown_Motion.append(brown_motion)
 
     stepthrough_logger.info('AC'+','+'Class'+','+'PS time'+','+'Pool arrival'+','+'Travel time'+','+'Runway time'+'\n')
     for AC in range(NoA):
