@@ -40,6 +40,17 @@ NoC = 4 # no. of aircraft classes
 Time_Sep = [[97,121,121,145],[72,72,72,97,97],[72,72,72,72],[72,72,72,72],[72,72,72,72]] # Time separations in seconds taken from Bennell et al (2017) with H, U, M, S as the 4 classes; the 5th array is for the situation where there is no leading aircraft
 # JF: Time_Sep is List[List[int]]
 
+# k controls variances of service times - larger means less variance
+# Chosen values correspond to specified values of coefficients of variation
+pot_k = [16, 25, 44, 100, 400] # Potential set of k values to sample from
+
+# lam1 and lam2 are the weights of scheduling delay and airborne holding delays - these are called theta^S and theta^W in the paper
+pot_lam1 = [0.1, 0.3, 0.5, 0.7, 0.9] # Potential set of values for lambda 1 to sample from
+
+# These correspond to gamma^S (thres1) and gamma^W (thres2) in paper
+pot_thres1 = [0,15] # potential set of values of thres1 to sample from
+thres2 = 0
+
 # Min and max prescheduled time to consider in solution approach
 # Measured in minutes from from midnight? (6AM-2PM is when simulation runs between)
 min_ps_time = 360 # inclusive
@@ -175,24 +186,20 @@ while rep < no_reps:
 
     # Randomly generate the Erlang service time parameter
 
-    # k controls variances of service times - larger means less variance
-    # Chosen values correspond to specified values of coefficients of variation
+
     # Results can be stratified by k (roughlt 1 fifth of runs for each value of k)
-    k = random.choice([16, 25, 44, 100, 400])
+    k = random.choice(pot_k)
     print('k: '+str(k))
 
     # These are random for similar reasons pax_weight (g_i in paper) - results may be stratified by this as well
-    lam1 = random.choice([0.1, 0.3, 0.5, 0.7, 0.9])     # Random lam1
     # lam1 and lam2 are the weights of scheduling delay and airborne holding delays - these are called theta^S and theta^W in the paper
+    lam1 = random.choice(pot_lam1)     # Random lam1
     lam2 = 1-lam1
-
     print('lam1: '+str(lam1)+' lam2: '+str(lam2))
 
-    # Randomly generate thres1
-    # These correspond to gamma^S (thres1) and gamma^W (thres2) in paper
+    # Randomly generate thres1 (thres2 is set above)
     # Random so results could potentially be stratified
-    thres1 = random.choice([0,15]) # 15 means allow 15 minutes schedule delay
-    thres2 = 0
+    thres1 = random.choice(pot_thres1) # 15 means allow 15 minutes schedule delay
 
     if k >= norm_approx_min:
         NormalApprox=1
