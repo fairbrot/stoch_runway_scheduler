@@ -48,7 +48,7 @@ def generate_trajectory(Dep_time: float, Ps_time: float, tau: int, wiener_sig: f
     j = 0
     while True:
         j += 1 # step forward in increments of 1/freq minutes
-        if j > Dep_time: # only update ETA if we've gone beyond the AC's departure time - JF: I think logic is wrong here - j needs scaling (like below)
+        if j > Dep_time*freq: # only update ETA if we've gone beyond the AC's departure time ##- JF: I think logic is wrong here - j needs scaling (like below)
             ETA = random.gauss(ETA, 0.1*wiener_sig)
         brown_motion.append(ETA)
         if j/freq >= ETA-tau and chk == 0:
