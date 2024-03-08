@@ -6,6 +6,59 @@ from .utils import weather, getcost
 from .gamma import sample_cond_gamma
 from .annealing_cost import Annealing_Cost
 
+def generate_weather(wlb: int, wub: int, T: int, weather_sig: float, freq: int = 100):
+    """
+    Generates brownian motion for bad weather forecasts, as well as actual times of bad weather.
+
+    Parameters
+    ----------
+    wlb: prediction at time 0 for start of bad weather
+    wub: prediction at time 0 for end of bad weather
+    T: length of time horizon in minutes (used to pre-allocate output arrays)
+    weather_sig: standard deviation of Brownian motion
+    freq: number of updates for each minute
+
+    Returns
+    -------
+    wlb_tm: int
+        actual start time of bad weather
+    wub_tm:
+        actual end time of bad weather
+    weather_lb: List[float]
+        forecast for start of bad weather over time. Each element i corresponds to forecast at time j*freq.
+    weather_ub: List[float]
+        forecast for end of bad weather over time.
+    """
+    N = T*freq # Size of weather array
+    weather_lb = [0]*N # Dynamically forcast for start of bad weather T_0(t)
+    weather_ub = [0]*N # Dynamically forcast for end of bad weather T_1(t)
+
+    # called U_0 and U_1 in the paper
+    wlb_tm = 0 # Actual (randomly generated) time at which bad weather starts; leave this as zero
+    wub_tm = 0 # Actual (randomly generated) time at which bad weather ends; leave this as zero
+
+    weather_lb[0] = wlb # Set initial forecasted values
+    weather_ub[0] = wub
+    old_lb = wlb
+    old_ub = wub
+
+    j = 0
+    # Brownian motion again used to get dynamic forecast prediction
+    for j in range(N):
+        new_lb = random.gauss(old_lb,0.1*weather_sig) # random.gauss(old_lb,0.01) JF Question: why is 0.1 inside here - shouldn't this be incorporated into weather_sig
+        new_ub = random.gauss(old_ub,0.1*weather_sig)
+        if new_lb > new_ub: # JF Question: Why is this needed?
+            new_ub = new_lb
+        if j/freq >= new_lb and wlb_tm == 0:
+            wlb_tm = j/freq
+        if j/freq >= new_ub and wub_tm == 0:
+            wub_tm = j/freq
+        weather_lb[j] = new_lb
+        weather_ub[j] = new_ub
+        old_lb = new_lb
+        old_ub = new_ub
+    return wlb_tm, wub_tm, weather_lb, weather_ub
+
 def generate_trajectory(Dep_time: float, Ps_time: float, tau: int, wiener_sig: float, freq: int = 100):
     """
     Generates a trajectory for an aircraft.

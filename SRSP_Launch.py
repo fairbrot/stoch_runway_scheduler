@@ -10,7 +10,7 @@ import os
 
 import numpy as np 
 
-from stoch_runway_scheduler import generate_trajectory, read_flight_data, sample_pretac_delay, weather, Genetic, Genetic_determ, Populate, Repopulate_VNS, sample_cond_gamma, getcost, Annealing_Cost, Perm_Heur, Perm_Heur_New, Calculate_FCFS, sample_gamma, gamma_create_cdf, norm_create_cdf, Posthoc_Check, Update_Stats, Update_ETAs, Serv_Completions
+from stoch_runway_scheduler import generate_weather, generate_trajectory, read_flight_data, sample_pretac_delay, weather, Genetic, Genetic_determ, Populate, Repopulate_VNS, sample_cond_gamma, getcost, Annealing_Cost, Perm_Heur, Perm_Heur_New, Calculate_FCFS, sample_gamma, gamma_create_cdf, norm_create_cdf, Posthoc_Check, Update_Stats, Update_ETAs, Serv_Completions
 
 #################
 # CONIFIGUATION #
@@ -147,17 +147,16 @@ while rep < no_reps:
 
     repn = rep # int(rep/100+1)
     random.seed(repn*100) #set the random seed for generating random parameter values; seed in set according to the replication (scenario) number
-    #Import the flight data
     print('*** Importing the flight data...')
+    #---------------------------------------------------------#
+    # Read flight data file and initialise pretactical delays #
+    #---------------------------------------------------------#
     flight_id, Ac_class, Orig_Ps, Dep_Ps, Alpha_Ps, Beta_Ps, late_means = read_flight_data(DATA_DIR + '/flight_pretac_data.csv',
                                                                                             min_ps_time, max_ps_time, wiener_sig)
     pretac_delays = [sample_pretac_delay(a, b, ps_t, hi, l_mn) for (a, b, ps_t, hi, l_mn) in zip(Alpha_Ps, Beta_Ps, Orig_Ps, Dep_Ps, late_means)]
     # this stores the adjusted scheduled times for aircraft after applying the random pre-tactical delay
     Arr_Ps = [orig_ps + pretac_d for (orig_ps, pretac_d) in zip(Orig_Ps, pretac_delays)]
 
-    #---------------------------------------------------------#
-    # Read flight data file and initialise pretactical delays #
-    #---------------------------------------------------------#
     NoA = len(flight_id)
     print('No. of ACs: '+str(NoA))
 
@@ -165,17 +164,15 @@ while rep < no_reps:
     # Random parameter generation #
     #-----------------------------#
     for i in range(NoA):
-        # Passenger weight
-        # JF Question: how is passenger weight used?
+        # Passenger weight: this is called g_i in the paper
         # In objective? Shouldn't these be the same for every run? Rob says perhaps, but decided to use random ones for each replication.
-        # Rob views this as similar to changing the weather.
-        # this is called g_i in the paper
+        # Rob views this as similar to changing the weather
         if Ac_class[i] == 0:
-            pax_weight[i] = 0.2*random.random() + 0.8 #Flights in the 'heavy' class have a passenger weight between 0.8 and 1
+            pax_weight[i] = 0.2*random.random() + 0.8 # Flights in the 'heavy' class have a passenger weight between 0.8 and 1
         elif Ac_class[i] == 1 or Ac_class[i] == 2:
-            pax_weight[i] = 0.2*random.random() + 0.6 #Flights in the 'upper medium' or 'lower medium' class have a passenger weight between 0.6 and 0.8 
+            pax_weight[i] = 0.2*random.random() + 0.6 # Flights in the 'upper medium' or 'lower medium' class have a passenger weight between 0.6 and 0.8 
         else:
-            pax_weight[i] = 0.2*random.random() + 0.4 #Flights in the 'small' class have a passenger weight between 0.4 and 0.6
+            pax_weight[i] = 0.2*random.random() + 0.4 # Flights in the 'small' class have a passenger weight between 0.4 and 0.6
 
     SubPolicy = Policies[policy_index] # SubPolicy indicates the policy we are currently considering (e.g. SimHeur, DetHeur)
 
@@ -271,50 +268,21 @@ while rep < no_reps:
     stepthrough_logger.info('\n')
 
     print('*** Generating the weather transition array...')
-    # JF Question: I don't understand exactly what is going on below regarding weather
-    weather_lb = [0]*(int(S*t*8*100)+1) # Dynamically forcast for start of bad weather T_0(t)
-    weather_ub = [0]*(int(S*t*8*100)+1) # Dynamically forcast for end of bad weather T_1(t)
 
     # 4 possible cases: no bad weather, 30 minutes of bad weather, 60 minutes of bad weather or 120 minutes of bad weather 
     # (bad weather is always forecast for the middle of the day)
     # E.g. 300 is 10AM according to the rescaling of time used earlier
-
     # *Predicted* start and end times of bad weather
     # Random for result stratification wlb is T_0(0) and wub is T_1(0) in paper
     wlb, wub = random.choice([(0,0), (285, 315), (270, 330), (240, 360)])
 
-    # called U_0 and U_1 in the paper
-    wlb_tm = 0 # Actual (randomly generated) time at which bad weather starts; leave this as zero
-    wub_tm = 0 # Actual (randomly generated) time at which bad weather ends; leave this as zero
-    weather_lb[0] = wlb # Set initial forecasted values
-    weather_ub[0] = wub
-    old_lb = wlb
-    old_ub = wub
-
-    j = 0
-    # Brownian motion again used to get dynamic forecast prediction
-    # Could add break statement for when we get past bad weather period
-    while j < S*t*2*100: # S = 40, t=15 above
-        j += 1
-        new_lb = random.gauss(old_lb,0.1*weather_sig) # random.gauss(old_lb,0.01)
-        new_ub = random.gauss(old_ub,0.1*weather_sig)
-        if new_lb > new_ub:
-            new_ub = new_lb
-        if j/100 >= new_lb and wlb_tm == 0:
-            wlb_tm = j/100
-        if j/100 >= new_ub and wub_tm == 0:
-            wub_tm = j/100
-        weather_lb[j] = new_lb
-        weather_ub[j] = new_ub
-        old_lb = new_lb
-        old_ub = new_ub
+    # Long time period over which to generate weather predictions
+    # We make longer in case bad weather finish time falls outside of time horizon
+    T = (max_ps_time - min_ps_time)*2 # The factor 2 here is probably a bit over cautious
+    wlb_tm, wub_tm, weather_lb, weather_ub = generate_weather(wlb, wub, T, weather_sig)
 
     stepthrough_logger.info('wlb_tm:'+','+str(wlb_tm)+','+'wub_tm'+','+str(wub_tm)+'\n'+'\n')
 
-    # if SubPolicy=='SA':
-    #   Anneal_Seq=[0]*NoA
-    #   for i in range(NoA):
-    #       Anneal_Seq[i]=i
 
     # 'GA' and 'GAD' possibly redundant
     if SubPolicy in ('GA','GAD','VNS','VNSD'):
@@ -522,7 +490,7 @@ while rep < no_reps:
         # First, get the AC List
 
         if tm >= 0 and tm <= wub_tm and int(tm*100) != int(old_tm*100):
-            #Permute and update the weather
+            # Permute and update the weather
             wlb = weather_lb[int(tm*100)] #random.gauss(wlb,0.05)
             wub = weather_ub[int(tm*100)]
 
