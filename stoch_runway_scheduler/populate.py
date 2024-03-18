@@ -252,10 +252,24 @@ def Repopulate_VNS(GA_PopList,GA_Info,Arr_Pool,Arr_NotReady,GA_PopSize,Opt_Seq,O
 
     return GA_PopList,GA_Info,Opt_Seq,OptCost,Opt_List,VNS_counter,tot_mut
 
-def Populate(Ac_Info: List[int], base_seq,Arr_Pool,Arr_NotReady,GA_PopSize, Max_SeqLength, stepthrough: int, step_summ: int, step_new: int):
+
+# 
+def Populate(Ac_Info: List, base_seq: List[int], Arr_Pool: List[int] ,Arr_NotReady: List[int], GA_PopSize: int, Max_SeqLength: int, stepthrough: int, step_summ: int, step_new: int):
+    """
+    Creates a new population of sequences - used at beginning of algorithm and step 4A
+
+    Arguments
+    ---------
+    Ac_Info: main list flight information/statuses
+    base_seq: initial sequence from which others are derived (flight indices)
+    Arr_Pool: indices of flights currently in pool
+    Arr_NotReady: indices of flights not yet in the pool
+    GA_PopSize: maximum number of sequences in population at one time (called S in paper)
+    Max_SeqLength: maximum length of generated sequences (called l in paper)
+    """
 
     #print('Populating')
-
+    # For calculating computational time of function
     start_time=time.time()
 
     if stepthrough==1:
@@ -265,16 +279,23 @@ def Populate(Ac_Info: List[int], base_seq,Arr_Pool,Arr_NotReady,GA_PopSize, Max_
     if step_new==1:
         st3.write('\n'+'Populating...'+'\n')
 
-    AC_remaining=len(Arr_Pool)+len(Arr_NotReady)
+    # Number of flights not yet released from pool
+    AC_remaining = len(Arr_Pool)+len(Arr_NotReady)
 
-    no_ACs=min(Max_SeqLength,AC_remaining)
-    if len(base_seq)<no_ACs:
-        ArrTime_Sorted=[]
+    no_ACs = min(Max_SeqLength, AC_remaining) # Lengths of all sequences that will be generated
+    
+    # In this case we extend sequence to be the right length
+    # We extend by adding flights with closest ETA which are not already
+    # in the sequence
+    if len(base_seq) < no_ACs: 
+        ArrTime_Sorted=[] # sequence of flights sorted by current ETA
         for AC in Arr_Pool:
-            ArrTime_Sorted.append([Ac_Info[AC][3],AC])
+            # AC_Info[3] = latest ETA
+            ArrTime_Sorted.append([Ac_Info[AC][3], AC])
         for AC in Arr_NotReady:
-            ArrTime_Sorted.append([Ac_Info[AC][3],AC])
+            ArrTime_Sorted.append([Ac_Info[AC][3], AC])
         ArrTime_Sorted.sort(key=lambda x: x[0])
+
         InScope_ACs=[]
         i=0
         while len(InScope_ACs)<no_ACs:
@@ -289,10 +310,14 @@ def Populate(Ac_Info: List[int], base_seq,Arr_Pool,Arr_NotReady,GA_PopSize, Max_
                 base_seq.append(InScope_ACs[i])
             i+=1
 
-    queue_probs=[0]*AC_remaining
+    # Used in SimHeur as criterion for when flight is released from pool
+    queue_probs = [0]*AC_remaining # redefined below
 
-    max_size=math.factorial(AC_remaining)
+    # number of all possible sequences of remaining flights
+    # only needed when there are only a small number of possible sequences left
+    max_size = math.factorial(AC_remaining)
 
+    # In this case, just add all remaining possible sequences
     if GA_PopSize>=max_size:
         remaining_seq=Arr_Pool[:]
         for AC in Arr_NotReady:
@@ -316,10 +341,19 @@ def Populate(Ac_Info: List[int], base_seq,Arr_Pool,Arr_NotReady,GA_PopSize, Max_
         # no_ACs=min(Max_LookAhead,AC_remaining)
         no_ACs=min(Max_SeqLength,AC_remaining)
 
-        while no_seqs<GA_PopSize:
+        while no_seqs < GA_PopSize:
 
-            triangle_dist_size=no_ACs*(no_ACs+1)/2
+            # Select a plane to randomly move in the sequence
+            # Use a discrete triangular distribution to put a priority on
+            # moving flights near front of sequence
+            # See Appendix A in Paper
 
+
+            # Could possible replace below with numpy.random.choice
+            # used to normalise probabilities
+            triangle_dist_size = no_ACs*(no_ACs+1)/2 # (1 + 2 + ...+ no_ACs)
+
+            # Sampling a value from triangular dist - pick a point in the sequence
             z=random.random()*triangle_dist_size
             totp=0
             for ii in range(no_ACs):
@@ -328,11 +362,11 @@ def Populate(Ac_Info: List[int], base_seq,Arr_Pool,Arr_NotReady,GA_PopSize, Max_
                     break
                 totp+=no_ACs-ii
 
-            new_seq=base_seq[:]
+            new_seq=base_seq[:] # copies base sequence
 
-            AC=new_seq[pos]
+            AC=new_seq[pos] # gets aircraft at randomly selected point
             new_seq.remove(AC)
-            z1=int(random.random()*3)+1 #no. of places to move
+            z1=int(random.random()*3)+1 # no. of places to move
             z2=random.random() #determine whether to move up or down
             if z2<0.5:
                 z1=min(z1,pos)
@@ -340,26 +374,30 @@ def Populate(Ac_Info: List[int], base_seq,Arr_Pool,Arr_NotReady,GA_PopSize, Max_
             else:
                 z1=min(z1,no_ACs-1-pos)
                 pos2=pos+z1
-
+            # Reinserts aircraft in another place
             new_seq.insert(pos2,AC)
 
             if new_seq not in GA_PopList:
                 GA_PopList.append(new_seq)
-                queue_probs=[0]*AC_remaining
+                queue_probs=[0]*AC_remaining # remove?
                 GA_Info.append([new_seq[:],0,0,queue_probs,0])
                 no_seqs+=1
             else:
+                # If already in population of sequences,
+                # Potentially create a whole new sequence by shuffling
                 c+=1
-                if c>=100:
+                if c>=100: # This condition means we retry above first until we have failed enough times
+
                     new_seq=base_seq[:]
                     random.shuffle(new_seq)
                     if new_seq not in GA_PopList:
                         GA_PopList.append(new_seq)
-                        queue_probs=[0]*AC_remaining
+                        queue_probs=[0]*AC_remaining # remove?
                         GA_Info.append([new_seq[:],0,0,queue_probs,0])
                         no_seqs+=1
                     #chk=1
 
+    # Only used for logging purposes
     GA_PopList_sorted=GA_PopList[:]
     GA_PopList_sorted.sort()
 
