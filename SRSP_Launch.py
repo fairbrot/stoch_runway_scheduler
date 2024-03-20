@@ -124,8 +124,8 @@ f.write('Policy'+',''Rep'+','+'AC'+','+'Flight Num'+','+'Prev Class'+','+'Cur Cl
 ##################
 
 Ov_GA_counter = 0 # only used for stepthrough purposes; to do with counting how many times the 'Genetic' function has been called
-VNS_counter = 0 #this counts how many non-improving heuristic moves we've made since the last reset
-tot_mut = 0 #counts how many total mutations we've made; really just for output purposes
+VNS_counter = 0 # this counts how many non-improving heuristic moves we've made since the last reset
+tot_mut = 0 # counts how many total mutations we've made; really just for output purposes
 
 # Presumably indicates for each aircraft whether it has landed yet
 # 'finished' means aircraft has completed landing, i.e. service time has finished
@@ -261,10 +261,11 @@ while rep < no_reps:
         Ac_Info[i][9] = pool_arr_time
         Brown_Motion.append(brown_motion)
 
-    stepthrough_logger.info('AC'+','+'Class'+','+'PS time'+','+'Pool arrival'+','+'Travel time'+','+'Runway time'+'\n')
+    header = ['AC', 'Class', 'PS time', 'Pool arrival', 'Travel time', 'Runway time']
+    stepthrough_logger.info(', '.join(header))
     for AC in range(NoA):
         Ac_Infoi = Ac_Info[AC]
-        stepthrough_logger.info(str(AC)+','+str(Ac_Infoi[1])+','+str(Ac_Infoi[2])+','+str(Ac_Infoi[9])+','+str(Ac_Infoi[6])+','+str(Ac_Infoi[9]+Ac_Infoi[6])+'\n')
+        stepthrough_logger.info('%s, %s, %s, %s, %s, %s, %s', AC, Ac_Infoi[1], Ac_Infoi[2], Ac_Infoi[9], Ac_Infoi[6], Ac_Infoi[9], Ac_Infoi[6])
     stepthrough_logger.info('\n')
 
     print('*** Generating the weather transition array...')
@@ -278,32 +279,35 @@ while rep < no_reps:
 
     # Long time period over which to generate weather predictions
     # We make longer in case bad weather finish time falls outside of time horizon
-    T = (max_ps_time - min_ps_time)*2 # The factor 2 here is probably a bit over cautious
+    T = (max_ps_time - min_ps_time) * 2 # The factor 2 here is probably a bit over cautious
     wlb_tm, wub_tm, weather_lb, weather_ub = generate_weather(wlb, wub, T, weather_sig)
 
-    stepthrough_logger.info('wlb_tm:'+','+str(wlb_tm)+','+'wub_tm'+','+str(wub_tm)+'\n'+'\n')
+    stepthrough_logger.info('wlb_tm: %d wub_tm: %d', wlb_tm, wub_tm)
 
 
-    # 'GA' and 'GAD' possibly redundant
-    if SubPolicy in ('GA','GAD','VNS','VNSD'):
-        #Generate the initial population of sequences
+    # VNS = SimHeur, VNSD = DetHeur
+    if SubPolicy in ('VNS','VNSD'): 
+        # Generate the initial population of sequences
         print('Generating initial population of sequences...')
 
-        no_ACs = min(Max_LookAhead,NoA)
-        FSFS_seq = [0]*no_ACs
-        for i in range(no_ACs):
-            FSFS_seq[i] = i
+        # Should probably just be Max_LookAhead as values haven't changed at this point
+        no_ACs = min(Max_LookAhead, NoA) 
+        # FSFS_seq = [0]*no_ACs
+        # for i in range(no_ACs):
+        #     FSFS_seq[i] = i
+        FSFS_seq = [i for i in range(no_ACs)]
 
-        GA_PopList,GA_Info = Populate(Ac_Info, FSFS_seq,[],FSFS_seq,GA_PopSize,Max_LookAhead, stepthrough, step_summ, step_new)
+        # Arg 3 is Arr_Pool which is initially empty at this point
+        GA_PopList,GA_Info = Populate(Ac_Info, FSFS_seq, [], FSFS_seq, GA_PopSize, Max_LookAhead, stepthrough, step_summ, step_new)
         # print('GA_PopList: '+str(GA_PopList))
         # print('GA_Info: '+str(GA_Info))
 
         Opt_Seq = FSFS_seq[:]
         OptCost = 1000000
         queue_probs = [0]*NoA
-        Opt_List = []
+        Opt_List = [] # For storing best set of solutions?
         Opt_Seqs = []
-        Opt_Size = 10
+        Opt_Size = 10 # Length of shortlist
 
         while len(Opt_List)<Opt_Size:
             new_seq = FSFS_seq[:]
@@ -312,22 +316,22 @@ while rep < no_reps:
                 Opt_List.append([new_seq[:],0,0,queue_probs,0])
                 Opt_Seqs.append(new_seq[:])
 
-        GA_Check_Increment = GA_LoopSize/10
+        GA_Check_Increment = GA_LoopSize/10 # Called r in paper - how often to do ranking and selection
+        # Is done for every iteration for VNSD
 
         GA_counter = 0
         GA_CheckSize = GA_Check_Increment
-        print('GA_CheckSize: '+str(GA_CheckSize))
+        print(f'GA_CheckSize: {GA_CheckSize}')
         Ov_GA_counter = 0
 
         stepthrough_logger.info('Initial population of sequences:'+'\n')
-        for j in range(len(GA_PopList)):
-            stepthrough_logger.info(str(j)+','+str(GA_PopList[j])+'\n')
-        stepthrough_logger.info('\n')
+        for (j, poplist) in enumerate(GA_PopList):
+            stepthrough_logger.info("%d, %s\n", j, poplist)
 
-        print('Ov_GA_counter: '+str(Ov_GA_counter))
+        print(f'Ov_GA_counter: {Ov_GA_counter}')
 
     for AC in range(NoA):
-        print('AC: '+str(AC)+' Class: '+str(Ac_Info[AC][1])+' Orig Ps time: '+str(Ac_Info[AC][18])+' Ps time: '+str(Ac_Info[AC][2])+' Arrives in pool: '+str(Ac_Info[AC][9])+' Travel time: '+str(Ac_Info[AC][6]))
+        print(f'AC: {AC} Class: {Ac_Info[AC][1]} Orig Ps time: {Ac_Info[AC][18]} Ps time: {Ac_Info[AC][2]} Arrives in pool: {Ac_Info[AC][9]} Travel time: {Ac_Info[AC][6]}')
 
     Ac_queue = []
     Left_queue = []
@@ -338,15 +342,15 @@ while rep < no_reps:
     Old_Perms = []
     Old_Perm_Info = []
 
-    tm = 0 #-30 #earliest_ps_time-30 #-30 #time counter
+    tm = 0 #-30 # earliest_ps_time-30 #-30 #time counter
     old_tm = tm
-    totserv = 0 #counter of number of aircraft served
-    latest_class = 4 #class of latest aircraft to be added to the queue, initially set to 3
-    prev_class = 4 #class of previous aircraft to be served, initially set to 3
+    totserv = 0 # counter of number of aircraft served
+    latest_class = 4 # class of latest aircraft to be added to the queue, initially set to 3
+    prev_class = 4 # class of previous aircraft to be served, initially set to 3
     Ac_added = []
     counter = 0
     qp = 0
-    weather_state = 0 #0 means it's good weather, 1 means bad weather, 2 means good weather again
+    weather_state = 0 # 0 means it's good weather, 1 means bad weather, 2 means good weather again
     real_queue_complete = 0
     next_completion_time = 0
     Pop_elap = 0
@@ -365,7 +369,7 @@ while rep < no_reps:
     Long_Perm_List = []
     Perm_Info = []
 
-    #Generate the initial pool and notready arrays
+    # Generate the initial pool and notready arrays
     print('*** Generating the initial pool...')
     for i in range(NoA):
         Ac_Infoi = Ac_Info[i]
@@ -376,11 +380,11 @@ while rep < no_reps:
         else:
             Arr_NotReady.append(i)
 
-    print('Arr_Pool: ' + str(Arr_Pool))
-    print('Ac_queue: ' + str(Ac_queue))
-    print('Arr_NotReady: ' + str(Arr_NotReady))
+    print('Arr_Pool:', Arr_Pool)
+    print('Ac_queue:', Ac_queue)
+    print('Arr_NotReady:', Arr_NotReady)
 
-    print('*** Into main loop for rep '+str(rep)+' and policy '+str(SubPolicy)+'...')
+    print(f'*** Into main loop for rep {rep} and policy {SubPolicy}...')
     begin_time = time.time()
     mv_time = 0
     if policy_index == 0:
@@ -390,12 +394,12 @@ while rep < no_reps:
 
     while totserv < NoA:
 
-        stepthrough_logger.info('tm is '+','+str(tm)+'\n')
-        stepthrough_logger.info('Arr_NotReady is '+','+str(Arr_NotReady)+'\n')
-        stepthrough_logger.info('Arr_Pool is '+','+str(Arr_Pool)+'\n')
-        stepthrough_logger.info('Ac_queue is '+','+str(Ac_queue)+'\n')
-        stepthrough_logger.info('Left_queue is '+','+str(Left_queue)+'\n')
-        stepthrough_logger.info('Ac_added is '+','+str(Ac_added)+'\n'+'\n')
+        stepthrough_logger.info('tm is %d', tm)
+        stepthrough_logger.info('Arr_NotReady is %s', Arr_NotReady)
+        stepthrough_logger.info('Arr_Pool is %s', Arr_Pool)
+        stepthrough_logger.info('Ac_queue is %s', Ac_queue)
+        stepthrough_logger.info('Left_queue is %s', Left_queue)
+        stepthrough_logger.info('Ac_added is %s', Ac_added)
 
         if tm >= 0 and len(Ac_added) > 0 and Ac_added[0] in Arr_Pool:
             if SubPolicy in ('GA','GAD','VNS','VNSD'):
@@ -424,10 +428,10 @@ while rep < no_reps:
                     Ac_queue.append(AC)
                     if SubPolicy == 'Perm':
                         continue #print('Added AC '+str(AC)+' to the queue, counter is '+str(counter)+', LPLL is '+str(len(Long_Perm_List))+', qp is '+str(qp))
-                    elif SubPolicy in ('GA','GAD','VNS','VNSD'):
+                    elif SubPolicy in ('VNS','VNSD'):
                         #print('Added AC '+str(AC)+' to the queue, counter is '+str(Ov_GA_counter)+', qp is '+str(qp))
                         Ac_Info[AC][15] = pred_cost
-                        stepthrough_logger.info('Added AC '+str(AC)+' to the queue, counter is '+str(Ov_GA_counter)+', qp is '+str(qp)+'\n')
+                        stepthrough_logger.info('Added AC %d to the queue, counter is %d, qp is %.2f\n', AC, Ov_GA_counter, qp)
                         step_summ_logger.info('Added AC '+str(AC)+' to the queue, counter is '+str(Ov_GA_counter)+', qp is '+str(qp)+'\n')
                         step_new_logger.info('Added AC '+str(AC)+' to the queue, counter is '+str(Ov_GA_counter)+', qp is '+str(qp)+'\n')
                         base_seq.remove(AC)
@@ -465,14 +469,14 @@ while rep < no_reps:
             Perm_Info = []
 
         if SubPolicy in ('GA','GAD','VNS','VNSD'):
-            #print('tm: '+str(tm)+' GA_counter: '+str(GA_counter))
+            # print('tm: '+str(tm)+' GA_counter: '+str(GA_counter))
             Repop_elap = 0
             if len(Arr_Pool)+len(Arr_NotReady) > 0: #4:
                 if GA_counter >= GA_LoopSize or pruned == 1: #or max_d<0.01:
-                    #print('tm: '+str(tm)+' Best sequence is '+str(GA_Info[0][0])+' Estimated cost is '+str(GA_Info[0][2]))
-                    #print('tm: '+str(tm)+' GA_counter: '+str(GA_counter)+', Repop')
+                    # print('tm: '+str(tm)+' Best sequence is '+str(GA_Info[0][0])+' Estimated cost is '+str(GA_Info[0][2]))
+                    # print('tm: '+str(tm)+' GA_counter: '+str(GA_counter)+', Repop')
                     Loop_Nums+=1
-                    #print('Loop_Nums: '+str(Loop_Nums))
+                    # print('Loop_Nums: '+str(Loop_Nums))
                     Loop_Evals += GA_counter
                     GA_PopList, GA_Info, Opt_Seq,OptCost, Opt_List, VNS_counter, tot_mut = Repopulate_VNS(GA_PopList, GA_Info, Arr_Pool, Arr_NotReady, GA_PopSize, Opt_Seq, 
                                                                                                           OptCost, Opt_List,Opt_Size,Max_LookAhead,VNS_counter,VNS_limit,tot_mut, 
@@ -498,15 +502,15 @@ while rep < no_reps:
             if SubPolicy == 'VNS':
                 Ac_added, counter, qp, max_d, pruned, GA_CheckSize, GA_counter, soln_evals_tot, soln_evals_num = Genetic(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, Left_queue, max(tm,0), NoA, k, prev_class, GA_PopList, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, tot_arr_cost + tot_dep_cost, wlb, wub, Opt_List, max_d, soln_evals_tot, soln_evals_num, gamma_cdf, norm_cdf, norm_approx_min, tau, Max_LookAhead, Time_Sep, thres1, thres2, lam1, lam2, GA_Check_Increment, Opt_Size, w_rho, stepthrough, wiener_sig, weather_sig)
                 Ov_GA_counter+=1
-                stepthrough_logger.info('GA_counter is '+','+str(GA_counter)+'\n')
+                stepthrough_logger.info('GA_counter is %d', GA_counter)
             elif SubPolicy=='VNSD':
                 Ac_added, counter, qp, stored_queue_complete = Genetic_determ(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, Left_queue, max(tm,0), NoA, k, prev_class, GA_PopList, GA_Info, wlb, wub, Opt_List, norm_approx_min, tau, Max_LookAhead, Time_Sep, thres1, thres2, lam1, lam2, tot_arr_cost, tot_dep_cost, w_rho, stepthrough, step_summ, step_new)
                 Ov_GA_counter += 1
                 GA_counter += 1
-                stepthrough_logger.info('GA_counter is '+','+str(GA_counter)+'\n')
+                stepthrough_logger.info('GA_counter is %d', GA_counter)
 
         else:
-            Ac_added, elap,counter, qp = [], 0.1, 0, 0 # JF Question: is this a syntax error?
+            Ac_added, elap, counter, qp = [], 0.1, 0, 0 # JF Question: is this a syntax error?
 
         latest_time = (time.time() - initial_time)/conv_factor
 
