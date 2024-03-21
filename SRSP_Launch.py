@@ -244,8 +244,8 @@ while rep < no_reps:
         # index 19 is the flight number
         Ac_Info[i] = [Status, Ac_class[i], Arr_Ps[i], Arr_Ps[i],
                       0, 0, 0, ServPercs,
-                      0, 0, pax_weight[i],0, 
-                      1,0,0,0,
+                      0, 0, pax_weight[i], 0,
+                      1, 0, 0, 0,
                       0, Dep_Ps[i], Orig_Ps[i], flight_id[i]]
 
     Ac_Info.sort(key=lambda x: x[2]) # Sort by prescheduled arrival time + pre-tactical delay?

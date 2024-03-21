@@ -2,6 +2,7 @@ from typing import List
 import math
 import random
 import itertools
+import numpy as np
 import time
 
 def Repopulate_VNS(GA_PopList,GA_Info,Arr_Pool,Arr_NotReady,GA_PopSize,Opt_Seq,OptCost,Opt_List,Opt_Size, Max_LookAhead: int ,VNS_counter,VNS_limit,tot_mut, stepthrough: int, step_summ: int, step_new: int):
@@ -254,7 +255,7 @@ def Repopulate_VNS(GA_PopList,GA_Info,Arr_Pool,Arr_NotReady,GA_PopSize,Opt_Seq,O
 
 
 # 
-def Populate(Ac_Info: List, base_seq: List[int], Arr_Pool: List[int] ,Arr_NotReady: List[int], GA_PopSize: int, Max_SeqLength: int):
+def Populate(Ac_Info: List, base_seq: List[int], Arr_Pool: List[int], Arr_NotReady: List[int], GA_PopSize: int, Max_SeqLength: int):
     """
     Creates a new population of sequences - used at beginning of algorithm and step 4A
 
@@ -269,123 +270,129 @@ def Populate(Ac_Info: List, base_seq: List[int], Arr_Pool: List[int] ,Arr_NotRea
     """
 
     # Number of flights not yet released from pool
-    AC_remaining = len(Arr_Pool)+len(Arr_NotReady)
+    AC_remaining = len(Arr_Pool) + len(Arr_NotReady)
     no_ACs = min(Max_SeqLength, AC_remaining) # Lengths of all sequences that will be generated
     
+    eta_list = [info[3] for AC, info in enumerate(Ac_Info)] # ETAs for each aircraft
+
     # In this case we extend sequence to be the right length
     # We extend by adding flights with closest ETA which are not already
     # in the sequence
-    if len(base_seq) < no_ACs: 
-        ArrTime_Sorted = [] # sequence of flights sorted by current ETA
-        for AC in Arr_Pool:
-            ArrTime_Sorted.append([Ac_Info[AC][3], AC])
-        for AC in Arr_NotReady:
-            ArrTime_Sorted.append([Ac_Info[AC][3], AC])
-        ArrTime_Sorted.sort(key=lambda x: x[0])
-
-        InScope_ACs = []
-        i=0
-        while len(InScope_ACs) < no_ACs:
-            InScope_ACs.append(ArrTime_Sorted[i][1])
-            i+=1
-        for AC in base_seq:
-            if AC not in InScope_ACs:
-                base_seq.remove(AC)
-        i=0
-        while len(base_seq) < no_ACs:
-            if InScope_ACs[i] not in base_seq:
-                base_seq.append(InScope_ACs[i])
-            i+=1
+    if len(base_seq) < no_ACs:
+        base_seq = extend_sequence(base_seq, eta_list, Arr_Pool, Arr_NotReady, no_ACs)
 
     # Used in SimHeur as criterion for when flight is released from pool
-    queue_probs = [0]*AC_remaining # redefined below
+    queue_probs = [0] * AC_remaining # redefined below
 
     # number of all possible sequences of remaining flights
     # only needed when there are only a small number of possible sequences left
     max_size = math.factorial(AC_remaining)
 
     # In this case, just add all remaining possible sequences
-    if GA_PopSize>=max_size:
-        remaining_seq=Arr_Pool[:]
-        for AC in Arr_NotReady:
-            remaining_seq.append(AC)
-        GA_Tuples=list(itertools.permutations(remaining_seq))
-        GA_PopList=[]
-        for j in range(len(GA_Tuples)):
-            GA_PopList.append(list(GA_Tuples[j]))
-
-        GA_Info=[]
-        for j in range(len(GA_PopList)):
-            GA_Info.append([GA_PopList[j][:],0,0,queue_probs,0])
+    if GA_PopSize >= max_size:
+        remaining_seq = Arr_Pool + Arr_NotReady
+        GA_PopList = [list(seq) for seq in itertools.permutations(remaining_seq)]
+        # JF Question: Not clear why these all share same queue_probs list - this is not the case below where a new prob list is created for each sequence
+        GA_Info = [[poplist[:], 0, 0, queue_probs, 0] for poplist in GA_PopList] 
     else:
-        GA_PopList=[]
-        GA_Info=[]
-        no_seqs=0
-        c=0
-        chk=0
-        # JF: I have corrected the line below - is this right? Max_LookAhead was previously
-        # being extracted from a global variable, but it should be a function argument
-        # no_ACs=min(Max_LookAhead,AC_remaining)
-        no_ACs=min(Max_SeqLength,AC_remaining)
+        GA_PopList = []
+        GA_Info = []
+        no_seqs = 0
+        c = 0 # Counter for number of times we duplicate the same sequence - this could be avoided by counting number of mutations possible with mutate_sequence (a quadratic number)
 
         while no_seqs < GA_PopSize:
+            new_seq = mutate_sequence(base_seq)
 
-            # Select a plane to randomly move in the sequence
-            # Use a discrete triangular distribution to put a priority on
-            # moving flights near front of sequence
-            # See Appendix A in Paper
-
-
-            # Could possible replace below with numpy.random.choice
-            # used to normalise probabilities
-            triangle_dist_size = no_ACs*(no_ACs+1)/2 # (1 + 2 + ...+ no_ACs)
-
-            # Sampling a value from triangular dist - pick a point in the sequence
-            z=random.random()*triangle_dist_size
-            totp=0
-            for ii in range(no_ACs):
-                if z<(totp+no_ACs-ii):
-                    pos=ii
-                    break
-                totp+=no_ACs-ii
-
-            new_seq=base_seq[:] # copies base sequence
-
-            AC=new_seq[pos] # gets aircraft at randomly selected point
-            new_seq.remove(AC)
-            z1=int(random.random()*3)+1 # no. of places to move
-            z2=random.random() #determine whether to move up or down
-            if z2<0.5:
-                z1=min(z1,pos)
-                pos2=pos-z1
-            else:
-                z1=min(z1,no_ACs-1-pos)
-                pos2=pos+z1
-            # Reinserts aircraft in another place
-            new_seq.insert(pos2,AC)
-
+            # JF: could potentially make this more efficient by checking we are not
+            # generating the same pos and pos2 in mutate_sequence
+            # Would need some refactoring
             if new_seq not in GA_PopList:
                 GA_PopList.append(new_seq)
-                queue_probs=[0]*AC_remaining # remove?
-                GA_Info.append([new_seq[:],0,0,queue_probs,0])
-                no_seqs+=1
+                queue_probs = [0] * AC_remaining
+                GA_Info.append([new_seq[:], 0, 0, queue_probs, 0])
+                no_seqs += 1
             else:
                 # If already in population of sequences,
                 # Potentially create a whole new sequence by shuffling
-                c+=1
-                if c>=100: # This condition means we retry above first until we have failed enough times
-
-                    new_seq=base_seq[:]
-                    random.shuffle(new_seq)
+                c += 1
+                if c >= 100: # This condition means we retry above first until we have failed enough times
+                    new_seq = random.sample(base_seq, k=len(base_seq)) # Create random permutation of sequence
                     if new_seq not in GA_PopList:
                         GA_PopList.append(new_seq)
-                        queue_probs=[0]*AC_remaining # remove?
-                        GA_Info.append([new_seq[:],0,0,queue_probs,0])
-                        no_seqs+=1
-                    #chk=1
+                        queue_probs = [0] * AC_remaining
+                        GA_Info.append([new_seq[:], 0, 0, queue_probs, 0])
+                        no_seqs += 1
 
-    # Only used for logging purposes
-    GA_PopList_sorted=GA_PopList[:]
-    GA_PopList_sorted.sort()
+    return GA_PopList, GA_Info
 
-    return GA_PopList,GA_Info
+def mutate_sequence(base_seq: List) -> List:
+    """
+    Takes a sequence and createds a new permuted one according algorithm described
+    in Appendix A of "A New Simheuristic Approach for Stochastic Runway Scheduling"
+    by Shone et al. (2024).
+
+    Algorithm randomly selects an element in sequence and randomly moves it forward
+    or backwards (by up to 3 indices), prioritising elements near the front of the sequence.
+    
+    In cases where either firstpython or last element is selected, the function may return the same sequence.
+
+    Arguments
+    ---------
+    base_seq: sequence to be permutated
+
+    """
+    no_ACs = len(base_seq)
+    L = (no_ACs * (no_ACs + 1)) // 2
+    triang_probs = tuple((no_ACs - i)/L for i in range(no_ACs))
+    
+    # Select a plane to randomly move in the sequence
+    # Use a discrete triangular distribution to put a priority on
+    # moving flights near front of sequence
+    pos = np.random.choice(range(no_ACs), p=triang_probs)
+
+    step_size = random.choice((1,2,3)) # No. of places to move (1, 2 or 3)
+    z2 = random.random() # Determine whether to move up or down
+    if z2 < 0.5: # Move backwards
+        pos2 = max(0, pos - step_size)
+    else: # Move forwards
+        pos2 = min(no_ACs - 1, pos + step_size)
+
+    new_seq = base_seq[:] # copies base sequence
+    AC = new_seq.pop(pos) # Remove aircraft at position pos from sequence
+    new_seq.insert(pos2, AC) # Reinsert aircraft at pos2
+    return new_seq
+
+def extend_sequence(base_seq: List[int], eta_list: List[float],
+                    Arr_Pool: List[int], Arr_NotReady: List[int],
+                    seq_length: int) -> List[int]:
+    """
+    Extends sequence to be of required length.
+
+    Arguments
+    ---------
+    base_seq: sequence to extend
+    eta_list: list of ETAs for all flights (ETA[i] is ETA of flight i)
+    Arr_Pool: list of flights currently in Pool
+    Arr_NotReady: list of flights not landed but not yet in pool
+    seq_length: required length of sequence
+    """
+    assert len(Arr_Pool) + len(Arr_NotReady) >= seq_length
+
+    new_seq = base_seq[:]
+    ArrTime_Sorted = Arr_Pool + Arr_NotReady
+    ArrTime_Sorted.sort(key = lambda ac: eta_list[ac])
+
+    InScope_ACs = ArrTime_Sorted[:seq_length]
+    for AC in new_seq:
+        if AC not in InScope_ACs:
+            # JF Question: removes flights that have landed? Shouldn't this already have been done?
+            # Perhaps we should have an assertion here as I don't think this should happen
+            new_seq.remove(AC) # JF so we remove flights in base sequence?
+
+    for ac in InScope_ACs:
+        if ac not in new_seq:
+            new_seq.append(ac)
+        if len(new_seq) >= seq_length:
+            break
+
+    return new_seq
