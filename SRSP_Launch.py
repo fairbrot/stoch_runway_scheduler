@@ -298,7 +298,7 @@ while rep < no_reps:
         FSFS_seq = [i for i in range(no_ACs)]
 
         # Arg 3 is Arr_Pool which is initially empty at this point
-        GA_PopList,GA_Info = Populate(Ac_Info, FSFS_seq, [], FSFS_seq, GA_PopSize, Max_LookAhead, stepthrough, step_summ, step_new)
+        GA_PopList,GA_Info = Populate(Ac_Info, FSFS_seq, [], FSFS_seq, GA_PopSize, Max_LookAhead)
         # print('GA_PopList: '+str(GA_PopList))
         # print('GA_Info: '+str(GA_Info))
 
@@ -445,7 +445,7 @@ while rep < no_reps:
                     break
 
             if SubPolicy in ('GA','GAD','VNS','VNSD'):
-                GA_PopList, GA_Info = Populate(Ac_Info, base_seq, Arr_Pool, Arr_NotReady, GA_PopSize, Max_LookAhead, stepthrough, step_summ, step_new)
+                GA_PopList, GA_Info = Populate(Ac_Info, base_seq, Arr_Pool, Arr_NotReady, GA_PopSize, Max_LookAhead)
                 queue_probs = [0]*(len(Arr_Pool)+len(Arr_NotReady))
 
                 Opt_List = []

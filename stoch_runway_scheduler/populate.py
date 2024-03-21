@@ -254,7 +254,7 @@ def Repopulate_VNS(GA_PopList,GA_Info,Arr_Pool,Arr_NotReady,GA_PopSize,Opt_Seq,O
 
 
 # 
-def Populate(Ac_Info: List, base_seq: List[int], Arr_Pool: List[int] ,Arr_NotReady: List[int], GA_PopSize: int, Max_SeqLength: int, stepthrough: int, step_summ: int, step_new: int):
+def Populate(Ac_Info: List, base_seq: List[int], Arr_Pool: List[int] ,Arr_NotReady: List[int], GA_PopSize: int, Max_SeqLength: int):
     """
     Creates a new population of sequences - used at beginning of algorithm and step 4A
 
@@ -268,44 +268,31 @@ def Populate(Ac_Info: List, base_seq: List[int], Arr_Pool: List[int] ,Arr_NotRea
     Max_SeqLength: maximum length of generated sequences (called l in paper)
     """
 
-    #print('Populating')
-    # For calculating computational time of function
-    start_time=time.time()
-
-    if stepthrough==1:
-        st.write('\n'+'Populating...'+'\n')
-    if step_summ==1:
-        st2.write('\n'+'Populating...'+'\n')
-    if step_new==1:
-        st3.write('\n'+'Populating...'+'\n')
-
     # Number of flights not yet released from pool
     AC_remaining = len(Arr_Pool)+len(Arr_NotReady)
-
     no_ACs = min(Max_SeqLength, AC_remaining) # Lengths of all sequences that will be generated
     
     # In this case we extend sequence to be the right length
     # We extend by adding flights with closest ETA which are not already
     # in the sequence
     if len(base_seq) < no_ACs: 
-        ArrTime_Sorted=[] # sequence of flights sorted by current ETA
+        ArrTime_Sorted = [] # sequence of flights sorted by current ETA
         for AC in Arr_Pool:
-            # AC_Info[3] = latest ETA
             ArrTime_Sorted.append([Ac_Info[AC][3], AC])
         for AC in Arr_NotReady:
             ArrTime_Sorted.append([Ac_Info[AC][3], AC])
         ArrTime_Sorted.sort(key=lambda x: x[0])
 
-        InScope_ACs=[]
+        InScope_ACs = []
         i=0
-        while len(InScope_ACs)<no_ACs:
+        while len(InScope_ACs) < no_ACs:
             InScope_ACs.append(ArrTime_Sorted[i][1])
             i+=1
         for AC in base_seq:
             if AC not in InScope_ACs:
                 base_seq.remove(AC)
         i=0
-        while len(base_seq)<no_ACs:
+        while len(base_seq) < no_ACs:
             if InScope_ACs[i] not in base_seq:
                 base_seq.append(InScope_ACs[i])
             i+=1
@@ -400,29 +387,5 @@ def Populate(Ac_Info: List, base_seq: List[int], Arr_Pool: List[int] ,Arr_NotRea
     # Only used for logging purposes
     GA_PopList_sorted=GA_PopList[:]
     GA_PopList_sorted.sort()
-
-    if stepthrough==1:
-        for j in range(len(GA_PopList)):
-            st.write(str(j)+','+str(GA_PopList_sorted[j])+'\n')
-        st.write('\n')
-    if step_summ==1:
-        for j in range(len(GA_PopList)):
-            st2.write(str(j)+','+str(GA_PopList_sorted[j])+'\n')
-        st2.write('\n')
-    if step_new==1:
-        # st3.write('Here is the new Opt_List: '+'\n')
-        # for j in range(len(Opt_List)):
-        # 	st3.write(str(Opt_List[j])+'\n')
-        # st3.write('\n')
-        st3.write('Here is the new GA_PopList: '+'\n')
-        for j in range(len(GA_PopList)):
-            st3.write(str(GA_PopList[j])+'\n')
-        st3.write('\n')
-
-    # Tabu_List=[base_seq]
-
-    # run_time=(time.time()-start_time)/conv_factor
-
-    #run_time=fixed_pop_elap/conv_factor
 
     return GA_PopList,GA_Info
