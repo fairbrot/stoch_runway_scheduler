@@ -194,8 +194,13 @@ def Posthoc_Check(seq,Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm,outp
     return perm_cost
 
 def Get_Actual_Serv(AC,prev_class,cur_class,weather_state,k, Time_Sep: List[List[int]], norm_approx_min, Ac_Info, w_rho: float):
+    # Samping queue service time
+    # Two cases depending on whether we use normal approximation
+    # Service time also depends on state of weather
+    # AC_Info[AC][7] is pre-generated random number which is then scaled appropriately
+    # Is different depending on whether norm approximation is being used
 
-    if k<norm_approx_min:
+    if k<norm_approx_min: # full service time
         #servtime=0
         serv_percs=Ac_Info[AC][7]
         if weather_state==1:
@@ -205,17 +210,18 @@ def Get_Actual_Serv(AC,prev_class,cur_class,weather_state,k, Time_Sep: List[List
 
         rate=ws*k/(Time_Sep[prev_class][cur_class]/60)
 
-        servtime=serv_percs/rate #Transformation causes serv_percs to go from [mean k, var k] to [mean e_{ij}, var e_{ij}^2/k]
+        servtime = serv_percs/rate #Transformation causes serv_percs to go from [mean k, var k] to [mean e_{ij}, var e_{ij}^2/k]
 
         # for j in range(k):
         # 	servtime+=(-1/rate)*math.log(serv_percs[j])
 
-    else:
+    else: # Normal case
         if weather_state==1:
             Mn=w_rho*Time_Sep[prev_class][cur_class]/60
         else:
             Mn=Time_Sep[prev_class][cur_class]/60
         SD=math.sqrt(Mn**2/k)
+      
         servtime=Ac_Info[AC][7]*SD+Mn
         # u=int(z*10000)
         # servtime=normcdf[u]*SD+Mn
@@ -411,6 +417,8 @@ def Update_ETAs(Ac_Info,Arr_NotReady,Dep_NotReady,Ac_queue,tm,Brown_Motion, Arr_
     #print('Exited Update_ETAs')
 
 def Update_Stats(tm,AC,Ac_Info,Ac_queue,real_queue_complete,wlb_tm,wub_tm,latest_class,Ov_GA_counter,next_completion_time, k: int, Time_Sep: List[List[int]], norm_approx_min, w_rho: float, SubPolicy, counter, qp):
+    # Function which produces statistics about a flight which has just been released - also calculates
+    # when this flight will be finished being serviced
 
     Ac_Infoi=Ac_Info[AC]
 

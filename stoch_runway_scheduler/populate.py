@@ -34,7 +34,7 @@ def Repopulate_VNS(GA_PopList,GA_Info,Arr_Pool,Arr_NotReady,GA_PopSize,Opt_Seq,O
     # print('len(Opt_List): '+str(len(Opt_List)))
     # print('len(GA_Info): '+str(len(GA_Info)))
 
-    if len(Opt_List)>0 and len(GA_Info)>0:
+    if len(Opt_List) > 0 and len(GA_Info) > 0:
 
         GA_Info.sort(key=lambda x: x[2])
         Best_in_pop=GA_Info[0][2]
@@ -269,6 +269,8 @@ def Populate(Ac_Info: List, base_seq: List[int], Arr_Pool: List[int], Arr_NotRea
     Max_SeqLength: maximum length of generated sequences (called l in paper)
     """
 
+    # JF Question: should we add an assert that len(base_seq) <= Max_SeqLength? Yes
+
     # Number of flights not yet released from pool
     AC_remaining = len(Arr_Pool) + len(Arr_NotReady)
     no_ACs = min(Max_SeqLength, AC_remaining) # Lengths of all sequences that will be generated
@@ -293,7 +295,17 @@ def Populate(Ac_Info: List, base_seq: List[int], Arr_Pool: List[int], Arr_NotRea
         remaining_seq = Arr_Pool + Arr_NotReady
         GA_PopList = [list(seq) for seq in itertools.permutations(remaining_seq)]
         # JF Question: Not clear why these all share same queue_probs list - this is not the case below where a new prob list is created for each sequence
+        # Index 0: sequence
+        # Index 1: number of trajectories sampled so far
+        # Index 2: V_s^n in paper  (eqn 15)
+        # Index 3: stores "probability" that aircraft will immediately go into service at end of remaining travel time - upsilon in paper (page 18)
+        # Rob thinks this upsilon is redundant as Rob set lambda to zero in paper which means that if one random trajectory where aircraft enters
+        # service immediately, this triggers release from pool.
+        # JF Note: this possibly needs to be moved outside of GA_info object if it meant to be independent of sequence
+        # Index 4: W_s^n in paper (eqn 16)
         GA_Info = [[poplist[:], 0, 0, queue_probs, 0] for poplist in GA_PopList] 
+
+
     else:
         GA_PopList = []
         GA_Info = []
@@ -385,7 +397,7 @@ def extend_sequence(base_seq: List[int], eta_list: List[float],
     InScope_ACs = ArrTime_Sorted[:seq_length]
     for AC in new_seq:
         if AC not in InScope_ACs:
-            # JF Question: removes flights that have landed? Shouldn't this already have been done?
+            # JF Question: removes flights that have landed? Shouldn't this already have been done? Possibly redundant
             # Perhaps we should have an assertion here as I don't think this should happen
             new_seq.remove(AC) # JF so we remove flights in base sequence?
 

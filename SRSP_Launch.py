@@ -37,7 +37,9 @@ tau = 30 # Determines when an aircraft is deemed to have entered the pool. E.g. 
 t = 15 # length of a time slot in minutes
 
 NoC = 4 # no. of aircraft classes
-Time_Sep = [[97,121,121,145],[72,72,72,97,97],[72,72,72,72],[72,72,72,72],[72,72,72,72]] # Time separations in seconds taken from Bennell et al (2017) with H, U, M, S as the 4 classes; the 5th array is for the situation where there is no leading aircraft
+# Time separations in seconds taken from Bennell et al (2017) with H, U, M, S as the 4 classes; 
+# the 5th array is for the situation where there is no leading aircraft
+Time_Sep = [[97,121,121,145],[72,72,72,97,97],[72,72,72,72],[72,72,72,72],[72,72,72,72]] 
 # JF: Time_Sep is List[List[int]]
 
 # k controls variances of service times - larger means less variance
@@ -215,6 +217,7 @@ while rep < no_reps:
     for i in range(NoA):
         # JF Question: which departure? From origin or destination airport? If latter, are status 3-6 not needed?
         # Legacy code - Status might not even be used
+        # JF Note: Perhaps replace status with an Enum
         Status = 0 #0: not ready yet (arrival), 1: in arrival pool, 2: added to arrival queue, 3: not ready yet (departure), 4: in departure pool, 5: added to departure queue, 6: finished.
 
         # Generating service times for arrivals - these are scheduled to have the right mean later
@@ -229,7 +232,7 @@ while rep < no_reps:
         # index 4 is the time at which aircraft is released from pool,
         # index 5 is the time at which aircraft enters service,
         # index 6 is the travel time (generated in advance), # JF Question note from entering pool to runway?
-        # index 7 is the list of random numbers used for service phase completions,
+        # index 7 is the list of random numbers used to calculate service times
         # index 8 is the actual service time s1+Z2 (worked out after class information is known,
         # index 9 is the actual time that they join the pool (generated in advance)),
         # index 10 is the passenger weight (g_i),
@@ -291,40 +294,42 @@ while rep < no_reps:
         print('Generating initial population of sequences...')
 
         # Should probably just be Max_LookAhead as values haven't changed at this point
-        no_ACs = min(Max_LookAhead, NoA) 
-        # FSFS_seq = [0]*no_ACs
-        # for i in range(no_ACs):
-        #     FSFS_seq[i] = i
+        no_ACs = min(Max_LookAhead, NoA) # JF: perhaps change this name to be clearer (it is sequence length)
+        # JF Question: should this be FCFS? No - this is first scheduled first served
         FSFS_seq = [i for i in range(no_ACs)]
 
         # Arg 3 is Arr_Pool which is initially empty at this point
-        GA_PopList,GA_Info = Populate(Ac_Info, FSFS_seq, [], FSFS_seq, GA_PopSize, Max_LookAhead)
+        GA_PopList, GA_Info = Populate(Ac_Info, FSFS_seq, [], FSFS_seq, GA_PopSize, Max_LookAhead)
         # print('GA_PopList: '+str(GA_PopList))
         # print('GA_Info: '+str(GA_Info))
 
         Opt_Seq = FSFS_seq[:]
-        OptCost = 1000000
-        queue_probs = [0]*NoA
+        OptCost = 1000000 # initial cost
+        queue_probs = [0]*NoA # JF Question: this is shared between solutions? Should this really be the case? Possibly is independent of sequence
         Opt_List = [] # For storing best set of solutions?
         Opt_Seqs = []
-        Opt_Size = 10 # Length of shortlist
+        Opt_Size = 10 # Length of shortlist JF - Perhaps move to parameters
 
-        while len(Opt_List)<Opt_Size:
-            new_seq = FSFS_seq[:]
-            random.shuffle(new_seq)
-            if new_seq not in GA_PopList and new_seq not in Opt_Seqs:
-                Opt_List.append([new_seq[:],0,0,queue_probs,0])
+        # JF Note: we may now not need separate lists Opt_Seqs and GA_PopList - Rob thinks a list of best sequences probably isn't needed now
+        # Only really need to keep best sequence and mutate from that.
+        # When Rob wrote this code originally he had idea of using best n sequences for generating new sequences
+        # Create an initial population of sequences for Opt_Seq
+        # which shouldn't intersect GA_PopList
+        while len(Opt_List) < Opt_Size:
+            new_seq = random.sample(FSFS_seq, k=len(FSFS_seq)) # shuffle fcfs sequence
+            if new_seq not in GA_PopList and new_seq not in Opt_Seqs: # This is just to initialise opt_list - we want to compare with distinct GA_PopList
+                Opt_List.append([new_seq[:],0,0,queue_probs,0]) # analogous to GA_Info
                 Opt_Seqs.append(new_seq[:])
 
-        GA_Check_Increment = GA_LoopSize/10 # Called r in paper - how often to do ranking and selection
+        GA_Check_Increment = GA_LoopSize / 10 # Called r in paper - how often to do ranking and selection
         # Is done for every iteration for VNSD
 
-        GA_counter = 0
+        GA_counter = 0 # called n in paper (number of trajectories sampled so far)
         GA_CheckSize = GA_Check_Increment
         print(f'GA_CheckSize: {GA_CheckSize}')
-        Ov_GA_counter = 0
+        Ov_GA_counter = 0 # Rob thinks for logging purposes
 
-        stepthrough_logger.info('Initial population of sequences:'+'\n')
+        stepthrough_logger.info('Initial population of sequences:')
         for (j, poplist) in enumerate(GA_PopList):
             stepthrough_logger.info("%d, %s\n", j, poplist)
 
@@ -333,32 +338,31 @@ while rep < no_reps:
     for AC in range(NoA):
         print(f'AC: {AC} Class: {Ac_Info[AC][1]} Orig Ps time: {Ac_Info[AC][18]} Ps time: {Ac_Info[AC][2]} Arrives in pool: {Ac_Info[AC][9]} Travel time: {Ac_Info[AC][6]}')
 
-    Ac_queue = []
-    Left_queue = []
-    Arr_Pool = []
-    Dep_Pool = []
-    Arr_NotReady = []
-    Dep_NotReady = []
-    Old_Perms = []
-    Old_Perm_Info = []
+    Ac_queue = [] # flights currently in queue for landing
+    Left_queue = [] # Aircraft which have landed
+    Arr_Pool = [] # Aircraft in Pool
+    Arr_NotReady = [] # Aircraft that haven't joined pool yet
+    Dep_NotReady = [] # Is this needed? It is used once below - Possibly not - check how it is used
 
-    tm = 0 #-30 # earliest_ps_time-30 #-30 #time counter
-    old_tm = tm
-    totserv = 0 # counter of number of aircraft served
-    latest_class = 4 # class of latest aircraft to be added to the queue, initially set to 3
-    prev_class = 4 # class of previous aircraft to be served, initially set to 3
-    Ac_added = []
+    # JF Question: I need a lot of these parameters explaining
+
+    tm = 0  # tm is current time (in minutes)
+    old_tm = tm # previous time
+    totserv = 0 # counter of number of aircraft served (landed)
+    latest_class = 4 # class of latest aircraft to be added to the queue, initially set to 4 (dummy value)
+    prev_class = 4 # class of previous aircraft to be served, initially set to 4 (dummy value)
+    Ac_added = [] # aircraft to be added to the queue
     counter = 0
-    qp = 0
+    qp = 0 # Possibly related to an old permutation based heuristic - may be redundant now
     weather_state = 0 # 0 means it's good weather, 1 means bad weather, 2 means good weather again
-    real_queue_complete = 0
+    real_queue_complete = 0 # stores time last place was serviced
     next_completion_time = 0
-    Pop_elap = 0
-    max_d = 1
-    pruned = 0
+    Pop_elap = 0 # Used to track time spent in certain functions - used to update simulation clock
+    max_d = 1 # Possibly redundant
+    pruned = 0 # indicator of whether or not number of sequences has gone below minimum
     soln_evals_tot = 0
     soln_evals_num = 0
-    tot_mut = 0
+    tot_mut = 0 # number of times we have done mutation step
 
     tot_arr_cost = 0
     tot_dep_cost = 0
@@ -366,8 +370,7 @@ while rep < no_reps:
     Loop_Nums = 0
     Loop_Evals = 0
 
-    Long_Perm_List = []
-    Perm_Info = []
+
 
     # Generate the initial pool and notready arrays
     print('*** Generating the initial pool...')
@@ -376,7 +379,7 @@ while rep < no_reps:
         if Ac_Infoi[3]-tau <= 0:
             Arr_Pool.append(i)
             print('Aircraft '+str(i)+' initially included in pool (ETA is '+str(Ac_Infoi[3])+')')
-            Ac_Infoi[0] += 1
+            Ac_Infoi[0] += 1 # Change status to "in Pool"
         else:
             Arr_NotReady.append(i)
 
@@ -386,7 +389,7 @@ while rep < no_reps:
 
     print(f'*** Into main loop for rep {rep} and policy {SubPolicy}...')
     begin_time = time.time()
-    mv_time = 0
+    mv_time = 0 # some sort of indicator
     if policy_index == 0:
         gg.write(str(rep)+','+str(conv_factor)+','+str(wiener_sig)+','+str(k)+','+str(lam1)+','+str(lam2)+','+str(wlb)+','+str(wub)+','+str(wlb_tm)+','+str(wub_tm)+','+str(thres1)+','+str(thres2)+',')
 
@@ -401,11 +404,14 @@ while rep < no_reps:
         stepthrough_logger.info('Left_queue is %s', Left_queue)
         stepthrough_logger.info('Ac_added is %s', Ac_added)
 
+        # If one aircraft needs releasing and the first aircraft to be released is in the pool
+        # tm >= may be redundant
         if tm >= 0 and len(Ac_added) > 0 and Ac_added[0] in Arr_Pool:
-            if SubPolicy in ('GA','GAD','VNS','VNSD'):
-                Opt_List.sort(key=lambda x: x[2])
+            if SubPolicy in ('VNS','VNSD'):
+                Opt_List.sort(key=lambda x: x[2]) # sort by mean V_s^n
                 GA_Info.sort(key=lambda x: x[2])
-                if len(Opt_List) > 0 and len(GA_Info) > 0:
+                # Set up base sequence and pred_cost (latest predicted cost)
+                if len(Opt_List) > 0 and len(GA_Info) > 0: # If both lists non-empty then compare best in one with best inother
                     if Opt_List[0][2] < GA_Info[0][2]:
                         base_seq = Opt_List[0][0][:]
                         pred_cost = Opt_List[0][2]
@@ -420,37 +426,39 @@ while rep < no_reps:
                     pred_cost = GA_Info[0][2]
                 else:
                     assert 1 == 2
+            # For each aircraft being released...
             for AC in Ac_added:
                 if AC in Arr_Pool:
                     Arr_Pool.remove(AC)
-                    if SubPolicy == 'SA':
-                        Anneal_Seq.remove(AC)
                     Ac_queue.append(AC)
-                    if SubPolicy == 'Perm':
-                        continue #print('Added AC '+str(AC)+' to the queue, counter is '+str(counter)+', LPLL is '+str(len(Long_Perm_List))+', qp is '+str(qp))
-                    elif SubPolicy in ('VNS','VNSD'):
+                    if SubPolicy in ('VNS','VNSD'):
                         #print('Added AC '+str(AC)+' to the queue, counter is '+str(Ov_GA_counter)+', qp is '+str(qp))
                         Ac_Info[AC][15] = pred_cost
                         stepthrough_logger.info('Added AC %d to the queue, counter is %d, qp is %.2f\n', AC, Ov_GA_counter, qp)
-                        step_summ_logger.info('Added AC '+str(AC)+' to the queue, counter is '+str(Ov_GA_counter)+', qp is '+str(qp)+'\n')
-                        step_new_logger.info('Added AC '+str(AC)+' to the queue, counter is '+str(Ov_GA_counter)+', qp is '+str(qp)+'\n')
+                        step_summ_logger.info('Added AC %d to the queue, counter is %d, qp is %s', AC, Ov_GA_counter, qp)
+                        step_new_logger.info('Added AC %d to the queue, counter is %d, qp is %s', AC, Ov_GA_counter, qp)
                         base_seq.remove(AC)
 
                     else:
                         print('Added AC '+str(AC)+' to the queue')
 
+                    # Gets important statistics about aircraft being released and serviced
+                    # some of these outputs are used for simulation itself
                     real_queue_complete, next_completion_time, latest_class, Ov_GA_counter = Update_Stats(tm,AC,Ac_Info,Ac_queue,real_queue_complete,wlb_tm,wub_tm,latest_class,Ov_GA_counter,next_completion_time, k, Time_Sep, norm_approx_min, w_rho, SubPolicy, counter, qp)
 
                 else:
+                    # Important: if aircraft not in the pool then don't consider any others (order in Ac_Added comes from a sequence and is important)
                     break
 
-            if SubPolicy in ('GA','GAD','VNS','VNSD'):
+            # We have released flights so we need to reinitialise population (Step 4A in paper)
+            if SubPolicy in ('VNS','VNSD'): # This is always the case FCFS policy tested elsewhere so this is redundant - we are always using one of these policies
                 GA_PopList, GA_Info = Populate(Ac_Info, base_seq, Arr_Pool, Arr_NotReady, GA_PopSize, Max_LookAhead)
                 queue_probs = [0]*(len(Arr_Pool)+len(Arr_NotReady))
 
                 Opt_List = []
                 Opt_Seqs = []
-                c = 0
+                c = 0 # JF Question: Is this actually used?
+                # This looks very similar to initialisation of Opt_List above
                 while len(Opt_List)<Opt_Size and c<25:
                     new_seq = base_seq[:]
                     random.shuffle(new_seq)
@@ -460,46 +468,48 @@ while rep < no_reps:
                         c = 0
                     else:
                         c += 1
-                GA_counter = 0
-                GA_CheckSize = GA_Check_Increment
+                GA_counter = 0 # reset counter
+                GA_CheckSize = GA_Check_Increment # next point to check
             else:
-                Pop_elap = 0
+                Pop_elap = 0 # redundant case now since always using VNS or VNSD
 
-            Long_Perm_List = []
-            Perm_Info = []
 
-        if SubPolicy in ('GA','GAD','VNS','VNSD'):
+        # JF Question: what does this part do?
+        if SubPolicy in ('VNS','VNSD'):
             # print('tm: '+str(tm)+' GA_counter: '+str(GA_counter))
             Repop_elap = 0
-            if len(Arr_Pool)+len(Arr_NotReady) > 0: #4:
+            if len(Arr_Pool) + len(Arr_NotReady) > 0: #4: # JF Question - Should this condition be automatically satisfied? See condition on outermost loop
+                # Condition for step 4C in paper
                 if GA_counter >= GA_LoopSize or pruned == 1: #or max_d<0.01:
                     # print('tm: '+str(tm)+' Best sequence is '+str(GA_Info[0][0])+' Estimated cost is '+str(GA_Info[0][2]))
                     # print('tm: '+str(tm)+' GA_counter: '+str(GA_counter)+', Repop')
                     Loop_Nums+=1
                     # print('Loop_Nums: '+str(Loop_Nums))
                     Loop_Evals += GA_counter
+                    # Create more seqeuences from best current sequence
                     GA_PopList, GA_Info, Opt_Seq,OptCost, Opt_List, VNS_counter, tot_mut = Repopulate_VNS(GA_PopList, GA_Info, Arr_Pool, Arr_NotReady, GA_PopSize, Opt_Seq, 
                                                                                                           OptCost, Opt_List,Opt_Size,Max_LookAhead,VNS_counter,VNS_limit,tot_mut, 
                                                                                                           stepthrough, step_summ, step_new)
                     GA_counter = 0
                     GA_CheckSize = GA_Check_Increment
                     mv_time = 1
-                    if SubPolicy == 'GA':
-                        max_d = 1
             else:
-                mv_time = 1
+                mv_time = 1 # May be redundant
         else:
             Repop_elap = 0
 
         # First, get the AC List
 
+        # JF Question: I think 100 should be replaced by freq here
+        # What is the condition?
         if tm >= 0 and tm <= wub_tm and int(tm*100) != int(old_tm*100):
             # Permute and update the weather
-            wlb = weather_lb[int(tm*100)] #random.gauss(wlb,0.05)
+            wlb = weather_lb[int(tm*100)] # random.gauss(wlb,0.05)
             wub = weather_ub[int(tm*100)]
 
         if len(Arr_Pool) + len(Arr_NotReady) > 0:
             if SubPolicy == 'VNS':
+                # JF Question: what is happening here?
                 Ac_added, counter, qp, max_d, pruned, GA_CheckSize, GA_counter, soln_evals_tot, soln_evals_num = Genetic(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, Left_queue, max(tm,0), NoA, k, prev_class, GA_PopList, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, tot_arr_cost + tot_dep_cost, wlb, wub, Opt_List, max_d, soln_evals_tot, soln_evals_num, gamma_cdf, norm_cdf, norm_approx_min, tau, Max_LookAhead, Time_Sep, thres1, thres2, lam1, lam2, GA_Check_Increment, Opt_Size, w_rho, stepthrough, wiener_sig, weather_sig)
                 Ov_GA_counter+=1
                 stepthrough_logger.info('GA_counter is %d', GA_counter)
