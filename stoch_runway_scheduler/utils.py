@@ -1,5 +1,6 @@
 from typing import List
 from enum import Enum
+from dataclasses import dataclass
 import csv
 import math
 import random
@@ -12,6 +13,28 @@ class FlightStatus(Enum):
     DEP_NOT_READY = 3 # JF Question: should these final two be combined?
     FINISHED = 6
 
+@dataclass
+class FlightInfo:
+    status: FlightStatus
+    ac_class: int 
+    ps_time: float # pre-scheduled time (plus pre-tactical delay)
+    eta: float # latest ETA
+    release_time: float # time at which aircraft is released from pool
+    enters_service: float # the time at which aircraft enters service
+    travel_time: float # travel time (generated in advance), # JF Question note from entering pool to runway?
+    service_rns: List[float] # list of random numbers used to calculate service times
+    service_time: float # actual service time s1+Z2 (worked out after class information is known)
+    pool_time: float # actual time that they join the pool (generated in advance)
+    passenger_weight: float # g_i
+    travel_time_indicator: bool #  indicator to show whether or not the AC's travel time has already been completed
+    weather_state: int # weather state at the time of release
+    counter: int # counter (for Perm only)
+    qp: float # Perm only
+    pred_cost: float # predicted total cost at time of release
+    service_completion_time: float # actual service completion time
+    sched_dep_time: float # scheduled departure time
+    orig_sched_time: float # original pre-scheduled arrival time before adding pre-tactical delay
+    flight_id: int
 
 def read_flight_data(data_fn: str, min_time: int, max_time: int, wiener_sig: float):
     Ac_class = [] # this will store the weight class for each aircraft
