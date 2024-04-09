@@ -182,10 +182,8 @@ def Posthoc_Check(seq,Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm,outp
 
 def Get_Actual_Serv(AC,prev_class,cur_class,weather_state,k, Time_Sep: List[List[int]], Ac_Info, w_rho: float):
     # Samping queue service time
-    # Two cases depending on whether we use normal approximation
     # Service time also depends on state of weather
     # Ac_Info[AC].service_rns is pre-generated random number which is then scaled appropriately
-    # Is different depending on whether norm approximation is being used
 
     serv_percs=Ac_Info[AC].service_rns
     if weather_state==1:
