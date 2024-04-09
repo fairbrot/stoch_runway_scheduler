@@ -17,22 +17,22 @@ class FlightStatus(Enum):
 class FlightInfo:
     status: FlightStatus
     ac_class: int 
-    ps_time: float # pre-scheduled time (plus pre-tactical delay)
-    eta: float # latest ETA
-    release_time: float # time at which aircraft is released from pool
-    enters_service: float # the time at which aircraft enters service
-    travel_time: float # travel time (generated in advance), # JF Question note from entering pool to runway?
-    service_rns: List[float] # list of random numbers used to calculate service times
-    service_time: float # actual service time s1+Z2 (worked out after class information is known)
-    pool_time: float # actual time that they join the pool (generated in advance)
+    ps_time: float # 2 pre-scheduled time (plus pre-tactical delay)
+    eta: float # 3 latest ETA
+    release_time: float # 4 time at which aircraft is released from pool
+    enters_service: float # 5 the time at which aircraft enters service
+    travel_time: float # 6 travel time (generated in advance), # JF Question note from entering pool to runway?
+    service_rns: List[float] # 7 list of random numbers used to calculate service times - JF NOTE: NOT USED!
+    service_time: float # 8 actual service time s1+Z2 (worked out after class information is known)
+    pool_time: float # 9 actual time that they join the pool (generated in advance)
     passenger_weight: float # g_i
-    travel_time_indicator: bool #  indicator to show whether or not the AC's travel time has already been completed
-    weather_state: int # weather state at the time of release
-    counter: int # counter (for Perm only)
+    travel_time_indicator: bool # 11 indicator to show whether or not the AC's travel time has already been completed
+    weather_state: int # 12 weather state at the time of release # JF Note - could possibly be removed with refactoring
+    counter: int # counter
     qp: float # Perm only
-    pred_cost: float # predicted total cost at time of release
+    pred_cost: float # 15 predicted total cost at time of release
     service_completion_time: float # actual service completion time
-    sched_dep_time: float # scheduled departure time
+    sched_dep_time: float # scheduled departure time - used?
     orig_sched_time: float # original pre-scheduled arrival time before adding pre-tactical delay
     flight_id: int
 

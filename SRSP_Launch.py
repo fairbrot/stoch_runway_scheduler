@@ -10,7 +10,7 @@ import os
 
 import numpy as np 
 
-from stoch_runway_scheduler import generate_weather, generate_trajectory, read_flight_data, sample_pretac_delay, weather, Genetic, Genetic_determ, Populate, Repopulate_VNS, sample_cond_gamma, getcost, Annealing_Cost, Perm_Heur, Perm_Heur_New, Calculate_FCFS, sample_gamma, gamma_create_cdf, norm_create_cdf, Posthoc_Check, Update_Stats, Update_ETAs, Serv_Completions, FlightStatus
+from stoch_runway_scheduler import generate_weather, generate_trajectory, read_flight_data, sample_pretac_delay, weather, Genetic, Genetic_determ, Populate, Repopulate_VNS, sample_cond_gamma, getcost, Annealing_Cost, Perm_Heur, Perm_Heur_New, Calculate_FCFS, sample_gamma, gamma_create_cdf, norm_create_cdf, Posthoc_Check, Update_Stats, Update_ETAs, Serv_Completions, FlightInfo, FlightStatus
 
 #################
 # CONIFIGUATION #
@@ -225,48 +225,30 @@ while rep < no_reps:
         else:
             ServPercs=random.gauss(0,1)
 
-        # index 2 is pre-scheduled time (plus pre-tactical delay),
-        # index 3 is latest ETA,
-        # index 4 is the time at which aircraft is released from pool,
-        # index 5 is the time at which aircraft enters service,
-        # index 6 is the travel time (generated in advance), # JF Question note from entering pool to runway?
-        # index 7 is the list of random numbers used to calculate service times
-        # index 8 is the actual service time s1+Z2 (worked out after class information is known,
-        # index 9 is the actual time that they join the pool (generated in advance)),
-        # index 10 is the passenger weight (g_i),
-        # index 11 is an indicator to show whether or not the AC's travel time has already been completed,
-        # index 12 is the weather state at the time of release,
-        # index 13 is the counter (for Perm only),
-        # index 14 is qp (Perm only),
-        # index 15 is predicted total cost at time of release,
-        # index 16 is the actual service completion time,
-        # index 17 is the scheduled departure time,
-        # index 18 is the original pre-scheduled arrival time before adding pre-tactical delay,
-        # index 19 is the flight number
-        Ac_Info[i] = [Status, Ac_class[i], Arr_Ps[i], Arr_Ps[i],
+        Ac_Info[i] = FlightInfo(Status, Ac_class[i], Arr_Ps[i], Arr_Ps[i],
                       0, 0, 0, ServPercs,
                       0, 0, pax_weight[i], 0,
                       1, 0, 0, 0,
-                      0, Dep_Ps[i], Orig_Ps[i], flight_id[i]]
+                      0, Dep_Ps[i], Orig_Ps[i], flight_id[i])
 
-    Ac_Info.sort(key=lambda x: x[2]) # Sort by prescheduled arrival time + pre-tactical delay?
+    Ac_Info.sort(key=lambda x: x.ps_time)
 
     print('*** Generating the ETA trajectory array...')
     # Trajectories are generated for whole 8 hour period for each flight
 
     Brown_Motion = []
     for i in range(NoA):
-        Ps_time, Dep_time,  = Ac_Info[i][2], Ac_Info[i][17]
+        Ps_time, Dep_time,  = Ac_Info[i].ps_time, Ac_Info[i].sched_dep_time
         pool_arr_time, travel_time, brown_motion = generate_trajectory(Dep_time, Ps_time, tau, wiener_sig)
-        Ac_Info[i][6] = travel_time
-        Ac_Info[i][9] = pool_arr_time
+        Ac_Info[i].travel_time = travel_time
+        Ac_Info[i].pool_time = pool_arr_time
         Brown_Motion.append(brown_motion)
 
     header = ['AC', 'Class', 'PS time', 'Pool arrival', 'Travel time', 'Runway time']
     stepthrough_logger.info(', '.join(header))
     for AC in range(NoA):
         Ac_Infoi = Ac_Info[AC]
-        stepthrough_logger.info('%s, %s, %s, %s, %s, %s, %s', AC, Ac_Infoi[1], Ac_Infoi[2], Ac_Infoi[9], Ac_Infoi[6], Ac_Infoi[9], Ac_Infoi[6])
+        stepthrough_logger.info('%s, %s, %s, %s, %s, %s, %s', AC, Ac_Infoi.ac_class, Ac_Infoi.ps_time, Ac_Infoi.pool_time, Ac_Infoi.travel_time, Ac_Infoi.pool_time, Ac_Infoi.travel_time)
     stepthrough_logger.info('\n')
 
     print('*** Generating the weather transition array...')
@@ -334,7 +316,7 @@ while rep < no_reps:
         print(f'Ov_GA_counter: {Ov_GA_counter}')
 
     for AC in range(NoA):
-        print(f'AC: {AC} Class: {Ac_Info[AC][1]} Orig Ps time: {Ac_Info[AC][18]} Ps time: {Ac_Info[AC][2]} Arrives in pool: {Ac_Info[AC][9]} Travel time: {Ac_Info[AC][6]}')
+        print(f'AC: {AC} Class: {Ac_Info[AC].ac_class} Orig Ps time: {Ac_Info[AC].orig_sched_time} Ps time: {Ac_Info[AC].ps_time} Arrives in pool: {Ac_Info[AC].pool_time} Travel time: {Ac_Info[AC].travel_time}')
 
     Ac_queue = [] # flights currently in queue for landing
     Left_queue = [] # Aircraft which have landed
@@ -374,10 +356,10 @@ while rep < no_reps:
     print('*** Generating the initial pool...')
     for i in range(NoA):
         Ac_Infoi = Ac_Info[i]
-        if Ac_Infoi[3]-tau <= 0:
+        if Ac_Infoi.eta - tau <= 0:
             Arr_Pool.append(i)
-            print('Aircraft '+str(i)+' initially included in pool (ETA is '+str(Ac_Infoi[3])+')')
-            Ac_Infoi[0] = FlightStatus.IN_POOL
+            print('Aircraft '+str(i)+' initially included in pool (ETA is '+str(Ac_Infoi.eta)+')')
+            Ac_Infoi.status = FlightStatus.IN_POOL
         else:
             Arr_NotReady.append(i)
 
@@ -431,7 +413,7 @@ while rep < no_reps:
                     Ac_queue.append(AC)
                     if SubPolicy in ('VNS','VNSD'):
                         #print('Added AC '+str(AC)+' to the queue, counter is '+str(Ov_GA_counter)+', qp is '+str(qp))
-                        Ac_Info[AC][15] = pred_cost
+                        Ac_Info[AC].pred_cost = pred_cost
                         stepthrough_logger.info('Added AC %d to the queue, counter is %d, qp is %.2f\n', AC, Ov_GA_counter, qp)
                         step_summ_logger.info('Added AC %d to the queue, counter is %d, qp is %s', AC, Ov_GA_counter, qp)
                         step_new_logger.info('Added AC %d to the queue, counter is %d, qp is %s', AC, Ov_GA_counter, qp)
@@ -547,9 +529,9 @@ while rep < no_reps:
     ArrTime_Sorted = [0]*NoA
     ServTime = [0]*NoA
     for i in range(NoA):
-        ArrTime[i] = [Ac_Info[i][9],i]
-        ArrTime_Sorted[i] = [Ac_Info[i][9],i]
-        ServTime[i] = Ac_Info[i][7]
+        ArrTime[i] = [Ac_Info[i].pool_time,i]
+        ArrTime_Sorted[i] = [Ac_Info[i].pool_time,i]
+        ServTime[i] = Ac_Info[i].service_rns
 
     ArrTime_Sorted.sort(key=lambda x: x[0])
 
@@ -568,9 +550,9 @@ while rep < no_reps:
         ArrTime_Sorted = [0]*NoA
         ServTime = [0]*NoA
         for i in range(NoA):
-            ArrTime[i] = [Ac_Info[i][9],i]
-            ArrTime_Sorted[i] = [Ac_Info[i][9],i]
-            ServTime[i] = Ac_Info[i][7]
+            ArrTime[i] = [Ac_Info[i].pool_time,i]
+            ArrTime_Sorted[i] = [Ac_Info[i].pool_time,i]
+            ServTime[i] = Ac_Info[i].service_rns
 
         ArrTime_Sorted.sort(key=lambda x: x[0])
 

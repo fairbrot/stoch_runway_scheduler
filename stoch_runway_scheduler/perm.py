@@ -126,8 +126,8 @@ def Perm_Heur(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,pool_max,list_min,wlb_tm,w
 
                 AC=perm[j]
                 release_time=max(latest_tm,ArrTime[AC][0])
-                trav_time=Ac_Info[AC][6]
-                perm_class=Ac_Info[AC][1]
+                trav_time=Ac_Info[AC].travel_time
+                perm_class=Ac_Info[AC].ac_class
                 begin_serv=max(release_time,perm_queue_complete)
                 perm_weather_state=weather(release_time,wlb_tm,wub_tm) #weather(begin_serv,wlb_tm,wub_tm)
 
@@ -146,7 +146,7 @@ def Perm_Heur(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,pool_max,list_min,wlb_tm,w
                     if perm_weather_state==1:
                         Mn*=w_rho
                     SD=math.sqrt(Mn**2/k)
-                    serv=ServTime[AC]*SD+Mn #Ac_Info[AC][7]*SD+Mn
+                    serv=ServTime[AC]*SD+Mn #Ac_Info[AC].service_rns*SD+Mn
                     # u=int(z*10000)
                     # serv=normcdf[u]*SD+Mn
 
@@ -154,7 +154,7 @@ def Perm_Heur(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,pool_max,list_min,wlb_tm,w
                 t2=perm_queue_complete+serv
                 perm_queue_complete=max(t1,t2)
 
-                perm_cost+=getcost(Ac_Info[AC][18],ArrTime[AC][0],Ac_Info[AC][6],perm_queue_complete,Ac_Info[AC][10],thres1,thres2, lam1, lam2)
+                perm_cost+=getcost(Ac_Info[AC].orig_sched_time,ArrTime[AC][0],Ac_Info[AC].travel_time,perm_queue_complete,Ac_Info[AC].passenger_weight,thres1,thres2, lam1, lam2)
 
                 latest_tm=release_time
                 perm_prev_class=perm_class
@@ -169,8 +169,8 @@ def Perm_Heur(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,pool_max,list_min,wlb_tm,w
 
         AC=minperm[0]
         release_time=max(tm,ArrTime[AC][0])
-        trav_time=Ac_Info[AC][6]
-        cur_class=Ac_Info[AC][1]
+        trav_time=Ac_Info[AC].travel_time
+        cur_class=Ac_Info[AC].ac_class
         begin_serv=max(release_time,queue_complete)
         weather_state=weather(release_time,wlb_tm,wub_tm) #weather(begin_serv,wlb_tm,wub_tm)
 
@@ -191,7 +191,7 @@ def Perm_Heur(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,pool_max,list_min,wlb_tm,w
             if weather_state==1:
                 Mn*=w_rho
             SD=math.sqrt(Mn**2/k)
-            z=Ac_Info[AC][7]*SD+Mn
+            z=Ac_Info[AC].service_rns*SD+Mn
             # u=int(z*10000)
             # serv=normcdf[u]*SD+Mn
 
@@ -202,13 +202,13 @@ def Perm_Heur(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,pool_max,list_min,wlb_tm,w
         t2=queue_complete+serv
         queue_complete=max(t1,t2)
 
-        f1.write(str(AC)+','+str(prev_class)+','+str(cur_class)+','+str(Time_Sep[prev_class][cur_class]/60)+','+str(Ac_Info[AC][2])+','+str(Ac_Info[AC][3])+','+str(Ac_Info[AC][9])+','+str(release_time)+','+str(trav_time)+',')
+        f1.write(str(AC)+','+str(prev_class)+','+str(cur_class)+','+str(Time_Sep[prev_class][cur_class]/60)+','+str(Ac_Info[AC].ps_time)+','+str(Ac_Info[AC].eta)+','+str(Ac_Info[AC].pool_time)+','+str(release_time)+','+str(trav_time)+',')
         # for j in range(k):
-        # 	f1.write(str(Ac_Info[AC][7][j])+',')
-        f1.write(str(actual_serv)+','+str(begin_serv)+','+str(queue_complete)+','+str(queue_complete-begin_serv)+','+str(Ac_Info[AC][10])+','+str(getcost(Ac_Info[AC][2],ArrTime[AC][0],Ac_Info[AC][6],queue_complete,Ac_Info[AC][10],thres1,thres2, lam1, lam2))+'\n')
+        # 	f1.write(str(Ac_Info[AC].service_rns[j])+',')
+        f1.write(str(actual_serv)+','+str(begin_serv)+','+str(queue_complete)+','+str(queue_complete-begin_serv)+','+str(Ac_Info[AC].passenger_weight)+','+str(getcost(Ac_Info[AC].ps_time,ArrTime[AC][0],Ac_Info[AC].travel_time,queue_complete,Ac_Info[AC].passenger_weight,thres1,thres2, lam1, lam2))+'\n')
 
-        if queue_complete>Ac_Info[AC][2]+thres1:
-            totcost+=getcost(Ac_Info[AC][18],ArrTime[AC][0],Ac_Info[AC][6],queue_complete,Ac_Info[AC][10],thres1,thres2, lam1, lam2)
+        if queue_complete>Ac_Info[AC].ps_time+thres1:
+            totcost+=getcost(Ac_Info[AC].orig_sched_time,ArrTime[AC][0],Ac_Info[AC].travel_time,queue_complete,Ac_Info[AC].passenger_weight,thres1,thres2, lam1, lam2)
         tm=release_time
         prev_class=cur_class
 

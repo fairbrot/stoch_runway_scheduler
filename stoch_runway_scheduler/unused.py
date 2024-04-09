@@ -26,7 +26,7 @@
 # 		for i in range(AC_remaining):
 # 			AC=Anneal_Seq[i]
 # 			release_time=max(ArrTime_sc[AC],anneal_tm)
-# 			cur_class=Ac_Info[AC][1]
+# 			cur_class=Ac_Info[AC].ac_class
 
 # 			if no_scenarios==1 and use_determ==1:
 # 				t1=release_time+tau
@@ -41,8 +41,8 @@
 
 # 			#f2.write('AC '+str(AC)+','+'anneal_tm '+str(anneal_tm)+','+'release_time'+str(release_time)+','+'anneal_queue_complete'+str(anneal_queue_complete)+','+'anneal_prev_class'+str(anneal_prev_class)+','+'cur_class'+str(cur_class)+','+'Time Sep '+str(Time_Sep[anneal_prev_class][cur_class]/60)+','+'AC_FinishTime '+str(AC_FinishTime)+'\n')
 
-# 			ps_time=Ac_Info[AC][18]
-# 			totcost+=getcost(ps_time,ArrTime_sc[AC],Trav_Time_sc[AC],AC_FinishTime,Ac_Info[AC][10],thres1,thres2, lam1, lam2)
+# 			ps_time=Ac_Info[AC].orig_sched_time
+# 			totcost+=getcost(ps_time,ArrTime_sc[AC],Trav_Time_sc[AC],AC_FinishTime,Ac_Info[AC].passenger_weight,thres1,thres2, lam1, lam2)
 # 			anneal_tm=release_time
 # 			anneal_prev_class=cur_class
 # 			anneal_queue_complete=AC_FinishTime
@@ -97,8 +97,8 @@
 #                 AC=perm[j]
 #                 Ac_Infoi=Ac_Info[AC]
 #                 release_time=max(latest_tm,ArrTime[AC][0])
-#                 trav_time=Ac_Infoi[6]
-#                 perm_class=Ac_Infoi[1]
+#                 trav_time=Ac_Infoi.travel_time
+#                 perm_class=Ac_Infoi.ac_class
 #                 begin_serv=max(release_time,perm_queue_complete)
 #                 perm_weather_state=weather(release_time,wlb_tm,wub_tm) #weather(begin_serv,wlb_tm,wub_tm)
 
@@ -117,7 +117,7 @@
 #                     if perm_weather_state==1:
 #                         Mn*=w_rho
 #                     SD=math.sqrt(Mn**2/k)
-#                     z=Ac_Info[AC][7]*SD+Mn
+#                     z=Ac_Info[AC].service_rns*SD+Mn
 #                     # u=int(z*10000)
 #                     # serv=normcdf[u]*SD+Mn
 
@@ -125,7 +125,7 @@
 #                 t2=perm_queue_complete+serv
 #                 perm_queue_complete=max(t1,t2)
 
-#                 perm_cost+=getcost(Ac_Infoi[18],ArrTime[AC][0],trav_time,perm_queue_complete,Ac_Infoi[10],thres1,thres2, lam1, lam2)
+#                 perm_cost+=getcost(Ac_Infoi.orig_sched_time,ArrTime[AC][0],trav_time,perm_queue_complete,Ac_Infoi.passenger_weight,thres1,thres2, lam1, lam2)
 
 #                 latest_tm=release_time
 #                 perm_prev_class=perm_class
@@ -584,16 +584,16 @@
 #     for i in range(NoA):
 #         AC=Opt_Seq[i]
 #         Ac_Infoi=Ac_Info[AC]
-#         current_class=Ac_Infoi[1]
-#         reltime=max(reltime,Ac_Infoi[9])
+#         current_class=Ac_Infoi.ac_class
+#         reltime=max(reltime,Ac_Infoi.pool_time)
 #         begin_serv=max(reltime,queue_complete)
-#         t1=reltime+Ac_Infoi[6]
+#         t1=reltime+Ac_Infoi.travel_time
 #         weather_state=weather(reltime,wlb_tm,wub_tm) #weather(begin_serv,wlb_tm,wub_tm)
 #         t2=begin_serv+Get_Actual_Serv(AC,prev_class,current_class,weather_state,k,Time_Sep)
 #         finish_time=max(t1,t2)
 
-#         f.write('Tabu'+','+str(rep)+','+str(Ac_Infoi[19])+','+str(AC)+','+str(prev_class)+','+str(current_class)+','+str(Time_Sep[prev_class][current_class]/60)+','+str(Ac_Infoi[2])+','+str(Ac_Infoi[9])+','+str(reltime)+','+str(Ac_Infoi[6])+','+str(weather_state)+','+str(begin_serv)+','+str(Get_Actual_Serv(AC,prev_class,current_class,weather_state,k,Time_Sep))+','+str(finish_time)+','+str(max(0,finish_time-(Ac_Infoi[2]+thres1)))+','+str(finish_time-(Ac_Infoi[9]+Ac_Infoi[6]))+','+str(Ac_Infoi[10])+','+str(getcost(Ac_Infoi[2],Ac_Infoi[9],Ac_Infoi[6],finish_time,Ac_Infoi[10],thres1, thres2, lam1, lam2))+',')
-#         f.write(str(Ac_Infoi[13])+','+str(Ac_Infoi[14])+',')
+#         f.write('Tabu'+','+str(rep)+','+str(Ac_Infoi.flight_id)+','+str(AC)+','+str(prev_class)+','+str(current_class)+','+str(Time_Sep[prev_class][current_class]/60)+','+str(Ac_Infoi.ps_time)+','+str(Ac_Infoi.pool_time)+','+str(reltime)+','+str(Ac_Infoi.travel_time)+','+str(weather_state)+','+str(begin_serv)+','+str(Get_Actual_Serv(AC,prev_class,current_class,weather_state,k,Time_Sep))+','+str(finish_time)+','+str(max(0,finish_time-(Ac_Infoi.ps_time+thres1)))+','+str(finish_time-(Ac_Infoi.pool_time+Ac_Infoi.travel_time))+','+str(Ac_Infoi.passenger_weight)+','+str(getcost(Ac_Infoi.ps_time,Ac_Infoi.pool_time,Ac_Infoi.travel_time,finish_time,Ac_Infoi.passenger_weight,thres1, thres2, lam1, lam2))+',')
+#         f.write(str(Ac_Infoi.counter)+','+str(Ac_Infoi.qp)+',')
 
 #         queue_complete=finish_time
 #         prev_class=current_class

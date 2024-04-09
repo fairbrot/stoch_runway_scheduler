@@ -30,11 +30,11 @@ def Genetic_determ(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,pr
     ArrTime_Sorted=[]
 
     for AC in Arr_Pool:
-        ArrTime[AC]=Ac_Info[AC][9]
+        ArrTime[AC] = Ac_Info[AC].pool_time
         ArrTime_Sorted.append([ArrTime[AC],AC])
 
     for AC in Arr_NotReady:
-        ArrTime[AC]=max(0,Ac_Info[AC][3]-tau)
+        ArrTime[AC]=max(0, Ac_Info[AC].eta - tau)
         ArrTime_Sorted.append([ArrTime[AC],AC])
 
     ArrTime_Sorted.sort(key=lambda x: x[0])
@@ -53,12 +53,12 @@ def Genetic_determ(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,pr
 
             AC=Ac_queue[0]
             Ac_Infoi=Ac_Info[AC]
-            rel_time=Ac_Infoi[4]
-            sv_time=Ac_Infoi[5]
-            cur_class=Ac_Infoi[1]
+            rel_time=Ac_Infoi.release_time
+            sv_time=Ac_Infoi.enters_service
+            cur_class=Ac_Infoi.ac_class
 
         # 	#print('AC: '+str(AC)+' Ac_Info: '+str(Ac_Info[AC])+' tm: '+str(tm)+' sv_time: '+str(sv_time)+' prev_class: '+str(prev_class)+' cur_class: '+str(cur_class))
-        # 	if Ac_Infoi[12]==1 and (tm-sv_time)*10>=IFR_last_epoch[prev_class][cur_class]:
+        # 	if Ac_Infoi.weather_state==1 and (tm-sv_time)*10>=IFR_last_epoch[prev_class][cur_class]:
         # 		ph_B=k-1
         # 	elif (tm-sv_time)*10>=last_epoch[prev_class][cur_class]:
         # 		ph_B=k-1
@@ -68,7 +68,7 @@ def Genetic_determ(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,pr
         # 		chk_cond=0
         # 		j=0
         # 		while j<=k and chk_cond==0: #for j in range(k+1):
-        # 			if Ac_Infoi[12]==1:
+        # 			if Ac_Infoi.weather_state==1:
         # 				TotPr+=IFR_Serv_Pr[prev_class][cur_class][int((tm-sv_time)*10)][j]
         # 			else:
         # 				TotPr+=Serv_Pr[prev_class][cur_class][int((tm-sv_time)*10)][j]
@@ -80,10 +80,10 @@ def Genetic_determ(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,pr
         # 	assert ph_B<k
 
         # 	if stepthrough==1:
-        # 		st.write(str(AC)+','+str(Ac_Infoi[1])+','+str(Time_Sep[prev_class][cur_class]/60)+','+str(Ac_Infoi[4])+','+str(Ac_Infoi[6])+','+str(Ac_Infoi[5])+',')
+        # 		st.write(str(AC)+','+str(Ac_Infoi.ac_class)+','+str(Time_Sep[prev_class][cur_class]/60)+','+str(Ac_Infoi.release_time)+','+str(Ac_Infoi.travel_time)+','+str(Ac_Infoi.enters_service)+',')
 
-            t1=Ac_Infoi[3]
-        # 	if Ac_Infoi[12]==1:
+            t1=Ac_Infoi.eta
+        # 	if Ac_Infoi.weather_state==1:
         # 		t2=tm+(w_rho*Time_Sep[prev_class][cur_class]/60)*((k-ph_B)/k)
         # 		#print('Median value ph_B: '+str(ph_B)+' tm sep: '+str((w_rho*Time_Sep[prev_class][cur_class]/60))+' time remaining: '+str((w_rho*Time_Sep[prev_class][cur_class]/60)*((k-ph_B)/k)))
         # 		if stepthrough==1:
@@ -96,7 +96,7 @@ def Genetic_determ(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,pr
 
             #Get the conditional expectation of service time based on service time elapsed so far
 
-            if Ac_Infoi[12]==1:
+            if Ac_Infoi.weather_state==1:
                 beta=k/(w_rho*Time_Sep[prev_class][cur_class]/60)
             else:
                 beta=k/(Time_Sep[prev_class][cur_class]/60)
@@ -108,9 +108,9 @@ def Genetic_determ(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,pr
 
             queue_complete=max(t1,t2)
 
-            basecost+=getcost(Ac_Infoi[18],Ac_Infoi[9],tau,queue_complete,Ac_Infoi[10],thres1,thres2, lam1, lam2)
+            basecost+=getcost(Ac_Infoi.orig_sched_time,Ac_Infoi.pool_time,tau,queue_complete,Ac_Infoi.passenger_weight,thres1,thres2, lam1, lam2)
             if stepthrough==1:
-                st.write(str(queue_complete)+','+str(Ac_Infoi[10])+','+str(getcost(Ac_Infoi[2],Ac_Infoi[9],tau,queue_complete,Ac_Infoi[10],thres1,thres2, lam1, lam2))+'\n')
+                st.write(str(queue_complete)+','+str(Ac_Infoi.passenger_weight)+','+str(getcost(Ac_Infoi.ps_time,Ac_Infoi.pool_time,tau,queue_complete,Ac_Infoi.passenger_weight,thres1,thres2, lam1, lam2))+'\n')
 
             perm_prev_class=cur_class\
 
@@ -118,9 +118,9 @@ def Genetic_determ(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,pr
 
             AC=Ac_queue[0]
             Ac_Infoi=Ac_Info[AC]
-            t1=Ac_Infoi[3]
-            sv_time=Ac_Infoi[5]
-            cur_class=Ac_Infoi[1]
+            t1=Ac_Infoi.eta
+            sv_time=Ac_Infoi.enters_service
+            cur_class=Ac_Infoi.ac_class
 
             Mn=Time_Sep[prev_class][cur_class]/60
             SD=(Mn**2)/k
@@ -128,7 +128,7 @@ def Genetic_determ(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,pr
 
             queue_complete=max(t1,t2)
 
-            basecost+=getcost(Ac_Infoi[18],Ac_Infoi[9],tau,queue_complete,Ac_Infoi[10],thres1,thres2, lam1, lam2)
+            basecost+=getcost(Ac_Infoi.orig_sched_time,Ac_Infoi.pool_time,tau,queue_complete,Ac_Infoi.passenger_weight,thres1,thres2, lam1, lam2)
             AC=Ac_queue[0]
             perm_prev_class=cur_class
 
@@ -137,15 +137,15 @@ def Genetic_determ(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,pr
 
             AC=Ac_queue[j]
             Ac_Infoi=Ac_Info[AC]
-            rel_time=Ac_Infoi[4]
-            cur_class=Ac_Infoi[1]
+            rel_time=Ac_Infoi.release_time
+            cur_class=Ac_Infoi.ac_class
 
             if stepthrough==1:
-                st.write(str(AC)+','+str(Ac_Infoi[1])+','+str(Time_Sep[perm_prev_class][cur_class]/60)+','+str(Ac_Infoi[4])+','+str(Ac_Infoi[6])+','+str(Ac_Infoi[5])+',')
+                st.write(str(AC)+','+str(Ac_Infoi.ac_class)+','+str(Time_Sep[perm_prev_class][cur_class]/60)+','+str(Ac_Infoi.release_time)+','+str(Ac_Infoi.travel_time)+','+str(Ac_Infoi.enters_service)+',')
 
-            t1=Ac_Infoi[3]
+            t1=Ac_Infoi.eta
             weather_state=weather(rel_time,wlb,wub) #weather(queue_complete,wlb,wub)
-            if weather_state==1: #Ac_Infoi[12]==1:
+            if weather_state==1: #Ac_Infoi.weather_state==1:
                 t2=queue_complete+(w_rho*Time_Sep[perm_prev_class][cur_class]/60)
                 if stepthrough==1:
                     st.write(str(w_rho*Time_Sep[perm_prev_class][cur_class]/60)+',')
@@ -156,10 +156,10 @@ def Genetic_determ(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,pr
             queue_complete=max(t1,t2)
 
             perm_prev_class=cur_class
-            basecost+=getcost(Ac_Infoi[18],Ac_Infoi[9],tau,queue_complete,Ac_Infoi[10],thres1,thres2, lam1, lam2)
+            basecost+=getcost(Ac_Infoi.orig_sched_time,Ac_Infoi.pool_time,tau,queue_complete,Ac_Infoi.passenger_weight,thres1,thres2, lam1, lam2)
 
             if stepthrough==1:
-                st.write(str(queue_complete)+','+str(Ac_Infoi[10])+','+str(getcost(Ac_Infoi[2],Ac_Infoi[9],tau,queue_complete,Ac_Infoi[10],thres1,thres2, lam1, lam2))+'\n')
+                st.write(str(queue_complete)+','+str(Ac_Infoi.passenger_weight)+','+str(getcost(Ac_Infoi.ps_time,Ac_Infoi.pool_time,tau,queue_complete,Ac_Infoi.passenger_weight,thres1,thres2, lam1, lam2))+'\n')
 
     else:
 
@@ -196,11 +196,11 @@ def Genetic_determ(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,pr
             #index=perm[i]
             AC=perm[index]
             Ac_Infoi=Ac_Info[AC]
-            perm_class=Ac_Infoi[1]
+            perm_class=Ac_Infoi.ac_class
             reltime=max(latest_tm,ArrTime[AC])
 
             if stepthrough==1:
-                st.write(str(AC)+','+str(Ac_Infoi[1])+','+str(Time_Sep[perm_prev_class][perm_class]/60)+','+str(ArrTime[AC])+','+str(reltime)+','+str(tau)+','+str(perm_queue_complete)+',')
+                st.write(str(AC)+','+str(Ac_Infoi.ac_class)+','+str(Time_Sep[perm_prev_class][perm_class]/60)+','+str(ArrTime[AC])+','+str(reltime)+','+str(tau)+','+str(perm_queue_complete)+',')
 
             t1=reltime+tau
             if reltime>=wlb and reltime<=wub:
@@ -219,11 +219,11 @@ def Genetic_determ(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,pr
 
             GA_Info[j][3][index]=(1-gam)*GA_Info[j][3][index]+gam*straight_into_service
 
-            permcost+=getcost(Ac_Infoi[18],ArrTime[AC],tau,AC_FinishTime,Ac_Infoi[10],thres1,thres2, lam1, lam2) #Ac_Infoi[10]*(AC_FinishTime-(Ac_Infoi[2]+thres))**2
+            permcost+=getcost(Ac_Infoi.orig_sched_time,ArrTime[AC],tau,AC_FinishTime,Ac_Infoi.passenger_weight,thres1,thres2, lam1, lam2) #Ac_Infoi.passenger_weight*(AC_FinishTime-(Ac_Infoi.ps_time+thres))**2
             latest_tm=reltime
 
             if stepthrough==1:
-                st.write(str(AC_FinishTime)+','+str(Ac_Infoi[10])+','+str(getcost(Ac_Infoi[2],ArrTime[AC],tau,AC_FinishTime,Ac_Infoi[10],thres1,thres2, lam1, lam2))+'\n')
+                st.write(str(AC_FinishTime)+','+str(Ac_Infoi.passenger_weight)+','+str(getcost(Ac_Infoi.ps_time,ArrTime[AC],tau,AC_FinishTime,Ac_Infoi.passenger_weight,thres1,thres2, lam1, lam2))+'\n')
 
             perm_queue_complete=AC_FinishTime
             perm_prev_class=perm_class
@@ -268,11 +268,11 @@ def Genetic_determ(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,pr
             #index=perm[i]
             AC=perm[index]
             Ac_Infoi=Ac_Info[AC]
-            perm_class=Ac_Infoi[1]
+            perm_class=Ac_Infoi.ac_class
             reltime=max(latest_tm,ArrTime[AC])
 
             if stepthrough==1:
-                st.write(str(AC)+','+str(Ac_Infoi[1])+','+str(Time_Sep[perm_prev_class][perm_class]/60)+','+str(ArrTime[AC])+','+str(reltime)+','+str(tau)+','+str(perm_queue_complete)+',')
+                st.write(str(AC)+','+str(Ac_Infoi.ac_class)+','+str(Time_Sep[perm_prev_class][perm_class]/60)+','+str(ArrTime[AC])+','+str(reltime)+','+str(tau)+','+str(perm_queue_complete)+',')
 
             t1=reltime+tau
             if reltime>=wlb and reltime<=wub:
@@ -291,11 +291,11 @@ def Genetic_determ(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,pr
 
             Opt_List[j][3][index]=(1-gam)*Opt_List[j][3][index]+gam*straight_into_service
 
-            permcost+=getcost(Ac_Infoi[18],ArrTime[AC],tau,AC_FinishTime,Ac_Infoi[10],thres1,thres2, lam1, lam2) #Ac_Infoi[10]*(AC_FinishTime-(Ac_Infoi[2]+thres))**2
+            permcost+=getcost(Ac_Infoi.orig_sched_time,ArrTime[AC],tau,AC_FinishTime,Ac_Infoi.passenger_weight,thres1,thres2, lam1, lam2) #Ac_Infoi.passenger_weight*(AC_FinishTime-(Ac_Infoi.ps_time+thres))**2
             latest_tm=reltime
 
             if stepthrough==1:
-                st.write(str(AC_FinishTime)+','+str(Ac_Infoi[10])+','+str(getcost(Ac_Infoi[2],ArrTime[AC],tau,AC_FinishTime,Ac_Infoi[10],thres1,thres2, lam1, lam2))+'\n')
+                st.write(str(AC_FinishTime)+','+str(Ac_Infoi.passenger_weight)+','+str(getcost(Ac_Infoi.ps_time,ArrTime[AC],tau,AC_FinishTime,Ac_Infoi.passenger_weight,thres1,thres2, lam1, lam2))+'\n')
 
             perm_queue_complete=AC_FinishTime
             perm_prev_class=perm_class

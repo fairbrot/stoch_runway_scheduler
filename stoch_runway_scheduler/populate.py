@@ -275,7 +275,7 @@ def Populate(Ac_Info: List, base_seq: List[int], Arr_Pool: List[int], Arr_NotRea
     AC_remaining = len(Arr_Pool) + len(Arr_NotReady)
     no_ACs = min(Max_SeqLength, AC_remaining) # Lengths of all sequences that will be generated
     
-    eta_list = [info[3] for AC, info in enumerate(Ac_Info)] # ETAs for each aircraft
+    eta_list = [info.eta for AC, info in enumerate(Ac_Info)] # ETAs for each aircraft
 
     # In this case we extend sequence to be the right length
     # We extend by adding flights with closest ETA which are not already
