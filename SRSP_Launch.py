@@ -10,7 +10,7 @@ import os
 
 import numpy as np 
 
-from stoch_runway_scheduler import generate_weather, generate_trajectory, read_flight_data, sample_pretac_delay, weather, Genetic, Genetic_determ, Populate, Repopulate_VNS, sample_cond_gamma, getcost, Annealing_Cost, Perm_Heur, Perm_Heur_New, Calculate_FCFS, sample_gamma, gamma_create_cdf, norm_create_cdf, Posthoc_Check, Update_Stats, Update_ETAs, Serv_Completions
+from stoch_runway_scheduler import generate_weather, generate_trajectory, read_flight_data, sample_pretac_delay, weather, Genetic, Genetic_determ, Populate, Repopulate_VNS, sample_cond_gamma, getcost, Annealing_Cost, Perm_Heur, Perm_Heur_New, Calculate_FCFS, sample_gamma, gamma_create_cdf, norm_create_cdf, Posthoc_Check, Update_Stats, Update_ETAs, Serv_Completions, FlightStatus
 
 #################
 # CONIFIGUATION #
@@ -216,9 +216,7 @@ while rep < no_reps:
 
     for i in range(NoA):
         # JF Question: which departure? From origin or destination airport? If latter, are status 3-6 not needed?
-        # Legacy code - Status might not even be used
-        # JF Note: Perhaps replace status with an Enum
-        Status = 0 #0: not ready yet (arrival), 1: in arrival pool, 2: added to arrival queue, 3: not ready yet (departure), 4: in departure pool, 5: added to departure queue, 6: finished.
+        Status = FlightStatus.NOT_READY
 
         # Generating service times for arrivals - these are scheduled to have the right mean later
         # JF Question: What is ServPercs? Below RS says this is RNs used for service time
@@ -379,7 +377,7 @@ while rep < no_reps:
         if Ac_Infoi[3]-tau <= 0:
             Arr_Pool.append(i)
             print('Aircraft '+str(i)+' initially included in pool (ETA is '+str(Ac_Infoi[3])+')')
-            Ac_Infoi[0] += 1 # Change status to "in Pool"
+            Ac_Infoi[0] = FlightStatus.IN_POOL
         else:
             Arr_NotReady.append(i)
 

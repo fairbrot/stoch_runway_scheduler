@@ -2,7 +2,7 @@ from typing import List, TextIO
 import logging
 import math
 import random
-from .utils import weather, getcost
+from .utils import weather, getcost, FlightStatus
 from .gamma import sample_cond_gamma
 from .annealing_cost import Annealing_Cost
 
@@ -353,29 +353,29 @@ def GetServTime_Future(trav_time,serv_time,rel_time,prev_class,cur_class,tm,ee,w
 
 
 
-def Update_ETAs(Ac_Info,Arr_NotReady,Dep_NotReady,Ac_queue,tm,Brown_Motion, Arr_Pool, tau):
+def Update_ETAs(Ac_Info, Arr_NotReady, Dep_NotReady, Ac_queue, tm, Brown_Motion, Arr_Pool, tau):
     stepthrough_logger = logging.getLogger('stepthrough')
     step_summ_logger = logging.getLogger('step_summ')
     step_new_logger = logging.getLogger('step_new')
     #print('Entered Update_ETAs')
 
     i=0
-    while i<=len(Arr_NotReady)-1:
+    while i <= len(Arr_NotReady)-1:
         AC=Arr_NotReady[i]
         Ac_Infoi=Ac_Info[AC]
         #print('AC: '+str(Arr_NotReadyi)+' tm: '+str(tm)+' Ac_Infoi[9]: '+str(Ac_Infoi[9]))
-        if tm>=Ac_Infoi[9]:
+        if tm >= Ac_Infoi[9]:
             Arr_Pool.append(AC)
             #print('* Added aircraft '+str(AC)+' to the arrival pool at time '+str(tm)+' (new readiness time is '+str(Ac_Infoi[9]+tau)+')')
             stepthrough_logger.info('* Added aircraft '+str(AC)+' to the arrival pool at time '+str(tm)+' (new readiness time is '+str(Ac_Infoi[9]+tau)+')'+'\n'+'\n')
             step_summ_logger.info('* Added aircraft '+str(AC)+' to the arrival pool at time '+str(tm)+' (new readiness time is '+str(Ac_Infoi[9]+tau)+')'+'\n'+'\n')
             step_new_logger.info('* Added aircraft '+str(AC)+' to the arrival pool at time '+str(tm)+' (new readiness time is '+str(Ac_Infoi[9]+tau)+')'+'\n'+'\n')
             Arr_NotReady.remove(AC)
-            Ac_Infoi[0]+=1
-            Ac_Infoi[3]=Ac_Infoi[9]+tau
+            Ac_Infoi[0] = FlightStatus.IN_POOL
+            Ac_Infoi[3] = Ac_Infoi[9] + tau
             i+=-1 #because we want to negate the "i+=1" below
         else:
-            Ac_Infoi[3]=Brown_Motion[AC][int(tm*100)]
+            Ac_Infoi[3] = Brown_Motion[AC][int(tm*100)]
         i+=1
 
     i=0
@@ -399,35 +399,19 @@ def Update_ETAs(Ac_Info,Arr_NotReady,Dep_NotReady,Ac_queue,tm,Brown_Motion, Arr_
         #print('tm: '+str(tm)+' AC: '+str(AC)+' Ac_Infoi[9]: '+str(Ac_Infoi[9])+' rel_time: '+str(rel_time)+' rounded_trav_so_far: '+str(rounded_trav_so_far)+' Ac_Infoi[3]: '+str(Ac_Infoi[3]))
         i+=1
 
-    # i=0
-    # while i<=len(Dep_NotReady)-1:
-    # 	Dep_NotReadyi=Dep_NotReady[i]
-    # 	random.seed(int((Dep_NotReadyi+1)*(repn+1)*(tm+delta)*100000)) #note this is included in order to enable consistency in comparisons between FCFS, Perm and PI
-    # 	Ac_Infoi=Ac_Info[Dep_NotReadyi]
-    # 	new_readiness_time=random.gauss(Ac_Infoi[3],delta*wiener_sig)
-    # 	if new_readiness_time-tau<=tm+delta:
-    # 		Dep_Pool.append(Dep_NotReadyi)
-    # 		print('* Added aircraft '+str(Dep_NotReadyi)+' to the departure pool at time '+str(tm+delta)+' (new readiness time is '+str(new_readiness_time)+')')
-    # 		Dep_NotReady.remove(Dep_NotReadyi)
-    # 		Ac_Infoi[0]+=1
-    # 		i+=-1 #because we want to negate the "i+=1" below
-    # 	Ac_Infoi[3]=new_readiness_time
-    # 	i+=1
-
-    #print('Exited Update_ETAs')
-
 def Update_Stats(tm,AC,Ac_Info,Ac_queue,real_queue_complete,wlb_tm,wub_tm,latest_class,Ov_GA_counter,next_completion_time, k: int, Time_Sep: List[List[int]], norm_approx_min, w_rho: float, SubPolicy, counter, qp):
     # Function which produces statistics about a flight which has just been released - also calculates
     # when this flight will be finished being serviced
 
     Ac_Infoi=Ac_Info[AC]
 
-    Ac_Infoi[0]+=1 #update status
-    release_time=tm #release time
-    begin_serv=max(release_time,real_queue_complete) #time that service begins
-    cur_class=Ac_Infoi[1]
+    #Ac_Infoi[0] += 1 # update status
+    Ac_Infoi[0] = FlightStatus.IN_QUEUE
+    release_time = tm # release time
+    begin_serv = max(release_time,real_queue_complete) # time that service begins
+    cur_class = Ac_Infoi[1]
 
-    get_weather_state=weather(release_time,wlb_tm,wub_tm) #weather(begin_serv,wlb_tm,wub_tm)
+    get_weather_state = weather(release_time, wlb_tm, wub_tm) #weather(begin_serv,wlb_tm,wub_tm)
 
     actual_serv=Get_Actual_Serv(AC,latest_class,cur_class,get_weather_state,k,Time_Sep, norm_approx_min, Ac_Info, w_rho)
     trav_time=Ac_Infoi[6]
@@ -458,7 +442,7 @@ def Update_Stats(tm,AC,Ac_Info,Ac_queue,real_queue_complete,wlb_tm,wub_tm,latest
 
     return real_queue_complete,next_completion_time,latest_class,Ov_GA_counter
 
-def Serv_Completions(Ac_Info,Ac_queue,prev_class,totserv,Ac_finished,tm,next_completion_time, thres1: int, thres2: int, lam1: float, lam2: float, f: TextIO, SubPolicy, rep, Time_Sep: List[List[int]], Left_queue):
+def Serv_Completions(Ac_Info, Ac_queue, prev_class, totserv, Ac_finished, tm, next_completion_time, thres1: int, thres2: int, lam1: float, lam2: float, f: TextIO, SubPolicy, rep, Time_Sep: List[List[int]], Left_queue):
 
     stepthrough_logger = logging.getLogger('stepthrough')
     step_summ_logger = logging.getLogger('step_summ')
@@ -472,28 +456,28 @@ def Serv_Completions(Ac_Info,Ac_queue,prev_class,totserv,Ac_finished,tm,next_com
 
     while len(Ac_queue)>0:
 
-        AC=Ac_queue[0]
-        Ac_Infoi=Ac_Info[AC]
+        AC = Ac_queue[0]
+        Ac_Infoi = Ac_Info[AC]
 
-        finish_time=Ac_Infoi[16]
-        current_class=Ac_Infoi[1]
+        finish_time = Ac_Infoi[16]
+        current_class = Ac_Infoi[1]
 
         #print('finish_time: '+str(finish_time))
 
-        if tm>=finish_time: #release_time+trav_time and phase==k:
+        if tm >= finish_time: #release_time+trav_time and phase==k:
             #print('* Service phase '+str(phase)+' completed for aircraft '+str(Ac_queue[0])+' at time '+str(tm+delta))
-            Ac_finished[AC]=finish_time
+            Ac_finished[AC] = finish_time
             #print('* Service completion finished for aircraft '+str(AC))
             stepthrough_logger.info('* Service completion finished for aircraft '+str(AC)+'\n'+'\n')
             step_summ_logger.info('* Service completion finished for aircraft '+str(AC)+'\n'+'\n')
-            if Ac_Infoi[0]==2:
-                Ac_Infoi[0]=3
-                arr_cost+=getcost(Ac_Infoi[18],Ac_Infoi[9],Ac_Infoi[6],finish_time,Ac_Infoi[10],thres1,thres2, lam1, lam2)
+            if Ac_Infoi[0] == FlightStatus.IN_QUEUE:
+                Ac_Infoi[0] = FlightStatus.DEP_NOT_READY # JF Note: check with Rob
+                arr_cost += getcost(Ac_Infoi[18], Ac_Infoi[9], Ac_Infoi[6], finish_time,Ac_Infoi[10],thres1,thres2, lam1, lam2)
                 #print('* Cost incurred is '+str(arr_cost))
                 totserv+=1
-            else:
-                Ac_Infoi[0]=6
-                arr_cost+=getcost(Ac_Infoi[18],Ac_Infoi[9],Ac_Infoi[6],finish_time,Ac_Infoi[10],thres1,thres2, lam1, lam2)
+            else: # JF Question: is this clause needed?
+                Ac_Infoi[0] = FlightStatus.FINISHED
+                arr_cost += getcost(Ac_Infoi[18], Ac_Infoi[9], Ac_Infoi[6], finish_time, Ac_Infoi[10], thres1, thres2, lam1, lam2)
 
             f.write(str(SubPolicy)+','+str(rep)+','+str(AC)+','+str(Ac_Infoi[19])+','+str(prev_class)+','+str(current_class)+','+str(Time_Sep[prev_class][current_class]/60)+','+str(Ac_Infoi[18])+','+str(Ac_Infoi[2])+','+str(Ac_Infoi[9])+','+str(Ac_Infoi[4])+','+str(Ac_Infoi[6])+','+str(Ac_Infoi[12])+','+str(Ac_Infoi[5])+','+str(Ac_Infoi[8])+','+str(Ac_Infoi[16])+','+str(max(0,finish_time-(Ac_Infoi[2]+thres1)))+','+str(finish_time-(Ac_Infoi[9]+Ac_Infoi[6]))+','+str(Ac_Infoi[10])+','+str(getcost(Ac_Infoi[2],Ac_Infoi[9],Ac_Infoi[6],finish_time,Ac_Infoi[10],thres1,thres2, lam1, lam2))+',')
             f.write(str(Ac_Infoi[13])+','+str(Ac_Infoi[14])+',')
@@ -509,7 +493,7 @@ def Serv_Completions(Ac_Info,Ac_queue,prev_class,totserv,Ac_finished,tm,next_com
                 #f.write(str(elap)+','+str(Repop_elap)+','+str(Pop_elap)+',')
             f.write('\n')
 
-            prev_class=current_class
+            prev_class = current_class
 
             Left_queue.append(AC)
             Ac_queue.remove(AC)

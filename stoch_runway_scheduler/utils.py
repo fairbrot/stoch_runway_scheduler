@@ -1,7 +1,17 @@
 from typing import List
+from enum import Enum
 import csv
 import math
 import random
+
+#0: not ready yet (arrival), 1: in arrival pool, 2: added to arrival queue, 3: not ready yet (departure), 4: in departure pool, 5: added to departure queue, 6: finished.
+class FlightStatus(Enum):
+    NOT_READY = 0
+    IN_POOL = 1
+    IN_QUEUE = 2
+    DEP_NOT_READY = 3 # JF Question: should these final two be combined?
+    FINISHED = 6
+
 
 def read_flight_data(data_fn: str, min_time: int, max_time: int, wiener_sig: float):
     Ac_class = [] # this will store the weight class for each aircraft

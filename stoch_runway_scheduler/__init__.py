@@ -1,4 +1,4 @@
-from .utils import read_flight_data, weather, getcost, Normal_Conditional_GetServ, Normal_GetServ, Normal_GetServ_Future
+from .utils import read_flight_data, weather, getcost, Normal_Conditional_GetServ, Normal_GetServ, Normal_GetServ_Future, FlightStatus
 from .gamma import sample_pretac_delay, sample_cond_gamma, gamma_cond_exp, Gamma_GetServ, Gamma_GetServ_Future, Gamma_Conditional_GetServ, sample_gamma, gamma_create_cdf
 from .norm import norm_create_cdf
 from .annealing_cost import Annealing_Cost
