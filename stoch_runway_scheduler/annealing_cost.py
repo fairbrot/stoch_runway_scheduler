@@ -2,7 +2,7 @@ from typing import List
 import math
 from .utils import weather, getcost
 
-def Annealing_Cost(seq,Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm,output, NoA: int, NormalApprox, w_rho: float, k: int, Time_Sep: List[List[int]], thres1: int, thres2: int, lam1: float, lam2: float):
+def Annealing_Cost(seq, Ac_Info, ArrTime, ServTime, ArrTime_Sorted, wlb_tm, wub_tm, output, NoA: int, w_rho: float, k: int, Time_Sep: List[List[int]], thres1: int, thres2: int, lam1: float, lam2: float):
 
     perm=seq
     perm_cost=0
@@ -22,24 +22,12 @@ def Annealing_Cost(seq,Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm,out
         begin_serv=max(release_time,perm_queue_complete)
         perm_weather_state=weather(release_time,wlb_tm,wub_tm) #weather(begin_serv,wlb_tm,wub_tm)
 
-        if NormalApprox==0:
-            if perm_weather_state==1:
-                ws=1/w_rho
-            else:
-                ws=1
-            rate=ws*k/(Time_Sep[perm_prev_class][perm_class]/60)
-            serv=ServTime[AC]/rate
-            # serv=0
-            # for m in range(k):
-            # 	serv+=(-1/rate)*math.log(ServTime[AC][m])
+        if perm_weather_state==1:
+            ws=1/w_rho
         else:
-            Mn=Time_Sep[perm_prev_class][perm_class]/60
-            if perm_weather_state==1:
-                Mn*=w_rho
-            SD=math.sqrt(Mn**2/k)
-            serv=ServTime[AC]*SD+Mn
-            # u=int(z*10000)
-            # serv=normcdf[u]*SD+Mn
+            ws=1
+        rate=ws*k/(Time_Sep[perm_prev_class][perm_class]/60)
+        serv=ServTime[AC]/rate
 
         t1=release_time+trav_time
         t2=perm_queue_complete+serv

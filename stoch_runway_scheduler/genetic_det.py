@@ -1,22 +1,17 @@
 from typing import List
 import time
-from .utils import weather, getcost, truncexp
+from .utils import weather, getcost
 from .gamma import gamma_cond_exp
 
 # JF: This is the main deterministic heuristic
 # Name may not be best choice
-def Genetic_determ(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_class,GA_PopList,GA_Info,wlb,wub,Opt_List, norm_approx_min: float, tau: int, Max_LookAhead: int, Time_Sep: List[List[int]], thres1:int, thres2: int, lam1: float, lam2: float, tot_arr_cost: float, tot_dep_cost: float, w_rho: float, stepthrough:int, step_summ:int, step_new: int):
+def Genetic_determ(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, Left_queue, tm, NoA, k, prev_class, GA_PopList, GA_Info, wlb, wub, Opt_List, tau: int, Max_LookAhead: int, Time_Sep: List[List[int]], thres1:int, thres2: int, lam1: float, lam2: float, tot_arr_cost: float, tot_dep_cost: float, w_rho: float, stepthrough:int, step_summ:int, step_new: int):
 
     output=0 #output==1 means we're printing results as we go along; output==2 means we're outputting results to "Detailed" csv file
     ee=0
     if stepthrough==1:
         ee=1
     start_time=time.time()
-
-    if k>=norm_approx_min:
-        NormalApprox=1
-    else:
-        NormalApprox=0
 
     if stepthrough==1:
         st.write('Now entering Genetic procedure'+'\n')
@@ -49,88 +44,36 @@ def Genetic_determ(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,pr
 
         #Need to generate service times for AC already in the queue; first consider the customer in position 0
 
-        if NormalApprox==0:
 
-            AC=Ac_queue[0]
-            Ac_Infoi=Ac_Info[AC]
-            rel_time=Ac_Infoi.release_time
-            sv_time=Ac_Infoi.enters_service
-            cur_class=Ac_Infoi.ac_class
 
-        # 	#print('AC: '+str(AC)+' Ac_Info: '+str(Ac_Info[AC])+' tm: '+str(tm)+' sv_time: '+str(sv_time)+' prev_class: '+str(prev_class)+' cur_class: '+str(cur_class))
-        # 	if Ac_Infoi.weather_state==1 and (tm-sv_time)*10>=IFR_last_epoch[prev_class][cur_class]:
-        # 		ph_B=k-1
-        # 	elif (tm-sv_time)*10>=last_epoch[prev_class][cur_class]:
-        # 		ph_B=k-1
-        # 	else:
-        # 		z2=0.5 #use the median
-        # 		TotPr=0
-        # 		chk_cond=0
-        # 		j=0
-        # 		while j<=k and chk_cond==0: #for j in range(k+1):
-        # 			if Ac_Infoi.weather_state==1:
-        # 				TotPr+=IFR_Serv_Pr[prev_class][cur_class][int((tm-sv_time)*10)][j]
-        # 			else:
-        # 				TotPr+=Serv_Pr[prev_class][cur_class][int((tm-sv_time)*10)][j]
-        # 			if z2<TotPr:
-        # 				ph_B=j
-        # 				chk_cond=1
-        # 			j+=1
+        AC=Ac_queue[0]
+        Ac_Infoi=Ac_Info[AC]
+        rel_time=Ac_Infoi.release_time
+        sv_time=Ac_Infoi.enters_service
+        cur_class=Ac_Infoi.ac_class
 
-        # 	assert ph_B<k
+        t1=Ac_Infoi.eta
 
-        # 	if stepthrough==1:
-        # 		st.write(str(AC)+','+str(Ac_Infoi.ac_class)+','+str(Time_Sep[prev_class][cur_class]/60)+','+str(Ac_Infoi.release_time)+','+str(Ac_Infoi.travel_time)+','+str(Ac_Infoi.enters_service)+',')
+        #Get the conditional expectation of service time based on service time elapsed so far
 
-            t1=Ac_Infoi.eta
-        # 	if Ac_Infoi.weather_state==1:
-        # 		t2=tm+(w_rho*Time_Sep[prev_class][cur_class]/60)*((k-ph_B)/k)
-        # 		#print('Median value ph_B: '+str(ph_B)+' tm sep: '+str((w_rho*Time_Sep[prev_class][cur_class]/60))+' time remaining: '+str((w_rho*Time_Sep[prev_class][cur_class]/60)*((k-ph_B)/k)))
-        # 		if stepthrough==1:
-        # 			st.write(str((w_rho*Time_Sep[prev_class][cur_class]/60)*((k-ph_B)/k)))
-        # 	else:
-        # 		t2=tm+(Time_Sep[prev_class][cur_class]/60)*((k-ph_B)/k)
-        # 		#print('Median value ph_B: '+str(ph_B)+' tm sep: '+str((Time_Sep[prev_class][cur_class]/60))+' time remaining: '+str((Time_Sep[prev_class][cur_class]/60)*((k-ph_B)/k)))
-        # 		if stepthrough==1:
-        # 			st.write(str((Time_Sep[prev_class][cur_class]/60)*((k-ph_B)/k)))
-
-            #Get the conditional expectation of service time based on service time elapsed so far
-
-            if Ac_Infoi.weather_state==1:
-                beta=k/(w_rho*Time_Sep[prev_class][cur_class]/60)
-            else:
-                beta=k/(Time_Sep[prev_class][cur_class]/60)
-            alpha=k
-            cond_tm=gamma_cond_exp(tm-sv_time,alpha,beta)
-
-            t2=sv_time+cond_tm #tm+(cond_tm-sv_time)
-            #print('Time remaining based on mean value: '+str(sv_time+cond_tm-tm))
-
-            queue_complete=max(t1,t2)
-
-            basecost+=getcost(Ac_Infoi.orig_sched_time,Ac_Infoi.pool_time,tau,queue_complete,Ac_Infoi.passenger_weight,thres1,thres2, lam1, lam2)
-            if stepthrough==1:
-                st.write(str(queue_complete)+','+str(Ac_Infoi.passenger_weight)+','+str(getcost(Ac_Infoi.ps_time,Ac_Infoi.pool_time,tau,queue_complete,Ac_Infoi.passenger_weight,thres1,thres2, lam1, lam2))+'\n')
-
-            perm_prev_class=cur_class\
-
+        if Ac_Infoi.weather_state==1:
+            beta=k/(w_rho*Time_Sep[prev_class][cur_class]/60)
         else:
+            beta=k/(Time_Sep[prev_class][cur_class]/60)
+        alpha=k
+        cond_tm=gamma_cond_exp(tm-sv_time,alpha,beta)
 
-            AC=Ac_queue[0]
-            Ac_Infoi=Ac_Info[AC]
-            t1=Ac_Infoi.eta
-            sv_time=Ac_Infoi.enters_service
-            cur_class=Ac_Infoi.ac_class
+        t2=sv_time+cond_tm #tm+(cond_tm-sv_time)
+        #print('Time remaining based on mean value: '+str(sv_time+cond_tm-tm))
 
-            Mn=Time_Sep[prev_class][cur_class]/60
-            SD=(Mn**2)/k
-            t2=truncexp(sv_time+Mn,SD,tm)
+        queue_complete=max(t1,t2)
 
-            queue_complete=max(t1,t2)
+        basecost+=getcost(Ac_Infoi.orig_sched_time,Ac_Infoi.pool_time,tau,queue_complete,Ac_Infoi.passenger_weight,thres1,thres2, lam1, lam2)
+        if stepthrough==1:
+            st.write(str(queue_complete)+','+str(Ac_Infoi.passenger_weight)+','+str(getcost(Ac_Infoi.ps_time,Ac_Infoi.pool_time,tau,queue_complete,Ac_Infoi.passenger_weight,thres1,thres2, lam1, lam2))+'\n')
 
-            basecost+=getcost(Ac_Infoi.orig_sched_time,Ac_Infoi.pool_time,tau,queue_complete,Ac_Infoi.passenger_weight,thres1,thres2, lam1, lam2)
-            AC=Ac_queue[0]
-            perm_prev_class=cur_class
+        perm_prev_class=cur_class\
+
 
         #Now consider the rest of the customers in the queue
         for j in range(1,len(Ac_queue)):

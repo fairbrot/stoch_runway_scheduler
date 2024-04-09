@@ -10,7 +10,7 @@ import os
 
 import numpy as np 
 
-from stoch_runway_scheduler import generate_weather, generate_trajectory, read_flight_data, sample_pretac_delay, weather, Genetic, Genetic_determ, Populate, Repopulate_VNS, sample_cond_gamma, getcost, Annealing_Cost, Perm_Heur, Perm_Heur_New, Calculate_FCFS, sample_gamma, gamma_create_cdf, norm_create_cdf, Posthoc_Check, Update_Stats, Update_ETAs, Serv_Completions, FlightInfo, FlightStatus
+from stoch_runway_scheduler import generate_weather, generate_trajectory, read_flight_data, sample_pretac_delay, weather, Genetic, Genetic_determ, Populate, Repopulate_VNS, sample_cond_gamma, getcost, Annealing_Cost, Perm_Heur, Perm_Heur_New, Calculate_FCFS, sample_gamma, gamma_create_cdf, Posthoc_Check, Update_Stats, Update_ETAs, Serv_Completions, FlightInfo, FlightStatus
 
 #################
 # CONIFIGUATION #
@@ -81,7 +81,6 @@ if Use_VNSD == 1:
 # JF Question: what is this? Would be good to avoid setting it to NoA before data has been read
 max_FCFS = NoA # int(NoA/2)
 conv_factor = 1 # no. of seconds in a minute for conversion purposes
-norm_approx_min = 100 # 100 - Erlang can be approximated well for large k by Normal
 Max_LookAhead = 15 # NoA # This is the length of a sequence, equivalent to parameter l in paper  - in paper this is 15
 
 pool_max = 6 # Used as a parameter for "perm heuristic" which searches for the best landing sequence under perfect information, i.e. assumes all random information already known
@@ -199,16 +198,8 @@ while rep < no_reps:
     # Random so results could potentially be stratified
     thres1 = random.choice(pot_thres1) # 15 means allow 15 minutes schedule delay
 
-    if k >= norm_approx_min:
-        NormalApprox=1
-        print('*** Creating the Normal CDF...')
-        norm_cdf = norm_create_cdf(k)
-        gamma_cdf = []
-    else:
-        NormalApprox=0
-        print('*** Creating the Gamma CDF...')
-        gamma_cdf = gamma_create_cdf(k)
-        norm_cdf = []
+    print('*** Creating the Gamma CDF...')
+    gamma_cdf = gamma_create_cdf(k)
 
     print('*** Generating initial aircraft info...')
     # this will be a multi-dimensional list storing lots of information about each aircraft; see later
@@ -220,10 +211,7 @@ while rep < no_reps:
 
         # Generating service times for arrivals - these are scheduled to have the right mean later
         # JF Question: What is ServPercs? Below RS says this is RNs used for service time
-        if NormalApprox==0:
-            ServPercs=np.random.gamma(k,1)
-        else:
-            ServPercs=random.gauss(0,1)
+        ServPercs=np.random.gamma(k,1)
 
         Ac_Info[i] = FlightInfo(Status, Ac_class[i], Arr_Ps[i], Arr_Ps[i],
                       0, 0, 0, ServPercs,
@@ -424,7 +412,7 @@ while rep < no_reps:
 
                     # Gets important statistics about aircraft being released and serviced
                     # some of these outputs are used for simulation itself
-                    real_queue_complete, next_completion_time, latest_class, Ov_GA_counter = Update_Stats(tm,AC,Ac_Info,Ac_queue,real_queue_complete,wlb_tm,wub_tm,latest_class,Ov_GA_counter,next_completion_time, k, Time_Sep, norm_approx_min, w_rho, SubPolicy, counter, qp)
+                    real_queue_complete, next_completion_time, latest_class, Ov_GA_counter = Update_Stats(tm,AC,Ac_Info,Ac_queue,real_queue_complete,wlb_tm,wub_tm,latest_class,Ov_GA_counter,next_completion_time, k, Time_Sep, w_rho, SubPolicy, counter, qp)
 
                 else:
                     # Important: if aircraft not in the pool then don't consider any others (order in Ac_Added comes from a sequence and is important)
@@ -456,15 +444,11 @@ while rep < no_reps:
 
         # JF Question: what does this part do?
         if SubPolicy in ('VNS','VNSD'):
-            # print('tm: '+str(tm)+' GA_counter: '+str(GA_counter))
             Repop_elap = 0
             if len(Arr_Pool) + len(Arr_NotReady) > 0: #4: # JF Question - Should this condition be automatically satisfied? See condition on outermost loop
                 # Condition for step 4C in paper
                 if GA_counter >= GA_LoopSize or pruned == 1: #or max_d<0.01:
-                    # print('tm: '+str(tm)+' Best sequence is '+str(GA_Info[0][0])+' Estimated cost is '+str(GA_Info[0][2]))
-                    # print('tm: '+str(tm)+' GA_counter: '+str(GA_counter)+', Repop')
                     Loop_Nums+=1
-                    # print('Loop_Nums: '+str(Loop_Nums))
                     Loop_Evals += GA_counter
                     # Create more seqeuences from best current sequence
                     GA_PopList, GA_Info, Opt_Seq,OptCost, Opt_List, VNS_counter, tot_mut = Repopulate_VNS(GA_PopList, GA_Info, Arr_Pool, Arr_NotReady, GA_PopSize, Opt_Seq, 
@@ -490,11 +474,11 @@ while rep < no_reps:
         if len(Arr_Pool) + len(Arr_NotReady) > 0:
             if SubPolicy == 'VNS':
                 # JF Question: what is happening here?
-                Ac_added, counter, qp, max_d, pruned, GA_CheckSize, GA_counter, soln_evals_tot, soln_evals_num = Genetic(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, Left_queue, max(tm,0), NoA, k, prev_class, GA_PopList, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, tot_arr_cost + tot_dep_cost, wlb, wub, Opt_List, max_d, soln_evals_tot, soln_evals_num, gamma_cdf, norm_cdf, norm_approx_min, tau, Max_LookAhead, Time_Sep, thres1, thres2, lam1, lam2, GA_Check_Increment, Opt_Size, w_rho, stepthrough, wiener_sig, weather_sig)
+                Ac_added, counter, qp, max_d, pruned, GA_CheckSize, GA_counter, soln_evals_tot, soln_evals_num = Genetic(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, Left_queue, max(tm,0), NoA, k, prev_class, GA_PopList, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, tot_arr_cost + tot_dep_cost, wlb, wub, Opt_List, max_d, soln_evals_tot, soln_evals_num, gamma_cdf, tau, Max_LookAhead, Time_Sep, thres1, thres2, lam1, lam2, GA_Check_Increment, Opt_Size, w_rho, stepthrough, wiener_sig, weather_sig)
                 Ov_GA_counter+=1
                 stepthrough_logger.info('GA_counter is %d', GA_counter)
             elif SubPolicy=='VNSD':
-                Ac_added, counter, qp, stored_queue_complete = Genetic_determ(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, Left_queue, max(tm,0), NoA, k, prev_class, GA_PopList, GA_Info, wlb, wub, Opt_List, norm_approx_min, tau, Max_LookAhead, Time_Sep, thres1, thres2, lam1, lam2, tot_arr_cost, tot_dep_cost, w_rho, stepthrough, step_summ, step_new)
+                Ac_added, counter, qp, stored_queue_complete = Genetic_determ(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, Left_queue, max(tm,0), NoA, k, prev_class, GA_PopList, GA_Info, wlb, wub, Opt_List, tau, Max_LookAhead, Time_Sep, thres1, thres2, lam1, lam2, tot_arr_cost, tot_dep_cost, w_rho, stepthrough, step_summ, step_new)
                 Ov_GA_counter += 1
                 GA_counter += 1
                 stepthrough_logger.info('GA_counter is %d', GA_counter)
@@ -535,7 +519,7 @@ while rep < no_reps:
 
     ArrTime_Sorted.sort(key=lambda x: x[0])
 
-    posthoc_cost = Posthoc_Check(Left_queue,Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm,0, NoA, NormalApprox, w_rho, k, Time_Sep, thres1, thres2, lam1, lam2)
+    posthoc_cost = Posthoc_Check(Left_queue,Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm,0, NoA, w_rho, k, Time_Sep, thres1, thres2, lam1, lam2)
     gg.write('Posthoc Check'+','+str(posthoc_cost)+',')
 
     for i in range(NoA):
@@ -556,13 +540,13 @@ while rep < no_reps:
 
         ArrTime_Sorted.sort(key=lambda x: x[0])
 
-        FCFS_cost = Calculate_FCFS(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, wlb_tm, wub_tm, NoA, NormalApprox, w_rho, k, Time_Sep, thres1, thres2, lam1, lam2)
+        FCFS_cost = Calculate_FCFS(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, wlb_tm, wub_tm, NoA, w_rho, k, Time_Sep, thres1, thres2, lam1, lam2)
         gg.write('FCFS'+','+str(FCFS_cost)+',')
 
-        perm_heur_cost, AC_Used = Perm_Heur(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, wlb_tm, wub_tm, NoA, NormalApprox, w_rho, k, Time_Sep, thres1, thres2, lam1, lam2, f1)
+        perm_heur_cost, AC_Used = Perm_Heur(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, wlb_tm, wub_tm, NoA, w_rho, k, Time_Sep, thres1, thres2, lam1, lam2, f1)
         gg.write('Perm Heuristic'+','+str(perm_heur_cost)+',')
 
-        perm_heur_cost, AC_Used = Perm_Heur_New(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, wlb_tm, wub_tm, NoA, NormalApprox, w_rho, k, Time_Sep, thres1, thres2, lam1, lam2)
+        perm_heur_cost, AC_Used = Perm_Heur_New(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, wlb_tm, wub_tm, NoA, w_rho, k, Time_Sep, thres1, thres2, lam1, lam2)
         gg.write('New Perm Heuristic'+','+str(perm_heur_cost)+',')
 
         gg.write('\n')
@@ -570,7 +554,7 @@ while rep < no_reps:
 
         policy_index=0
 
-        rep+=1
+        rep += 1
 
 
 f.close()

@@ -116,9 +116,7 @@ def generate_trajectory(Dep_time: float, Ps_time: float, tau: int, wiener_sig: f
 
     return pool_arr_time, travel_time, brown_motion
 
-def Calculate_FCFS(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,pool_max,list_min,wlb_tm,wub_tm, NoA: int, NormalApprox, w_rho: float, k: int, Time_Sep: List[List[int]], thres1: int, thres2: int, lam1: float, lam2: float):
-
-    #start_time=time.time()
+def Calculate_FCFS(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, wlb_tm, wub_tm, NoA: int, w_rho: float, k: int, Time_Sep: List[List[int]], thres1: int, thres2: int, lam1: float, lam2: float):
 
     tm=0
 
@@ -132,12 +130,12 @@ def Calculate_FCFS(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,pool_max,list_min,wlb
     for i in range(NoA):
         FCFS_Seq[i]=ArrTime_Sorted[i][1]
 
-    FCFS_cost=Annealing_Cost(FCFS_Seq,Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm,0, NoA, NormalApprox, w_rho, k, Time_Sep, thres1, thres2, lam1, lam2)
+    FCFS_cost = Annealing_Cost(FCFS_Seq, Ac_Info, ArrTime, ServTime, ArrTime_Sorted, wlb_tm, wub_tm, 0, NoA, w_rho, k, Time_Sep, thres1, thres2, lam1, lam2)
 
     return FCFS_cost
 
 
-def Posthoc_Check(seq,Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm,output, NoA: int, NormalApprox, w_rho: float, k: int, Time_Sep: List[List[int]], thres1: int, thres2: int, lam1: float, lam2: float):
+def Posthoc_Check(seq,Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm,output, NoA: int, w_rho: float, k: int, Time_Sep: List[List[int]], thres1: int, thres2: int, lam1: float, lam2: float):
 
     perm=seq
     perm_cost=0
@@ -158,24 +156,13 @@ def Posthoc_Check(seq,Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm,outp
         begin_serv=max(release_time,perm_queue_complete)
         perm_weather_state=weather(release_time,wlb_tm,wub_tm) #weather(begin_serv,wlb_tm,wub_tm)
 
-        if NormalApprox==0:
-            if perm_weather_state==1:
-                ws=1/w_rho
-            else:
-                ws=1
-            rate=ws*k/(Time_Sep[perm_prev_class][perm_class]/60)
-            serv=ServTime[AC]/rate
-            # serv=0
-            # for m in range(k):
-            # 	serv+=(-1/rate)*math.log(ServTime[AC][m])
+        if perm_weather_state==1:
+            ws=1/w_rho
         else:
-            Mn=Time_Sep[perm_prev_class][perm_class]/60
-            if perm_weather_state==1:
-                Mn*=w_rho
-            SD=math.sqrt(Mn**2/k)
-            serv=ServTime[AC]*SD+Mn
-            # u=int(z*10000)
-            # serv=normcdf[u]*SD+Mn
+            ws=1
+        rate=ws*k/(Time_Sep[perm_prev_class][perm_class]/60)
+        serv=ServTime[AC]/rate
+
 
         t1=release_time+trav_time
         t2=perm_queue_complete+serv
@@ -193,40 +180,22 @@ def Posthoc_Check(seq,Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm,outp
 
     return perm_cost
 
-def Get_Actual_Serv(AC,prev_class,cur_class,weather_state,k, Time_Sep: List[List[int]], norm_approx_min, Ac_Info, w_rho: float):
+def Get_Actual_Serv(AC,prev_class,cur_class,weather_state,k, Time_Sep: List[List[int]], Ac_Info, w_rho: float):
     # Samping queue service time
     # Two cases depending on whether we use normal approximation
     # Service time also depends on state of weather
     # Ac_Info[AC].service_rns is pre-generated random number which is then scaled appropriately
     # Is different depending on whether norm approximation is being used
 
-    if k<norm_approx_min: # full service time
-        #servtime=0
-        serv_percs=Ac_Info[AC].service_rns
-        if weather_state==1:
-            ws=1/w_rho
-        else:
-            ws=1
+    serv_percs=Ac_Info[AC].service_rns
+    if weather_state==1:
+        ws=1/w_rho
+    else:
+        ws=1
 
-        rate=ws*k/(Time_Sep[prev_class][cur_class]/60)
+    rate=ws*k/(Time_Sep[prev_class][cur_class]/60)
 
-        servtime = serv_percs/rate #Transformation causes serv_percs to go from [mean k, var k] to [mean e_{ij}, var e_{ij}^2/k]
-
-        # for j in range(k):
-        # 	servtime+=(-1/rate)*math.log(serv_percs[j])
-
-    else: # Normal case
-        if weather_state==1:
-            Mn=w_rho*Time_Sep[prev_class][cur_class]/60
-        else:
-            Mn=Time_Sep[prev_class][cur_class]/60
-        SD=math.sqrt(Mn**2/k)
-      
-        servtime=Ac_Info[AC].service_rns*SD+Mn
-        # u=int(z*10000)
-        # servtime=normcdf[u]*SD+Mn
-
-    #print('For AC '+str(AC)+', prev class '+str(prev_class)+', current class '+str(cur_class)+', weather state '+str(weather_state)+', we calculated the actual service time as '+str(servtime))
+    servtime = serv_percs/rate #Transformation causes serv_percs to go from [mean k, var k] to [mean e_{ij}, var e_{ij}^2/k]
 
     return servtime
 
@@ -399,7 +368,7 @@ def Update_ETAs(Ac_Info, Arr_NotReady, Dep_NotReady, Ac_queue, tm, Brown_Motion,
         #print('tm: '+str(tm)+' AC: '+str(AC)+' Ac_Infoi.pool_time: '+str(Ac_Infoi.pool_time)+' rel_time: '+str(rel_time)+' rounded_trav_so_far: '+str(rounded_trav_so_far)+' Ac_Infoi.eta: '+str(Ac_Infoi.eta))
         i+=1
 
-def Update_Stats(tm,AC,Ac_Info,Ac_queue,real_queue_complete,wlb_tm,wub_tm,latest_class,Ov_GA_counter,next_completion_time, k: int, Time_Sep: List[List[int]], norm_approx_min, w_rho: float, SubPolicy, counter, qp):
+def Update_Stats(tm,AC,Ac_Info,Ac_queue,real_queue_complete,wlb_tm,wub_tm,latest_class,Ov_GA_counter,next_completion_time, k: int, Time_Sep: List[List[int]], w_rho: float, SubPolicy, counter, qp):
     # Function which produces statistics about a flight which has just been released - also calculates
     # when this flight will be finished being serviced
 
@@ -413,7 +382,7 @@ def Update_Stats(tm,AC,Ac_Info,Ac_queue,real_queue_complete,wlb_tm,wub_tm,latest
 
     get_weather_state = weather(release_time, wlb_tm, wub_tm) #weather(begin_serv,wlb_tm,wub_tm)
 
-    actual_serv=Get_Actual_Serv(AC,latest_class,cur_class,get_weather_state,k,Time_Sep, norm_approx_min, Ac_Info, w_rho)
+    actual_serv=Get_Actual_Serv(AC,latest_class,cur_class,get_weather_state,k,Time_Sep, Ac_Info, w_rho)
     trav_time=Ac_Infoi.travel_time
 
     t1=release_time+trav_time

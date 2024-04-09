@@ -5,7 +5,7 @@ import itertools
 from .utils import weather, getcost
 from .annealing_cost import Annealing_Cost
 
-def Perm_Heur_New(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,pool_max,list_min,wlb_tm,wub_tm, NoA: int, NormalApprox, w_rho: float, k: int, Time_Sep: List[List[int]], thres1: int, thres2: int, lam1: float, lam2: float):
+def Perm_Heur_New(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,pool_max,list_min,wlb_tm,wub_tm, NoA: int, w_rho: float, k: int, Time_Sep: List[List[int]], thres1: int, thres2: int, lam1: float, lam2: float):
 
     #start_time=time.time()
 
@@ -21,7 +21,7 @@ def Perm_Heur_New(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,pool_max,list_min,wlb_
     for i in range(NoA):
         Anneal_Seq[i]=ArrTime_Sorted[i][1]
 
-    NewCost=Annealing_Cost(Anneal_Seq,Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm,0, NoA, NormalApprox, w_rho, k, Time_Sep, thres1, thres2, lam1, lam2)
+    NewCost=Annealing_Cost(Anneal_Seq,Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm,0, NoA, w_rho, k, Time_Sep, thres1, thres2, lam1, lam2)
     OptCost=NewCost
     Opt_Seq=Anneal_Seq[:]
 
@@ -46,7 +46,7 @@ def Perm_Heur_New(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,pool_max,list_min,wlb_
         for j in range(perm_size):
             Anneal_Seq[start_pos+j]=perm[j]
 
-        NewCost=Annealing_Cost(Anneal_Seq,Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm,0, NoA, NormalApprox, w_rho, k, Time_Sep, thres1, thres2, lam1, lam2)
+        NewCost = Annealing_Cost(Anneal_Seq,Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm,0, NoA, w_rho, k, Time_Sep, thres1, thres2, lam1, lam2)
 
         #print('Opt_Seq: '+str(Opt_Seq)+' Cost: '+str(OptCost))
         #print('New Seq: '+str(Anneal_Seq)+' Cost: '+str(NewCost))
@@ -66,7 +66,7 @@ def Perm_Heur_New(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,pool_max,list_min,wlb_
 
     return OptCost,c
 
-def Perm_Heur(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,pool_max,list_min,wlb_tm,wub_tm, NoA: int, NormalApprox, w_rho: float, k: int, Time_Sep: List[List[int]], thres1: int, thres2: int, lam1: float, lam2: float, f1: TextIO):
+def Perm_Heur(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,pool_max,list_min,wlb_tm,wub_tm, NoA: int, w_rho: float, k: int, Time_Sep: List[List[int]], thres1: int, thres2: int, lam1: float, lam2: float, f1: TextIO):
 
     tm=0
 
@@ -131,24 +131,13 @@ def Perm_Heur(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,pool_max,list_min,wlb_tm,w
                 begin_serv=max(release_time,perm_queue_complete)
                 perm_weather_state=weather(release_time,wlb_tm,wub_tm) #weather(begin_serv,wlb_tm,wub_tm)
 
-                if NormalApprox==0:
-                    if perm_weather_state==1:
-                        ws=1/w_rho
-                    else:
-                        ws=1
-                    rate=ws*k/(Time_Sep[perm_prev_class][perm_class]/60)
-                    serv=ServTime[AC]/rate
-                    # serv=0
-                    # for m in range(k):
-                    # 	serv+=(-1/rate)*math.log(ServTime[AC][m])
+
+                if perm_weather_state==1:
+                    ws=1/w_rho
                 else:
-                    Mn=Time_Sep[perm_prev_class][perm_class]/60
-                    if perm_weather_state==1:
-                        Mn*=w_rho
-                    SD=math.sqrt(Mn**2/k)
-                    serv=ServTime[AC]*SD+Mn #Ac_Info[AC].service_rns*SD+Mn
-                    # u=int(z*10000)
-                    # serv=normcdf[u]*SD+Mn
+                    ws=1
+                rate=ws*k/(Time_Sep[perm_prev_class][perm_class]/60)
+                serv=ServTime[AC]/rate
 
                 t1=release_time+trav_time
                 t2=perm_queue_complete+serv
@@ -176,24 +165,15 @@ def Perm_Heur(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,pool_max,list_min,wlb_tm,w
 
         #print('AC: '+str(AC)+' pool arrival: '+str(ArrTime[AC][0])+' release_time: '+str(release_time))
 
-        if NormalApprox==0:
-            if weather_state==1:
-                ws=1/w_rho
-            else:
-                ws=1
-            rate=ws*k/(Time_Sep[prev_class][cur_class]/60)
-            serv=ServTime[AC]/rate
-            # serv=0
-            # for m in range(k):
-            # 	serv+=(-1/rate)*math.log(ServTime[AC][m])
+        if weather_state==1:
+            ws=1/w_rho
         else:
-            Mn=Time_Sep[prev_class][cur_class]/60
-            if weather_state==1:
-                Mn*=w_rho
-            SD=math.sqrt(Mn**2/k)
-            z=Ac_Info[AC].service_rns*SD+Mn
-            # u=int(z*10000)
-            # serv=normcdf[u]*SD+Mn
+            ws=1
+        rate=ws*k/(Time_Sep[prev_class][cur_class]/60)
+        serv=ServTime[AC]/rate
+        # serv=0
+        # for m in range(k):
+        # 	serv+=(-1/rate)*math.log(ServTime[AC][m])
 
         actual_serv=serv #for outputting
         begin_serv=queue_complete #for outputting
