@@ -279,7 +279,6 @@ def Genetic(Ac_Info,Arr_Pool,Arr_NotReady,Ac_queue,Left_queue,tm,NoA,k,prev_clas
 
 
             #perm_weather_state=weather(reltime,wlb,wub)
-            #AC_FinishTime,straight_into_service=GetServTime_Future(Trav_Time[AC],ServTime[AC],reltime,perm_prev_class,perm_class,perm_queue_complete,ee,weather_state)
             AC_FinishTime, straight_into_service=Gamma_GetServ_Future(k, Time_Sep, reltime,ServTime[AC],Trav_Time[AC],perm_prev_class,perm_class,perm_queue_complete,weather_state, w_rho)
 
             Opt_Listj[3][index]=(1-gam)*Opt_Listj[3][index]+gam*straight_into_service
