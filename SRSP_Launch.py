@@ -375,6 +375,7 @@ while rep < no_reps:
         # tm >= may be redundant
         if tm >= 0 and len(Ac_added) > 0 and Ac_added[0] in Arr_Pool:
             if SubPolicy in ('VNS','VNSD'):
+                # First, find best sequence
                 Opt_List.sort(key=lambda x: x.v) # sort by mean V_s^n
                 GA_Info.sort(key=lambda x: x.v)
                 # Set up base sequence and pred_cost (latest predicted cost)
