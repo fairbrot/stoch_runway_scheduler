@@ -311,8 +311,6 @@ while rep < no_reps:
     Arr_NotReady = [] # Aircraft that haven't joined pool yet
     Dep_NotReady = [] # Is this needed? It is used once below - Possibly not - check how it is used
 
-    # JF Question: I need a lot of these parameters explaining
-
     tm = 0  # tm is current time (in minutes)
     old_tm = tm # previous time
     totserv = 0 # counter of number of aircraft served (landed)
@@ -427,7 +425,7 @@ while rep < no_reps:
                 Opt_Seqs = []
                 c = 0 # JF Question: Is this actually used?
                 # This looks very similar to initialisation of Opt_List above
-                while len(Opt_List)<Opt_Size and c<25:
+                while len(Opt_List)<Opt_Size and c < 25:
                     new_seq = base_seq[:]
                     random.shuffle(new_seq)
                     if new_seq not in GA_PopList and new_seq not in Opt_Seqs:
@@ -452,8 +450,7 @@ while rep < no_reps:
                     Loop_Evals += GA_counter
                     # Create more seqeuences from best current sequence
                     GA_PopList, GA_Info, Opt_Seq,OptCost, Opt_List, VNS_counter, tot_mut = Repopulate_VNS(GA_PopList, GA_Info, Arr_Pool, Arr_NotReady, GA_PopSize, Opt_Seq, 
-                                                                                                          OptCost, Opt_List,Opt_Size,Max_LookAhead,VNS_counter,VNS_limit,tot_mut, 
-                                                                                                          stepthrough, step_summ, step_new)
+                                                                                                          OptCost, Opt_List,Opt_Size,Max_LookAhead,VNS_counter,VNS_limit,tot_mut)
                     GA_counter = 0
                     GA_CheckSize = GA_Check_Increment
                     mv_time = 1

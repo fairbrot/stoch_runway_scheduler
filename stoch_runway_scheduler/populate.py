@@ -1,32 +1,32 @@
 from typing import List, Tuple
 from copy import copy
+import logging
 import math
 import random
 import itertools
-import numpy as np
 import time
+import numpy as np
 from .utils import FlightInfo, SequenceInfo
 
-def Repopulate_VNS(GA_PopList: List[List[int]], GA_Info: List[SequenceInfo], Arr_Pool: List[int], Arr_NotReady: List[int], GA_PopSize, Opt_Seq: List[int],OptCost, Opt_List: List[SequenceInfo], Opt_Size, Max_LookAhead: int , VNS_counter, VNS_limit, tot_mut, stepthrough: int, step_summ: int, step_new: int):
-
-    #print('Repopulating')
-
+def Repopulate_VNS(GA_PopList: List[List[int]], GA_Info: List[SequenceInfo], Arr_Pool: List[int], Arr_NotReady: List[int], GA_PopSize, Opt_Seq: List[int],OptCost, Opt_List: List[SequenceInfo], Opt_Size, Max_LookAhead: int , VNS_counter, VNS_limit, tot_mut):
     start_time=time.time()
 
-    if stepthrough==1:
-        st.write('Repopulating...'+'\n')
-        st.write('Here are the sequences and their costs so far:'+'\n')
-        for j in range(len(GA_Info)):
-            st.write(str(j)+','+str(GA_Info[j].v)+','+str(GA_Info[j].sequence)+'\n')
-        st.write('\n')
-    if step_summ==1:
-        st2.write('Repopulating...'+'\n')
-        st2.write('Here are the sequences and their costs so far:'+'\n')
-        for j in range(len(GA_Info)):
-            st2.write(str(j)+','+str(GA_Info[j].v)+','+str(GA_Info[j].sequence)+'\n')
-        st2.write('\n')
-    if step_new==1:
-        st3.write('Repopulating...'+'\n')
+    # Logging
+    stepthrough_logger = logging.getLogger('stepthrough')
+    step_summ_logger = logging.getLogger('step_summ')
+    step_new_logger = logging.getLogger('step_new')
+
+    stepthrough_logger.info('Repopulating...')
+    step_summ_logger.info('Repopulating...')
+    step_new_logger.info('Repopulating...')
+    stepthrough_logger.info('Here are the sequences and their costs so far:')
+    step_summ_logger.info('Here are the sequences and their costs so far:')
+    for j, info in enumerate(GA_Info):
+        flight_msg = str(j)+','+str(info.v)+','+str(info.sequence)+'\n'
+        stepthrough_logger.info(flight_msg)
+        step_summ_logger.info(flight_msg)
+
+
 
     AC_remaining = len(Arr_Pool) + len(Arr_NotReady)
     no_ACs = min(Max_LookAhead, AC_remaining)
@@ -42,16 +42,13 @@ def Repopulate_VNS(GA_PopList: List[List[int]], GA_Info: List[SequenceInfo], Arr
 
         if Best_in_opt < Best_in_pop:
             VNS_counter += 1
-            if step_new == 1:
-                st3.write('VNS_counter increased to '+str(VNS_counter)+'\n')
+            step_new_logger.info('VNS_counter increased to %d', VNS_counter)
         else:
             VNS_counter=0
 
     elif len(Opt_List) > 0 and len(GA_Info) == 0:
-
         VNS_counter += 1
-        if step_new == 1:
-            st3.write('VNS_counter increased to '+str(VNS_counter)+'\n')
+        step_new_logger.info('VNS_counter increased to %d', VNS_counter)
 
     New_Opt_List=[]
     for j in range(len(GA_Info)):
@@ -77,8 +74,7 @@ def Repopulate_VNS(GA_PopList: List[List[int]], GA_Info: List[SequenceInfo], Arr
     if VNS_counter >= VNS_limit:
 
         tot_mut+=1 # total mutations
-        if step_new == 1:
-            st3.write('Mutation performed!'+'\n')
+        step_new_logger.info('Mutation performed!')
 
         # Perturb the optimal sequence
         Opt_Seq = Best_Seq[:] # Opt_List[0][0]
@@ -178,25 +174,22 @@ def Repopulate_VNS(GA_PopList: List[List[int]], GA_Info: List[SequenceInfo], Arr
     if len(Opt_List) == 0:
         Opt_List = GA_Info[:]
 
-    if stepthrough==1:
-        st.write('Here is the new pop list after adding new sequences and sorting in sequence order:'+'\n')
-        for j in range(len(GA_PopList)):
-            st.write(str(j)+','+str(GA_PopList_sorted[j])+'\n')
-        st.write('\n')
-    if step_summ==1:
-        st2.write('Here is the new pop list after adding new sequences and sorting in sequence order:'+'\n')
-        for j in range(len(GA_PopList)):
-            st2.write(str(j)+','+str(GA_PopList_sorted[j])+'\n')
-        st2.write('\n')
-    if step_new==1:
-        st3.write('Here is the new Opt_List: '+'\n')
-        for j in range(len(Opt_List)):
-            st3.write(str(Opt_List[j])+'\n')
-        st3.write('\n')
-        st3.write('Here is the new Pop_List: '+'\n')
-        for j in range(len(GA_PopList)):
-            st3.write(str(GA_PopList[j])+'\n')
-        st3.write('\n')
+    # More logging
+    msg = 'Here is the new pop list after adding new sequences and sorting in sequence order:'
+    stepthrough_logger.info(msg)
+    stepthrough_logger.info(msg)
+    for j in range(len(GA_PopList)):
+        seq_msg = str(j)+','+str(GA_PopList_sorted[j])
+        stepthrough_logger.info(seq_msg)
+        step_summ_logger.info(seq_msg)
+
+    step_new_logger.info('Here is the new Opt_List: ')
+    for seq_info in Opt_List:
+        step_new_logger.info(seq_info)
+    step_new_logger.info('Here is the new Pop_List:')
+    for seq in GA_PopList:
+        step_new_logger.info(seq)
+
 
     return GA_PopList, GA_Info, Opt_Seq, OptCost, Opt_List, VNS_counter, tot_mut
 
