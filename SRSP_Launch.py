@@ -10,7 +10,7 @@ import os
 
 import numpy as np 
 
-from stoch_runway_scheduler import generate_weather, generate_trajectory, read_flight_data, sample_pretac_delay, weather, Genetic, Genetic_determ, Populate, Repopulate_VNS, sample_cond_gamma, getcost, Annealing_Cost, Perm_Heur, Perm_Heur_New, Calculate_FCFS, sample_gamma, gamma_create_cdf, Posthoc_Check, Update_Stats, Update_ETAs, Serv_Completions, FlightInfo, FlightStatus
+from stoch_runway_scheduler import generate_weather, generate_trajectory, read_flight_data, sample_pretac_delay, weather, Genetic, Genetic_determ, Populate, Repopulate_VNS, sample_cond_gamma, getcost, Annealing_Cost, Perm_Heur, Perm_Heur_New, Calculate_FCFS, sample_gamma, gamma_create_cdf, Posthoc_Check, Update_Stats, Update_ETAs, Serv_Completions, FlightInfo, FlightStatus, SequenceInfo
 
 #################
 # CONIFIGUATION #
@@ -269,13 +269,11 @@ while rep < no_reps:
 
         # Arg 3 is Arr_Pool which is initially empty at this point
         GA_PopList, GA_Info = Populate(Ac_Info, FSFS_seq, [], FSFS_seq, GA_PopSize, Max_LookAhead)
-        # print('GA_PopList: '+str(GA_PopList))
-        # print('GA_Info: '+str(GA_Info))
 
         Opt_Seq = FSFS_seq[:]
         OptCost = 1000000 # initial cost
         queue_probs = [0]*NoA # JF Question: this is shared between solutions? Should this really be the case? Possibly is independent of sequence
-        Opt_List = [] # For storing best set of solutions?
+        Opt_List = [] # For storing SequenceInfo of best solutions
         Opt_Seqs = []
         Opt_Size = 10 # Length of shortlist JF - Perhaps move to parameters
 
@@ -287,7 +285,7 @@ while rep < no_reps:
         while len(Opt_List) < Opt_Size:
             new_seq = random.sample(FSFS_seq, k=len(FSFS_seq)) # shuffle fcfs sequence
             if new_seq not in GA_PopList and new_seq not in Opt_Seqs: # This is just to initialise opt_list - we want to compare with distinct GA_PopList
-                Opt_List.append([new_seq[:],0,0,queue_probs,0]) # analogous to GA_Info
+                Opt_List.append(SequenceInfo(new_seq[:],0,0,queue_probs,0)) # analogous to GA_Info
                 Opt_Seqs.append(new_seq[:])
 
         GA_Check_Increment = GA_LoopSize / 10 # Called r in paper - how often to do ranking and selection
@@ -377,22 +375,22 @@ while rep < no_reps:
         # tm >= may be redundant
         if tm >= 0 and len(Ac_added) > 0 and Ac_added[0] in Arr_Pool:
             if SubPolicy in ('VNS','VNSD'):
-                Opt_List.sort(key=lambda x: x[2]) # sort by mean V_s^n
-                GA_Info.sort(key=lambda x: x[2])
+                Opt_List.sort(key=lambda x: x.v) # sort by mean V_s^n
+                GA_Info.sort(key=lambda x: x.v)
                 # Set up base sequence and pred_cost (latest predicted cost)
                 if len(Opt_List) > 0 and len(GA_Info) > 0: # If both lists non-empty then compare best in one with best inother
                     if Opt_List[0][2] < GA_Info[0][2]:
-                        base_seq = Opt_List[0][0][:]
-                        pred_cost = Opt_List[0][2]
+                        base_seq = Opt_List[0].sequence[:]
+                        pred_cost = Opt_List[0].v
                     else:
-                        base_seq = GA_Info[0][0][:]
-                        pred_cost = GA_Info[0][2]
+                        base_seq = GA_Info[0].sequence[:]
+                        pred_cost = GA_Info[0].v
                 elif len(Opt_List) > 0:
-                    base_seq = Opt_List[0][0][:]
-                    pred_cost = Opt_List[0][2]
+                    base_seq = Opt_List[0].sequence[:]
+                    pred_cost = Opt_List[0].v
                 elif len(GA_Info) > 0:
-                    base_seq = GA_Info[0][0][:]
-                    pred_cost = GA_Info[0][2]
+                    base_seq = GA_Info[0].sequence[:]
+                    pred_cost = GA_Info[0].v
                 else:
                     assert 1 == 2
             # For each aircraft being released...
@@ -432,7 +430,7 @@ while rep < no_reps:
                     new_seq = base_seq[:]
                     random.shuffle(new_seq)
                     if new_seq not in GA_PopList and new_seq not in Opt_Seqs:
-                        Opt_List.append([new_seq[:],0,0,queue_probs,0])
+                        Opt_List.append(SequenceInfo(new_seq[:],0,0,queue_probs,0))
                         Opt_Seqs.append(new_seq[:])
                         c = 0
                     else:

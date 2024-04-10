@@ -1,11 +1,17 @@
 from typing import List
 import time
-from .utils import weather, getcost
+from .utils import weather, getcost, FlightInfo, SequenceInfo
 from .gamma import gamma_cond_exp
 
 # JF: This is the main deterministic heuristic
 # Name may not be best choice
-def Genetic_determ(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, Left_queue, tm, NoA, k, prev_class, GA_PopList, GA_Info, wlb, wub, Opt_List, tau: int, Max_LookAhead: int, Time_Sep: List[List[int]], thres1:int, thres2: int, lam1: float, lam2: float, tot_arr_cost: float, tot_dep_cost: float, w_rho: float, stepthrough:int, step_summ:int, step_new: int):
+def Genetic_determ(Ac_Info: List[FlightInfo], Arr_Pool: List[int], Arr_NotReady: List[int], 
+                    Ac_queue: List[int], Left_queue: List[int], tm: float, NoA: int, k:int, 
+                    prev_class: int, GA_PopList: List[List[int]], GA_Info: List[SequenceInfo],
+                    wlb, wub, Opt_List: List[SequenceInfo], tau: int, Max_LookAhead: int, 
+                    Time_Sep: List[List[int]], thres1:int, thres2: int, lam1: float, lam2: 
+                    float, tot_arr_cost: float, tot_dep_cost: float, w_rho: float, 
+                    stepthrough:int, step_summ:int, step_new: int):
 
     output=0 #output==1 means we're printing results as we go along; output==2 means we're outputting results to "Detailed" csv file
     ee=0
@@ -117,7 +123,7 @@ def Genetic_determ(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, Left_queue, tm, No
     for j in range(len(GA_Info)):
 
         if stepthrough==1:
-            st.write('\n'+'Now trying sequence '+','+str(GA_Info[j][0])+'\n')
+            st.write('\n'+'Now trying sequence '+','+str(GA_Info[j].sequence)+'\n')
             st.write('AC'+','+'Class'+','+'Time Sep'+','+'Arrives in pool'+','+'Release time'+','+'Travel time'+','+'Enters serv'+','+'Actual serv'+','+'Finish time'+','+'Pax weight'+','+'Cost'+'\n')
 
         permcost=basecost
@@ -126,10 +132,10 @@ def Genetic_determ(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, Left_queue, tm, No
         perm_queue_complete=queue_complete
         #perm_weather_state=weather_state
 
-        perm=GA_Info[j][0]
-        GA_Info[j][1]+=1
+        perm=GA_Info[j].sequence
+        GA_Info[j].n_traj+=1
         #gam=0.01
-        gam=1/GA_Info[j][1]
+        gam=1/GA_Info[j].n_traj
 
         #print('GA_Info: '+str(GA_Info))
 
@@ -160,7 +166,7 @@ def Genetic_determ(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, Left_queue, tm, No
             else:
                 straight_into_service=0
 
-            GA_Info[j][3][index]=(1-gam)*GA_Info[j][3][index]+gam*straight_into_service
+            GA_Info[j].queue_probs[index]=(1-gam)*GA_Info[j].queue_probs[index]+gam*straight_into_service
 
             permcost+=getcost(Ac_Infoi.orig_sched_time,ArrTime[AC],tau,AC_FinishTime,Ac_Infoi.passenger_weight,thres1,thres2, lam1, lam2) #Ac_Infoi.passenger_weight*(AC_FinishTime-(Ac_Infoi.ps_time+thres))**2
             latest_tm=reltime
@@ -172,16 +178,16 @@ def Genetic_determ(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, Left_queue, tm, No
             perm_prev_class=perm_class
 
         if stepthrough==1:
-            st.write('Final cost: '+','+str(permcost)+','+'Gamma: '+','+str(gam)+','+'Old cost: '+','+str(GA_Info[j][2])+',')
+            st.write('Final cost: '+','+str(permcost)+','+'Gamma: '+','+str(gam)+','+'Old cost: '+','+str(GA_Info[j].v)+',')
 
-        GA_Info[j][2]=(1-gam)*GA_Info[j][2]+gam*permcost
+        GA_Info[j].v=(1-gam)*GA_Info[j].v+gam*permcost
         if stepthrough==1:
-            st.write('Total cost: '+','+str(GA_Info[j][2])+','+'Queue probs: '+','+str(GA_Info[j][3])+'\n'+'\n')
+            st.write('Total cost: '+','+str(GA_Info[j].v)+','+'Queue probs: '+','+str(GA_Info[j].queue_probs)+'\n'+'\n')
 
     if step_summ==1:
-        GA_Info.sort(key=lambda x: x[0])
+        GA_Info.sort(key=lambda x: x.sequence)
         for j in range(len(GA_Info)):
-            st2.write(str(GA_Info[j][2])+',')
+            st2.write(str(GA_Info[j].v)+',')
         st2.write('\n')
 
     #### UPDATE SEQS IN THE OPT LIST ####
@@ -189,7 +195,7 @@ def Genetic_determ(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, Left_queue, tm, No
     for j in range(len(Opt_List)):
 
         if stepthrough==1:
-            st.write('\n'+'Now trying sequence '+','+str(Opt_List[j][0])+'\n')
+            st.write('\n'+'Now trying sequence '+','+str(Opt_List[j].sequence)+'\n')
             st.write('AC'+','+'Class'+','+'Time Sep'+','+'Arrives in pool'+','+'Release time'+','+'Travel time'+','+'Enters serv'+','+'Actual serv'+','+'Finish time'+','+'Pax weight'+','+'Cost'+'\n')
 
         permcost=basecost
@@ -198,10 +204,10 @@ def Genetic_determ(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, Left_queue, tm, No
         perm_queue_complete=queue_complete
         #perm_weather_state=weather_state
 
-        perm=Opt_List[j][0]
-        Opt_List[j][1]+=1
+        perm=Opt_List[j].sequence
+        Opt_List[j].n_traj+=1
         #gam=0.01
-        gam=1/Opt_List[j][1]
+        gam=1/Opt_List[j].n_traj
 
         #print('GA_Info: '+str(GA_Info))
 
@@ -232,7 +238,7 @@ def Genetic_determ(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, Left_queue, tm, No
             else:
                 straight_into_service=0
 
-            Opt_List[j][3][index]=(1-gam)*Opt_List[j][3][index]+gam*straight_into_service
+            Opt_List[j].queue_probs[index]=(1-gam)*Opt_List[j].queue_probs[index]+gam*straight_into_service
 
             permcost+=getcost(Ac_Infoi.orig_sched_time,ArrTime[AC],tau,AC_FinishTime,Ac_Infoi.passenger_weight,thres1,thres2, lam1, lam2) #Ac_Infoi.passenger_weight*(AC_FinishTime-(Ac_Infoi.ps_time+thres))**2
             latest_tm=reltime
@@ -244,27 +250,27 @@ def Genetic_determ(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, Left_queue, tm, No
             perm_prev_class=perm_class
 
         if stepthrough==1:
-            st.write('Final cost: '+','+str(permcost)+','+'Gamma: '+','+str(gam)+','+'Old cost: '+','+str(Opt_List[j][2])+',')
+            st.write('Final cost: '+','+str(permcost)+','+'Gamma: '+','+str(gam)+','+'Old cost: '+','+str(Opt_List[j].v)+',')
 
-        Opt_List[j][2]=(1-gam)*Opt_List[j][2]+gam*permcost
+        Opt_List[j].v=(1-gam)*Opt_List[j].v+gam*permcost
         if stepthrough==1:
-            st.write('Total cost: '+','+str(Opt_List[j][2])+','+'Queue probs: '+','+str(Opt_List[j][3])+'\n'+'\n')
+            st.write('Total cost: '+','+str(Opt_List[j].v)+','+'Queue probs: '+','+str(Opt_List[j].queue_probs)+'\n'+'\n')
 
     if step_summ==1:
-        Opt_List.sort(key=lambda x: x[0])
+        Opt_List.sort(key=lambda x: x.sequence)
         for j in range(len(Opt_List)):
-            st2.write(str(Opt_List[j][2])+',')
+            st2.write(str(Opt_List[j].v)+',')
         st2.write('\n')
 
     # minperm=0
     # mincost=0
     # for j in range(len(GA_Info)):
-    # 	if j==0 or GA_Info[j][2]<mincost:
-    # 		mincost=GA_Info[j][2]
+    # 	if j==0 or GA_Info[j].v<mincost:
+    # 		mincost=GA_Info[j].v
     # 		minperm=j
 
-    Opt_List.sort(key=lambda x: x[2])
-    GA_Info.sort(key=lambda x: x[2])
+    Opt_List.sort(key=lambda x: x.v)
+    GA_Info.sort(key=lambda x: x.v)
 
     Ac_added=[]
     counter=0
@@ -273,7 +279,7 @@ def Genetic_determ(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, Left_queue, tm, No
     if len(Arr_Pool)>0:
 
         if len(GA_Info)>0 and len(Opt_List)>0:
-            if Opt_List[0][2]<GA_Info[0][2]:
+            if Opt_List[0].v<GA_Info[0].v:
                 perm=Opt_List[0]
             else:
                 perm=GA_Info[0]
