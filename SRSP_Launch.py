@@ -80,7 +80,7 @@ if Use_VNSD == 1:
 
 # JF Question: what is this? Would be good to avoid setting it to NoA before data has been read
 max_FCFS = NoA # int(NoA/2)
-conv_factor = 1 # no. of seconds in a minute for conversion purposes
+
 Max_LookAhead = 15 # NoA # This is the length of a sequence, equivalent to parameter l in paper  - in paper this is 15
 
 pool_max = 6 # Used as a parameter for "perm heuristic" which searches for the best landing sequence under perfect information, i.e. assumes all random information already known
@@ -88,6 +88,10 @@ list_min = 6 # Also used only for the "perm heuristic""
 
 GA_PopSize = 20 # Initial number of sequences in the population, written as S in paper (see Section 3.1)
 VNS_limit = 25 # important parameter, determines how many non-improving heuristic moves need to be made before a mutation is carried out; this is written as m_{mut} in paper (see the flow chart, Figure 3)
+
+# JF Note: Important - should these two things be linked?
+conv_factor = 1 # no. of seconds in a minute for conversion purposes
+freq = 100 # number of updates for each minute
 
 ###########
 # LOGGING #
@@ -227,7 +231,7 @@ while rep < no_reps:
     Brown_Motion = []
     for i in range(NoA):
         Ps_time, Dep_time,  = Ac_Info[i].ps_time, Ac_Info[i].sched_dep_time
-        pool_arr_time, travel_time, brown_motion = generate_trajectory(Dep_time, Ps_time, tau, wiener_sig)
+        pool_arr_time, travel_time, brown_motion = generate_trajectory(Dep_time, Ps_time, tau, wiener_sig, freq=freq)
         Ac_Info[i].travel_time = travel_time
         Ac_Info[i].pool_time = pool_arr_time
         Brown_Motion.append(brown_motion)
@@ -251,7 +255,7 @@ while rep < no_reps:
     # Long time period over which to generate weather predictions
     # We make longer in case bad weather finish time falls outside of time horizon
     T = (max_ps_time - min_ps_time) * 2 # The factor 2 here is probably a bit over cautious
-    wlb_tm, wub_tm, weather_lb, weather_ub = generate_weather(wlb, wub, T, weather_sig)
+    wlb_tm, wub_tm, weather_lb, weather_ub = generate_weather(wlb, wub, T, weather_sig, freq=freq)
 
     stepthrough_logger.info('wlb_tm: %d wub_tm: %d', wlb_tm, wub_tm)
 
@@ -464,12 +468,11 @@ while rep < no_reps:
 
         # First, get the AC List
 
-        # JF Question: I think 100 should be replaced by freq here
-        # What is the condition?
-        if tm >= 0 and tm <= wub_tm and int(tm*100) != int(old_tm*100):
+        # JF Question: what is the condition?
+        if tm >= 0 and tm <= wub_tm and int(tm*freq) != int(old_tm*freq):
             # Permute and update the weather
-            wlb = weather_lb[int(tm*100)] # random.gauss(wlb,0.05)
-            wub = weather_ub[int(tm*100)]
+            wlb = weather_lb[int(tm*freq)] # random.gauss(wlb, 0.05)
+            wub = weather_ub[int(tm*freq)]
 
         if len(Arr_Pool) + len(Arr_NotReady) > 0:
             if SubPolicy == 'VNS':
@@ -488,8 +491,9 @@ while rep < no_reps:
 
         latest_time = (time.time() - initial_time)/conv_factor
 
-        if int(tm*100) != int(old_tm*100):
-            Update_ETAs(Ac_Info, Arr_NotReady, Dep_NotReady, Ac_queue, tm, Brown_Motion, Arr_Pool, tau)
+        # JF Question: what is this condition? freq replaced 100 here
+        if int(tm*freq) != int(old_tm*freq):
+            Update_ETAs(Ac_Info, Arr_NotReady, Dep_NotReady, Ac_queue, tm, Brown_Motion, Arr_Pool, tau, freq)
 
         if len(Ac_queue) > 0 and tm >= next_completion_time: #len(Ac_queue)>0:
             arr_cost, dep_cost, totserv, prev_class, Ac_finished, next_completion_time = Serv_Completions(Ac_Info, Ac_queue, prev_class, totserv, Ac_finished, latest_time, next_completion_time, thres1, thres2, lam1, lam2, f, SubPolicy, rep, Time_Sep, Left_queue)

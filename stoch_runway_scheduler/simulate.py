@@ -2,11 +2,11 @@ from typing import List, TextIO
 import logging
 import math
 import random
-from .utils import weather, getcost, FlightStatus
+from .utils import weather, getcost, FlightStatus, FlightInfo
 from .gamma import sample_cond_gamma
 from .annealing_cost import Annealing_Cost
 
-def generate_weather(wlb: int, wub: int, T: int, weather_sig: float, freq: int = 100):
+def generate_weather(wlb: int, wub: int, T: int, weather_sig: float, freq: int):
     """
     Generates brownian motion for bad weather forecasts, as well as actual times of bad weather.
 
@@ -59,7 +59,7 @@ def generate_weather(wlb: int, wub: int, T: int, weather_sig: float, freq: int =
         old_ub = new_ub
     return wlb_tm, wub_tm, weather_lb, weather_ub
 
-def generate_trajectory(Dep_time: float, Ps_time: float, tau: int, wiener_sig: float, freq: int = 100):
+def generate_trajectory(Dep_time: float, Ps_time: float, tau: int, wiener_sig: float, freq: int):
     """
     Generates a trajectory for an aircraft.
 
@@ -191,7 +191,7 @@ def Get_Actual_Serv(AC,prev_class,cur_class,weather_state,k, Time_Sep: List[List
     else:
         ws=1
 
-    rate=ws*k/(Time_Sep[prev_class][cur_class]/60)
+    rate = ws*k/(Time_Sep[prev_class][cur_class]/60)
 
     servtime = serv_percs/rate #Transformation causes serv_percs to go from [mean k, var k] to [mean e_{ij}, var e_{ij}^2/k]
 
@@ -281,90 +281,64 @@ def GetServTime_Future(trav_time,serv_time,rel_time,prev_class,cur_class,tm,ee,w
 
     return t_out,straight_into_service
 
-# def GetServTime(trav_time,serv_time,rel_time,prev_class,cur_class,tm,ph_B,ee,weather_state): #old, disused version
+def round_down(tm: float, freq: int) -> float:
+    """Rounds tm down to beginning of interval defined by freq.
 
-# 	#print('tm: '+str(tm))
-
-# 	t1=rel_time+trav_time
-
-# 	#Next, get s1+Z2
-# 	# if type(prev_class)==list:
-# 	# 	print('prev_class: '+str(prev_class))
-# 	# if type(cur_class)==list:
-# 	# 	print('cur_class: '+str(cur_class))
-
-# 	rate=k/(Time_Sep[prev_class][cur_class]/60)
-# 	if weather_state==1:
-# 		rate*=1/w_rho #=0.5
-
-# 	t2=tm
-# 	for m in range(ph_B):
-# 		# if m>len(serv_time)-1:
-# 		# 	print('ph_B: '+str(ph_B))
-# 		t2+=(-1/rate)*math.log(serv_time[m])
-
-# 	if ee==1 and stepthrough==1:
-# 		stepthrough_logger.info(str(t2-tm)+',')
-
-# 	# if len(Ac_queue)==2 and ee==1:
-# 	# 	print('Trav time completed at '+str(t1)+', serv time completed at '+str(t2))
-
-# 	if t1<t2:
-# 		straight_into_service=0
-# 		t_out=t2
-# 	else:
-# 		straight_into_service=1
-# 		t_out=t1
-
-# 	return t_out,straight_into_service
+    For example, if freq is 100, then we round down for step size of 0.01,
+    that is 0.32453 would become 0.32.
+    """
+    int_size = 1/freq
+    i = tm // int_size
+    return i*int_size
 
 
-
-def Update_ETAs(Ac_Info, Arr_NotReady, Dep_NotReady, Ac_queue, tm, Brown_Motion, Arr_Pool, tau):
+def Update_ETAs(Ac_Info: List[FlightInfo], Arr_NotReady: List[int], Dep_NotReady: List[int], 
+                Ac_queue: List[int], tm: float, Brown_Motion: List[List[float]], Arr_Pool: List[int], tau: float,
+                freq: int):
+    
+    # JF Question: this only updates ETAs for aircraft not ready, which join the pool, or are in the queue.
+    # It does not seemingly update the ETAs for flights aleady in the pool.
+    
     stepthrough_logger = logging.getLogger('stepthrough')
     step_summ_logger = logging.getLogger('step_summ')
     step_new_logger = logging.getLogger('step_new')
-    #print('Entered Update_ETAs')
 
-    i=0
-    while i <= len(Arr_NotReady)-1:
-        AC=Arr_NotReady[i]
-        Ac_Infoi=Ac_Info[AC]
-        #print('AC: '+str(Arr_NotReadyi)+' tm: '+str(tm)+' Ac_Infoi.pool_time: '+str(Ac_Infoi.pool_time))
+    i = 0
+    # Updates flights not aleady in Pool
+    to_remove = []
+    for i, AC in enumerate(Arr_NotReady):
+        Ac_Infoi = Ac_Info[AC]
         if tm >= Ac_Infoi.pool_time:
             Arr_Pool.append(AC)
-            #print('* Added aircraft '+str(AC)+' to the arrival pool at time '+str(tm)+' (new readiness time is '+str(Ac_Infoi.pool_time+tau)+')')
-            stepthrough_logger.info('* Added aircraft '+str(AC)+' to the arrival pool at time '+str(tm)+' (new readiness time is '+str(Ac_Infoi.pool_time+tau)+')'+'\n'+'\n')
-            step_summ_logger.info('* Added aircraft '+str(AC)+' to the arrival pool at time '+str(tm)+' (new readiness time is '+str(Ac_Infoi.pool_time+tau)+')'+'\n'+'\n')
-            step_new_logger.info('* Added aircraft '+str(AC)+' to the arrival pool at time '+str(tm)+' (new readiness time is '+str(Ac_Infoi.pool_time+tau)+')'+'\n'+'\n')
-            Arr_NotReady.remove(AC)
+            to_remove.append(i)
             Ac_Infoi.status = FlightStatus.IN_POOL
-            Ac_Infoi.eta = Ac_Infoi.pool_time + tau
-            i+=-1 #because we want to negate the "i+=1" below
-        else:
-            Ac_Infoi.eta = Brown_Motion[AC][int(tm*100)]
-        i+=1
+            Ac_Infoi.eta = Ac_Infoi.pool_time + tau # JF Question: is this necessary?
 
-    i=0
-    while i<=len(Ac_queue)-1:
-        AC=Ac_queue[i]
-        Ac_Infoi=Ac_Info[AC]
-        if Ac_Infoi.travel_time_indicator==0:
-            rel_time=Ac_Infoi.release_time
-            trav_so_far=tm-rel_time #amount of time spent travelling to the runway so far
-            rounded_trav_so_far=round(trav_so_far,2)
-            if rounded_trav_so_far>trav_so_far:
-                rounded_trav_so_far+=-0.01
-            trav_time=Ac_Infoi.travel_time
-            if rounded_trav_so_far>=trav_time:
-                #print('* Aircraft '+str(AC)+' has finished its travel time at '+str(tm)+'; still waiting for service time.')
-                stepthrough_logger.info('* Aircraft '+str(AC)+' has finished its travel time at '+str(tm)+'; still waiting for service time.'+'\n'+'\n')
-                step_summ_logger.info('* Aircraft '+str(AC)+' has finished its travel time at '+str(tm)+'; still waiting for service time.'+'\n'+'\n')
-                Ac_Infoi.travel_time_indicator=1
+            msg = '* Added aircraft '+str(AC)+' to the arrival pool at time '+str(tm)+' (new readiness time is '+str(Ac_Infoi.pool_time+tau)+')'+'\n'+'\n'
+            stepthrough_logger.info(msg)
+            step_summ_logger.info(msg)
+            step_new_logger.info(msg)
+        else:
+            Ac_Infoi.eta = Brown_Motion[AC][int(tm*freq)]
+    for i in reversed(to_remove):
+        Arr_NotReady.pop(i)
+
+    # Updates flights which are in the queue
+    for i, AC in enumerate(Ac_queue):
+        Ac_Infoi = Ac_Info[AC]
+        if Ac_Infoi.travel_time_indicator == 0:
+            rel_time = Ac_Infoi.release_time
+            trav_so_far = tm - rel_time # amount of time spent travelling to the runway so far
+            # JF Question: why round? Should this be round down? Is this related to freq?
+            # I think we need rounding down to the beginning of interval defined by freq
+            rounded_trav_so_far = round_down(trav_so_far, freq)
+            if rounded_trav_so_far >= Ac_Infoi.travel_time:
+                msg = '* Aircraft '+str(AC)+' has finished its travel time at '+str(tm)+'; still waiting for service time.'+'\n'+'\n'
+                stepthrough_logger.info(msg)
+                step_summ_logger.info(msg)
+                Ac_Infoi.travel_time_indicator = 1
             else:
-                Ac_Infoi.eta=Brown_Motion[AC][int((Ac_Infoi.pool_time+rounded_trav_so_far)*100)]
-        #print('tm: '+str(tm)+' AC: '+str(AC)+' Ac_Infoi.pool_time: '+str(Ac_Infoi.pool_time)+' rel_time: '+str(rel_time)+' rounded_trav_so_far: '+str(rounded_trav_so_far)+' Ac_Infoi.eta: '+str(Ac_Infoi.eta))
-        i+=1
+                Ac_Infoi.eta = Brown_Motion[AC][int((Ac_Infoi.pool_time + rounded_trav_so_far) * freq)]
 
 def Update_Stats(tm,AC,Ac_Info,Ac_queue,real_queue_complete,wlb_tm,wub_tm,latest_class,Ov_GA_counter,next_completion_time, k: int, Time_Sep: List[List[int]], w_rho: float, SubPolicy, counter, qp):
     # Function which produces statistics about a flight which has just been released - also calculates

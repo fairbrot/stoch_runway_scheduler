@@ -21,12 +21,12 @@ class FlightInfo:
     eta: float # 3 latest ETA
     release_time: float # 4 time at which aircraft is released from pool
     enters_service: float # 5 the time at which aircraft enters service
-    travel_time: float # 6 travel time (generated in advance), # JF Question note from entering pool to runway?
+    travel_time: float # 6 travel time (generated in advance), # JF Question note from entering pool to runway? Update_ETAs suggests this is the case
     service_rns: List[float] # 7 list of random numbers used to calculate service times - JF NOTE: NOT USED!
     service_time: float # 8 actual service time s1+Z2 (worked out after class information is known)
     pool_time: float # 9 actual time that they join the pool (generated in advance)
     passenger_weight: float # g_i
-    travel_time_indicator: bool # 11 indicator to show whether or not the AC's travel time has already been completed
+    travel_time_indicator: bool # 11 indicator to show whether or not the AC's travel time has already been completed - used in Update_ETAs
     weather_state: int # 12 weather state at the time of release # JF Note - could possibly be removed with refactoring
     counter: int # counter
     qp: float # Perm only
