@@ -3,15 +3,15 @@ import random
 import math
 
 
-def sample_gamma(k,beta):
+def sample_gamma(k, beta):
 
     #gamma dist with mean k*beta and variance k*beta^2
 
     n=int(k)
     delt=k-n
 
-    #Generate a Gamma(k,1) RV
-    #https://en.wikipedia.org/wiki/Gamma_distribution#Generating_gamma-distributed_random_variables
+    # Generate a Gamma(k,1) RV
+    # https://en.wikipedia.org/wiki/Gamma_distribution#Generating_gamma-distributed_random_variables
 
     #First do the integer part
     intpart=0

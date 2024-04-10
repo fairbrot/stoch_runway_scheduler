@@ -1,9 +1,10 @@
-from typing import List
+from typing import List, Tuple
 import math
 import random
 import itertools
 import numpy as np
 import time
+from .utils import FlightInfo
 
 def Repopulate_VNS(GA_PopList,GA_Info,Arr_Pool,Arr_NotReady,GA_PopSize,Opt_Seq,OptCost,Opt_List,Opt_Size, Max_LookAhead: int ,VNS_counter,VNS_limit,tot_mut, stepthrough: int, step_summ: int, step_new: int):
 
@@ -255,7 +256,9 @@ def Repopulate_VNS(GA_PopList,GA_Info,Arr_Pool,Arr_NotReady,GA_PopSize,Opt_Seq,O
 
 
 # 
-def Populate(Ac_Info: List, base_seq: List[int], Arr_Pool: List[int], Arr_NotReady: List[int], GA_PopSize: int, Max_SeqLength: int):
+def Populate(Ac_Info: List[FlightInfo], base_seq: List[int], 
+            Arr_Pool: List[int], Arr_NotReady: List[int], 
+            GA_PopSize: int, Max_SeqLength: int) -> Tuple(List[List[int], List]):
     """
     Creates a new population of sequences - used at beginning of algorithm and step 4A
 
@@ -267,6 +270,11 @@ def Populate(Ac_Info: List, base_seq: List[int], Arr_Pool: List[int], Arr_NotRea
     Arr_NotReady: indices of flights not yet in the pool
     GA_PopSize: maximum number of sequences in population at one time (called S in paper)
     Max_SeqLength: maximum length of generated sequences (called l in paper)
+
+    Returns
+    -------
+    GA_PopList: List of sequences
+    GA_Info: List of information about sequences
     """
 
     # JF Question: should we add an assert that len(base_seq) <= Max_SeqLength? Yes

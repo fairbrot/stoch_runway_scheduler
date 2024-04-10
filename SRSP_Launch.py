@@ -210,14 +210,11 @@ while rep < no_reps:
     Ac_Info = [0]*NoA
 
     for i in range(NoA):
-        # JF Question: which departure? From origin or destination airport? If latter, are status 3-6 not needed?
-        Status = FlightStatus.NOT_READY
-
         # Generating service times for arrivals - these are scheduled to have the right mean later
         # JF Question: What is ServPercs? Below RS says this is RNs used for service time
         ServPercs=np.random.gamma(k,1)
 
-        Ac_Info[i] = FlightInfo(Status, Ac_class[i], Arr_Ps[i], Arr_Ps[i],
+        Ac_Info[i] = FlightInfo(FlightStatus.NOT_READY, Ac_class[i], Arr_Ps[i], Arr_Ps[i],
                       0, 0, 0, ServPercs,
                       0, 0, pax_weight[i], False,
                       1, 0, 0, 0,
