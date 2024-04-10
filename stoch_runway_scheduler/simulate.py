@@ -326,7 +326,7 @@ def Update_ETAs(Ac_Info: List[FlightInfo], Arr_NotReady: List[int], Dep_NotReady
     # Updates flights which are in the queue
     for i, AC in enumerate(Ac_queue):
         Ac_Infoi = Ac_Info[AC]
-        if Ac_Infoi.travel_time_indicator == 0:
+        if not Ac_Infoi.travel_time_indicator:
             rel_time = Ac_Infoi.release_time
             trav_so_far = tm - rel_time # amount of time spent travelling to the runway so far
             # JF Question: why round? Should this be round down? Is this related to freq?
@@ -336,7 +336,7 @@ def Update_ETAs(Ac_Info: List[FlightInfo], Arr_NotReady: List[int], Dep_NotReady
                 msg = '* Aircraft '+str(AC)+' has finished its travel time at '+str(tm)+'; still waiting for service time.'+'\n'+'\n'
                 stepthrough_logger.info(msg)
                 step_summ_logger.info(msg)
-                Ac_Infoi.travel_time_indicator = 1
+                Ac_Infoi.travel_time_indicator = True
             else:
                 Ac_Infoi.eta = Brown_Motion[AC][int((Ac_Infoi.pool_time + rounded_trav_so_far) * freq)]
 

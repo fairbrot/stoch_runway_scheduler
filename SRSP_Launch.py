@@ -219,7 +219,7 @@ while rep < no_reps:
 
         Ac_Info[i] = FlightInfo(Status, Ac_class[i], Arr_Ps[i], Arr_Ps[i],
                       0, 0, 0, ServPercs,
-                      0, 0, pax_weight[i], 0,
+                      0, 0, pax_weight[i], False,
                       1, 0, 0, 0,
                       0, Dep_Ps[i], Orig_Ps[i], flight_id[i])
 
