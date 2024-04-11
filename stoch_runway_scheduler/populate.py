@@ -264,7 +264,7 @@ def Populate(Ac_Info: List[FlightInfo], base_seq: List[int],
         c = 0 # Counter for number of times we duplicate the same sequence - this could be avoided by counting number of mutations possible with mutate_sequence (a quadratic number)
 
         while no_seqs < GA_PopSize:
-            new_seq = mutate_sequence(base_seq)
+            new_seq = heuristic_move(base_seq)
 
             # JF: could potentially make this more efficient by checking we are not
             # generating the same pos and pos2 in mutate_sequence
@@ -288,16 +288,16 @@ def Populate(Ac_Info: List[FlightInfo], base_seq: List[int],
 
     return GA_PopList, GA_Info
 
-def mutate_sequence(base_seq: List) -> List:
+def heuristic_move(base_seq: List) -> List:
     """
-    Takes a sequence and createds a new permuted one according algorithm described
+    Takes a sequence and creates a new permuted one according algorithm described
     in Appendix A of "A New Simheuristic Approach for Stochastic Runway Scheduling"
     by Shone et al. (2024).
 
     Algorithm randomly selects an element in sequence and randomly moves it forward
     or backwards (by up to 3 indices), prioritising elements near the front of the sequence.
     
-    In cases where either firstpython or last element is selected, the function may return the same sequence.
+    In cases where either first or last element is selected, the function may return the same sequence.
 
     Arguments
     ---------
