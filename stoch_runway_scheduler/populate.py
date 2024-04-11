@@ -9,6 +9,8 @@ import numpy as np
 from .utils import FlightInfo, SequenceInfo
 
 def Repopulate_VNS(GA_PopList: List[List[int]], GA_Info: List[SequenceInfo], Arr_Pool: List[int], Arr_NotReady: List[int], GA_PopSize, Opt_Seq: List[int],OptCost, Opt_List: List[SequenceInfo], Opt_Size, Max_LookAhead: int , VNS_counter, VNS_limit, tot_mut):
+    # VNS_counter counts how many non-improving heuristic moves we've made since the last reset
+    
     start_time=time.time()
 
     # Logging
@@ -22,48 +24,57 @@ def Repopulate_VNS(GA_PopList: List[List[int]], GA_Info: List[SequenceInfo], Arr
     stepthrough_logger.info('Here are the sequences and their costs so far:')
     step_summ_logger.info('Here are the sequences and their costs so far:')
     for j, info in enumerate(GA_Info):
-        flight_msg = str(j)+','+str(info.v)+','+str(info.sequence)+'\n'
+        flight_msg = str(j) + ',' + str(info.v) +',' + str(info.sequence) + '\n'
         stepthrough_logger.info(flight_msg)
         step_summ_logger.info(flight_msg)
-
-
 
     AC_remaining = len(Arr_Pool) + len(Arr_NotReady)
     no_ACs = min(Max_LookAhead, AC_remaining)
 
     queue_probs = [0] * no_ACs
 
+    # Get best average cost (Best_in_pop, Best_in_opt)
+    # This block is only used to increment VNS_counter
+    # which keeps track of non-improving heuristic moves
+    # This checks whether or not the best sequence
+    # was already in the population last time we entered 4C
+    # If it was we increment VNS_counter (m in pape)
+    # otherwise we reset it to zero (steps a-b in 4C)
+    # JF Question: I don't understand how the below achieves this aim
     if len(Opt_List) > 0 and len(GA_Info) > 0:
 
         GA_Info.sort(key=lambda x: x.v)
-        Best_in_pop=GA_Info[0].v
+        Best_in_pop = GA_Info[0].v
         Opt_List.sort(key=lambda x: x.v)
-        Best_in_opt=Opt_List[0].v
+        Best_in_opt = Opt_List[0].v
 
         if Best_in_opt < Best_in_pop:
             VNS_counter += 1
             step_new_logger.info('VNS_counter increased to %d', VNS_counter)
         else:
-            VNS_counter=0
+            VNS_counter = 0
 
     elif len(Opt_List) > 0 and len(GA_Info) == 0:
         VNS_counter += 1
         step_new_logger.info('VNS_counter increased to %d', VNS_counter)
 
+
+    # Get best n=Opt_Size sequences from GA_Info and Opt_List
     New_Opt_List=[]
-    for j in range(len(GA_Info)):
-        New_Opt_List.append(copy(GA_Info[j]))
-    for j in range(len(Opt_List)):
-        New_Opt_List.append(copy(Opt_List[j]))
+    for info in GA_Info:
+        New_Opt_List.append(copy(info))
+    for info in Opt_List:
+        New_Opt_List.append(copy(info))
 
     New_Opt_List.sort(key=lambda x: x.v)
 
-    while len(New_Opt_List)>Opt_Size:
+    while len(New_Opt_List) > Opt_Size:
         New_Opt_List.pop(len(New_Opt_List)-1)
 
-    Best_Seq=New_Opt_List[0].sequence
+    Best_Seq = New_Opt_List[0].sequence
 
-    Opt_Seqs=[]
+    # Reset all sequence information in new list
+    Opt_Seqs = []
     for i in range(len(New_Opt_List)):
         New_Opt_List[i].n_traj = 0 #HMMM
         New_Opt_List[i].v = 0
@@ -71,16 +82,17 @@ def Repopulate_VNS(GA_PopList: List[List[int]], GA_Info: List[SequenceInfo], Arr
         New_Opt_List[i].w = 0
         Opt_Seqs.append(New_Opt_List[i].sequence[:])
 
+    # Step c in 4C - apply mutate to ceate a new base sequence
     if VNS_counter >= VNS_limit:
 
-        tot_mut+=1 # total mutations
+        tot_mut += 1 # total mutations - only for logging purposes
         step_new_logger.info('Mutation performed!')
 
         # Perturb the optimal sequence
         Opt_Seq = Best_Seq[:] # Opt_List[0][0]
 
-        perm_size = min(4,no_ACs) # no. of ACs to shuffle around
-        no_start_pos = no_ACs-perm_size+1 #no. of possible start positions
+        perm_size = min(4, no_ACs) # no. of ACs to shuffle around
+        no_start_pos = no_ACs - perm_size + 1 # no. of possible start positions
 
         triangle_dist_size = no_start_pos*(no_start_pos+1)/2
 
@@ -111,6 +123,7 @@ def Repopulate_VNS(GA_PopList: List[List[int]], GA_Info: List[SequenceInfo], Arr
 
     New_PopList = []
 
+    # Apply heuristic move operator to generate enough sequences
     c=0
     while len(New_PopList) < GA_PopSize or len(Opt_Seqs) < Opt_Size:
 
