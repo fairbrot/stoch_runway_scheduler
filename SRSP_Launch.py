@@ -270,7 +270,7 @@ while rep < no_reps:
         # Arg 3 is Arr_Pool which is initially empty at this point
         GA_PopList, GA_Info = Populate(Ac_Info, FSFS_seq, [], FSFS_seq, GA_PopSize, Max_LookAhead)
 
-        Opt_Seq = FSFS_seq[:]
+        # Opt_Seq = FSFS_seq[:]
         OptCost = 1000000 # initial cost
         queue_probs = [0]*NoA # JF Question: this is shared between solutions? Should this really be the case? Possibly is independent of sequence
         Opt_List = [] # For storing SequenceInfo of best solutions
@@ -449,8 +449,8 @@ while rep < no_reps:
                     Loop_Nums+=1
                     Loop_Evals += GA_counter
                     # Create more seqeuences from best current sequence
-                    GA_PopList, GA_Info, Opt_Seq,OptCost, Opt_List, VNS_counter, tot_mut = Repopulate_VNS(GA_PopList, GA_Info, Arr_Pool, Arr_NotReady, GA_PopSize, Opt_Seq, 
-                                                                                                          OptCost, Opt_List,Opt_Size,Max_LookAhead,VNS_counter,VNS_limit,tot_mut)
+                    GA_PopList, GA_Info, Opt_List, VNS_counter, tot_mut = Repopulate_VNS(GA_PopList, GA_Info, GA_PopSize,
+                                                                                         Opt_List, Opt_Size, VNS_counter, VNS_limit, tot_mut)
                     GA_counter = 0
                     GA_CheckSize = GA_Check_Increment
                     mv_time = 1

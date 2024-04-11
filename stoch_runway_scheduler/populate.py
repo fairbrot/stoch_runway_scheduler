@@ -8,10 +8,34 @@ import time
 import numpy as np
 from .utils import FlightInfo, SequenceInfo
 
-def Repopulate_VNS(GA_PopList: List[List[int]], GA_Info: List[SequenceInfo], Arr_Pool: List[int], Arr_NotReady: List[int], GA_PopSize, Opt_Seq: List[int],OptCost, Opt_List: List[SequenceInfo], Opt_Size, Max_LookAhead: int , VNS_counter, VNS_limit, tot_mut):
+def Repopulate_VNS(GA_PopList: List[List[int]], GA_Info: List[SequenceInfo],
+                    GA_PopSize: int, Opt_List: List[SequenceInfo], Opt_Size: int,
+                    VNS_counter: int, VNS_limit: int, tot_mut: int):
+    """
+    Increases population of sequences GA_PopList (and associated GA_Info) to be at least GA_Popsize
+    by modifying best current sequence.
+
+    Information on all sequences (including old ones) is reset.
+
+    Arguments:
+    ---------
+    GA_PopList: current list of sequences in population
+    GA_Info: information associated with each sequence
+    GA_PopSize: required size of population
+    Opt_List: current list of infomation on most "optimal" sequences
+    Opt_Size: required size of Opt_List
+    VNS_counter: counter (m in paper)
+    VNS_limit: m_mut in paper
+    tot_mut: total number of times mutate_sequence has been run
+    """
+
+    # JF Question: this function seems to keep best previous `Opt_Size` sequences from GA_PopList and Opt_List
+    #              and then create a completely new GA_PopList with GA_PopSize sequences.abs(
+    #              Also, 
+    #
+    # JF Note: I don't fully understand logic behind VNS_counter and Opt_List
+
     # VNS_counter counts how many non-improving heuristic moves we've made since the last reset
-    
-    start_time=time.time()
 
     # Logging
     stepthrough_logger = logging.getLogger('stepthrough')
@@ -28,8 +52,16 @@ def Repopulate_VNS(GA_PopList: List[List[int]], GA_Info: List[SequenceInfo], Arr
         stepthrough_logger.info(flight_msg)
         step_summ_logger.info(flight_msg)
 
-    AC_remaining = len(Arr_Pool) + len(Arr_NotReady)
-    no_ACs = min(Max_LookAhead, AC_remaining)
+    #AC_remaining = len(Arr_Pool) + len(Arr_NotReady)
+    
+    # JF Note: previously used the line below
+    #          to get length of sequence, 
+    #          but we should just be able to extract this from
+    #          the current best sequence.
+    #          This does create a new error in genetic however.
+    # no_ACs = min(Max_LookAhead, AC_remaining)
+    assert len(Opt_List) != 0
+    no_ACs = len(Opt_List[0].sequence)
 
     queue_probs = [0] * no_ACs
 
@@ -75,91 +107,35 @@ def Repopulate_VNS(GA_PopList: List[List[int]], GA_Info: List[SequenceInfo], Arr
 
     # Reset all sequence information in new list
     Opt_Seqs = []
-    for i in range(len(New_Opt_List)):
-        New_Opt_List[i].n_traj = 0 #HMMM
-        New_Opt_List[i].v = 0
-        New_Opt_List[i].queue_probs = queue_probs
-        New_Opt_List[i].w = 0
-        Opt_Seqs.append(New_Opt_List[i].sequence[:])
+    for info in New_Opt_List:
+        info.n_traj = 0 # HMMM
+        info.v = 0
+        info.queue_probs = queue_probs
+        info.w = 0
+        Opt_Seqs.append(info.sequence[:])
 
     # Step c in 4C - apply mutate to ceate a new base sequence
     if VNS_counter >= VNS_limit:
-
         tot_mut += 1 # total mutations - only for logging purposes
         step_new_logger.info('Mutation performed!')
-
         # Perturb the optimal sequence
         Opt_Seq = Best_Seq[:] # Opt_List[0][0]
-
-        perm_size = min(4, no_ACs) # no. of ACs to shuffle around
-        no_start_pos = no_ACs - perm_size + 1 # no. of possible start positions
-
-        triangle_dist_size = no_start_pos*(no_start_pos+1)/2
-
-        z = random.random() * triangle_dist_size
-        totp=0
-        for ii in range(no_start_pos):
-            if z<(totp+no_start_pos-ii):
-                pos=ii
-                break
-            totp+=no_start_pos-ii
-
-        remove_perm=[]
-        for ii in range(perm_size):
-            AC=Opt_Seq[pos]
-            Opt_Seq.remove(AC)
-            remove_perm.append(AC)
-
-        old_perm=remove_perm[:]
-        random.shuffle(remove_perm)
-
-        for ii in range(perm_size):
-            AC=remove_perm[ii]
-            Opt_Seq.insert(pos,AC)
-
-        Best_Seq=Opt_Seq[:]
-
-        VNS_counter=0
+        Best_Seq = mutate_sequence(Opt_Seq)
+        VNS_counter = 0         # Reset counter
 
     New_PopList = []
 
     # Apply heuristic move operator to generate enough sequences
-    c=0
+    c = 0
+    # JF Question: we should have len(Opt_Seqs) == Opt_Size because of code above (unless len(GA_Info) + len(Opt_List) < Opt_Size to begin with)
     while len(New_PopList) < GA_PopSize or len(Opt_Seqs) < Opt_Size:
 
-        if c<25: #no_ACs>=6:
-
-            #Apply a change to the Best_Seq sequence
-
-            triangle_dist_size=no_ACs*(no_ACs+1)/2
-            z=random.random()*triangle_dist_size
-            totp=0
-            for ii in range(no_ACs):
-                if z<(totp+no_ACs-ii):
-                    pos=ii
-                    break
-                totp+=no_ACs-ii
-
-            new_seq=Best_Seq[:]
-
-            AC = new_seq[pos]
-            new_seq.remove(AC)
-            z1 = int(random.random()*3) + 1 # no. of places to move
-            z2 = random.random() # determine whether to move up or down
-            if z2 < 0.5:
-                z1 = min(z1,pos)
-                pos2 = pos-z1
-            else:
-                z1 = min(z1,no_ACs-1-pos)
-                pos2 = pos+z1
-
-            new_seq.insert(pos2, AC)
-
+        if c < 25: # no_ACs >= 6:
+            new_seq = heuristic_move(Best_Seq) # Apply a change to the Best_Seq sequence
         elif c < 50: #else:
-            new_seq = Best_Seq[:]
-            random.shuffle(new_seq)
-
+            new_seq = random.sample(Best_Seq, k=len(Best_Seq)) # random shuffle
         else:
+            # In this case, give up finding new sequences
             break
 
         if new_seq not in New_PopList and new_seq not in Opt_Seqs:
@@ -169,9 +145,9 @@ def Repopulate_VNS(GA_PopList: List[List[int]], GA_Info: List[SequenceInfo], Arr
             else:
                 Opt_Seqs.append(new_seq)
                 New_Opt_List.append(SequenceInfo(new_seq, 0, 0, queue_probs, 0))
-                c=0
+                c = 0
         else:
-            c+=1
+            c += 1
 
     GA_PopList = New_PopList[:]
 
@@ -184,6 +160,7 @@ def Repopulate_VNS(GA_PopList: List[List[int]], GA_Info: List[SequenceInfo], Arr
 
     Opt_List = New_Opt_List[:]
 
+    # JF Question: I'm not really sure how this would happen
     if len(Opt_List) == 0:
         Opt_List = GA_Info[:]
 
@@ -203,9 +180,8 @@ def Repopulate_VNS(GA_PopList: List[List[int]], GA_Info: List[SequenceInfo], Arr
     for seq in GA_PopList:
         step_new_logger.info(seq)
 
-
-    return GA_PopList, GA_Info, Opt_Seq, OptCost, Opt_List, VNS_counter, tot_mut
-
+    # JF Question: why is Opt_Seq returned but not Opt_Seqs?
+    return GA_PopList, GA_Info, Opt_List, VNS_counter, tot_mut
 
 # 
 def Populate(Ac_Info: List[FlightInfo], base_seq: List[int], 
@@ -287,6 +263,25 @@ def Populate(Ac_Info: List[FlightInfo], base_seq: List[int],
                         no_seqs += 1
 
     return GA_PopList, GA_Info
+
+def mutate_sequence(base_seq: List[int]) -> List[int]:
+        no_ACs = len(base_seq)
+        p = min(4, no_ACs) # no. of ACs to shuffle around
+        r = no_ACs - p + 1 # no. of possible start positions
+
+        L = r*(r+1)/2 # total weight
+        triang_probs = tuple((r - i)/L for i in range(r))
+
+        # Randomly select start of subsequence to shuffle
+        # Use a discrete triangular distribution to put a priority on
+        # moving flights near front of sequence
+        pos = np.random.choice(range(r), p=triang_probs)
+
+        new_seq = base_seq[:]
+        seq_slice = random.sample(new_seq[pos:(pos+p)], k = p)
+        new_seq[pos:(pos+p)] = seq_slice
+
+        return new_seq
 
 def heuristic_move(base_seq: List) -> List:
     """
