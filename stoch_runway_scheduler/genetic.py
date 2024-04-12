@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 import logging
 import random
 import math
@@ -7,9 +7,10 @@ import numpy as np
 
 from .utils import weather, getcost, SequenceInfo, FlightInfo
 from .gamma import Gamma_GetServ, Gamma_GetServ_Future, Gamma_Conditional_GetServ
+from .simulate import simulate_weather
 
 # JF: this is the main sim heuristic
-def Genetic(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, tm, k, prev_class, GA_PopList, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, basecost, wlb, wub, Opt_List, soln_evals_tot, soln_evals_num, gamma_cdf, tau: int, Max_LookAhead: int, Time_Sep: List[List[int]], thres1: int, thres2: int, lam1: float, lam2: float, GA_Check_Increment: int, Opt_Size: int, w_rho: float, wiener_sig: float, weather_sig: float):
+def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, prev_class, GA_PopList, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, basecost, wlb, wub, Opt_List, soln_evals_tot, soln_evals_num, gamma_cdf, tau: int, Max_LookAhead: int, Time_Sep: List[List[int]], thres1: int, thres2: int, lam1: float, lam2: float, GA_Check_Increment: int, Opt_Size: int, w_rho: float, wiener_sig: float, weather_sig: float):
     # JF Note: could maybe remove argument Max_LookAhead if no_ACs can be inferred from other arguments
     stepthrough_logger = logging.getLogger("stepthrough")
     step_summ_logger = logging.getLogger("step_summ")
@@ -46,30 +47,7 @@ def Genetic(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, tm, k, prev_class, GA_Pop
         ServTime[AC]=np.random.gamma(k,1)
 
     # Before proceeding, randomly generate wlb_gen and wub_gen
-    chk=0
-    while chk==0:
-        if tm>=wlb:
-            wlb_gen=wlb
-        else:
-            # Do wlb_gen
-            sched = int(round(wlb - tm, 1))
-            if sched<=0:
-                wlb_gen=tm
-            else:
-                wlb_gen=np.random.wald(sched, (sched/weather_sig)**2) + tm
-        if tm >= wub:
-            wub_gen = wub
-        else:
-            #Do wub_gen
-            sched = int(round(wub-tm,1))
-            if sched <= 0:
-                wub_gen = tm
-            else:
-                wub_gen = np.random.wald(sched,(sched/weather_sig)**2) + tm
-        if wlb_gen <= wub_gen:
-            chk = 1
-        else:
-            chk = 1
+    wlb_gen, wub_gen = simulate_weather(tm, wlb, wub, weather_sig)
 
     stepthrough_logger.info("basecost is %s\n", basecost)
     stepthrough_logger.info('Generated results for ACs already in the queue are as follows:')
@@ -86,7 +64,7 @@ def Genetic(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, tm, k, prev_class, GA_Pop
         weather_state=Ac_Infoi.weather_state
 
         if tm>=Ac_Infoi.eta:
-            trav_time=Ac_Infoi.travel_time #travel time has already finished
+            trav_time=Ac_Infoi.travel_time # travel time has already finished
         else:
             sched=int(round(Ac_Infoi.eta-tm,1))
             if sched<=0:
@@ -94,20 +72,20 @@ def Genetic(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, tm, k, prev_class, GA_Pop
             else:
                 trav_time=np.random.wald(sched,(sched/wiener_sig)**2)
 
-        queue_complete,straight_into_service=Gamma_Conditional_GetServ(k, Time_Sep, trav_time,rel_time,sv_time,prev_class,cur_class,tm,weather_state, gamma_cdf, w_rho)
-        basecost+=getcost(Ac_Infoi.orig_sched_time,Ac_Infoi.pool_time,trav_time,queue_complete,Ac_Infoi.passenger_weight,thres1,thres2, lam1, lam2)
-        perm_prev_class=cur_class
+        queue_complete, straight_into_service = Gamma_Conditional_GetServ(k, Time_Sep, trav_time,rel_time,sv_time,prev_class,cur_class,tm,weather_state, gamma_cdf, w_rho)
+        basecost += getcost(Ac_Infoi.orig_sched_time, Ac_Infoi.pool_time, trav_time, queue_complete, Ac_Infoi.passenger_weight, thres1, thres2, lam1, lam2)
+        perm_prev_class = cur_class
 
 
 
-        #Now consider the rest of the customers in the queue
+        # Now consider the rest of the customers in the queue
         for j in range(1,len(Ac_queue)):
 
             AC=Ac_queue[j]
             Ac_Infoi=Ac_Info[AC]
             rel_time=Ac_Infoi.release_time
             cur_class=Ac_Infoi.ac_class
-            weather_state=weather(rel_time,wlb_gen,wub_gen) #weather(queue_complete,wlb_gen,wub_gen)
+            weather_state = weather(rel_time, wlb_gen, wub_gen) # weather(queue_complete, wlb_gen, wub_gen)
 
             if trav_time<=0:
                 trav_time=0
@@ -121,9 +99,9 @@ def Genetic(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, tm, k, prev_class, GA_Pop
             # 	sched=int(10*round(Ac_Infoi.eta-tm,1))
             # 	trav_time=wiener_cdf[sched][z]
 
-            queue_complete,straight_into_service=Gamma_GetServ(k, Time_Sep, rel_time,trav_time,perm_prev_class,cur_class, tm, weather_state, gamma_cdf, w_rho)
-            perm_prev_class=cur_class
-            basecost+=getcost(Ac_Infoi.orig_sched_time,Ac_Infoi.pool_time,trav_time,queue_complete,Ac_Infoi.passenger_weight,thres1,thres2, lam1, lam2)
+            queue_complete, straight_into_service = Gamma_GetServ(k, Time_Sep, rel_time, trav_time, perm_prev_class, cur_class, tm, weather_state, gamma_cdf, w_rho)
+            perm_prev_class = cur_class
+            basecost += getcost(Ac_Infoi.orig_sched_time, Ac_Infoi.pool_time, trav_time, queue_complete, Ac_Infoi.passenger_weight, thres1, thres2, lam1, lam2)
 
 
     else:

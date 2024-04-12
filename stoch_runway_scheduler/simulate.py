@@ -1,7 +1,8 @@
-from typing import List, TextIO
+from typing import List, TextIO, Tuple
 import logging
 import math
 import random
+import numpy as np
 from .utils import weather, getcost, FlightStatus, FlightInfo
 from .gamma import sample_cond_gamma
 from .annealing_cost import Annealing_Cost
@@ -58,6 +59,49 @@ def generate_weather(wlb: int, wub: int, T: int, weather_sig: float, freq: int):
         old_lb = new_lb
         old_ub = new_ub
     return wlb_tm, wub_tm, weather_lb, weather_ub
+
+# JF Question: is my interpretation of this code correct? Currently code is used with predicted wlb and wub (which doesn't make sense to me) rather than forecasts
+def simulate_weather(tm: float, wlb: float, wub: float, weather_sig: float) -> Tuple[float, float]:
+    """
+    Simulate times of weather given current time tm, and current weather forecast times of wlb and wub.
+
+    Arguments:
+    ---------
+    tm: current time
+    wlb: current forecast of time for beginning of bad weather
+    wub: current forecast of time for end of bad weather
+    weather_sig: standard deviation of Brownian motion
+
+    Returns:
+    -------
+    wlb_gen: simulated time for beginning of bad weather
+    wub_gen: simulated time for end of bad weather
+    """
+    chk=0
+    while chk==0:
+        if tm >= wlb:
+            wlb_gen = wlb
+        else:
+            # Do wlb_gen
+            sched = int(round(wlb - tm, 1))
+            if sched<=0:
+                wlb_gen=tm
+            else:
+                wlb_gen=np.random.wald(sched, (sched/weather_sig)**2) + tm
+        if tm >= wub:
+            wub_gen = wub
+        else:
+            # Do wub_gen
+            sched = int(round(wub-tm,1))
+            if sched <= 0:
+                wub_gen = tm
+            else:
+                wub_gen = np.random.wald(sched,(sched / weather_sig)**2) + tm
+        if wlb_gen <= wub_gen:
+            chk = 1
+        else:
+            chk = 1
+    return wlb_gen, wub_gen
 
 def generate_trajectory(Dep_time: float, Ps_time: float, tau: int, wiener_sig: float, freq: int):
     """
