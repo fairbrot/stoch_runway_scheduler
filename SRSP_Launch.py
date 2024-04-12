@@ -323,7 +323,6 @@ while rep < no_reps:
     real_queue_complete = 0 # stores time last place was serviced
     next_completion_time = 0
     Pop_elap = 0 # Used to track time spent in certain functions - used to update simulation clock
-    max_d = 1 # Possibly redundant
     pruned = 0 # indicator of whether or not number of sequences has gone below minimum
     soln_evals_tot = 0
     soln_evals_num = 0
@@ -445,7 +444,7 @@ while rep < no_reps:
             Repop_elap = 0
             if len(Arr_Pool) + len(Arr_NotReady) > 0: #4: # JF Question - Should this condition be automatically satisfied? See condition on outermost loop
                 # Condition for step 4C in paper
-                if GA_counter >= GA_LoopSize or pruned == 1: #or max_d<0.01:
+                if GA_counter >= GA_LoopSize or pruned == 1:
                     Loop_Nums+=1
                     Loop_Evals += GA_counter
                     # Create more seqeuences from best current sequence
@@ -470,7 +469,7 @@ while rep < no_reps:
         if len(Arr_Pool) + len(Arr_NotReady) > 0:
             if SubPolicy == 'VNS':
                 # JF Question: what is happening here?
-                Ac_added, counter, qp, max_d, pruned, GA_CheckSize, GA_counter, soln_evals_tot, soln_evals_num = Genetic(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, Left_queue, max(tm,0), NoA, k, prev_class, GA_PopList, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, tot_arr_cost + tot_dep_cost, wlb, wub, Opt_List, max_d, soln_evals_tot, soln_evals_num, gamma_cdf, tau, Max_LookAhead, Time_Sep, thres1, thres2, lam1, lam2, GA_Check_Increment, Opt_Size, w_rho, stepthrough, wiener_sig, weather_sig)
+                Ac_added, counter, qp, pruned, GA_CheckSize, GA_counter, soln_evals_tot, soln_evals_num = Genetic(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, max(tm,0), k, prev_class, GA_PopList, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, tot_arr_cost + tot_dep_cost, wlb, wub, Opt_List, soln_evals_tot, soln_evals_num, gamma_cdf, tau, Max_LookAhead, Time_Sep, thres1, thres2, lam1, lam2, GA_Check_Increment, Opt_Size, w_rho, wiener_sig, weather_sig)
                 Ov_GA_counter+=1
                 stepthrough_logger.info('GA_counter is %d', GA_counter)
             elif SubPolicy=='VNSD':
