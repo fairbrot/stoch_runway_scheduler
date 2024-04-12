@@ -2,28 +2,28 @@ from typing import List, TextIO
 import random
 import math
 import itertools
-from .utils import weather, getcost
+from .utils import weather, Cost
 from .annealing_cost import Annealing_Cost
 
-def Perm_Heur_New(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, wlb_tm,wub_tm, NoA: int, w_rho: float, k: int, Time_Sep: List[List[int]], thres1: int, thres2: int, lam1: float, lam2: float):
+def Perm_Heur_New(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, wlb_tm,wub_tm, NoA: int, w_rho: float, k: int, Time_Sep: List[List[int]], cost_fn: Cost):
 
     #start_time=time.time()
 
-    tm=0
+    tm = 0
 
-    totserv=0
-    totcost=0
-    prev_class=4
-    queue_complete=0
-    weather_state=0
+    totserv = 0
+    totcost = 0
+    prev_class = 4
+    queue_complete = 0
+    weather_state = 0
 
     Anneal_Seq=[0]*NoA
     for i in range(NoA):
-        Anneal_Seq[i]=ArrTime_Sorted[i][1]
+        Anneal_Seq[i] = ArrTime_Sorted[i][1]
 
-    NewCost=Annealing_Cost(Anneal_Seq,Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm,0, NoA, w_rho, k, Time_Sep, thres1, thres2, lam1, lam2)
-    OptCost=NewCost
-    Opt_Seq=Anneal_Seq[:]
+    NewCost = Annealing_Cost(Anneal_Seq,Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm,0, NoA, w_rho, k, Time_Sep, cost_fn)
+    OptCost = NewCost
+    Opt_Seq = Anneal_Seq[:]
 
     #T=1000
     iter_no=0
@@ -46,7 +46,7 @@ def Perm_Heur_New(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min
         for j in range(perm_size):
             Anneal_Seq[start_pos+j]=perm[j]
 
-        NewCost = Annealing_Cost(Anneal_Seq,Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm,0, NoA, w_rho, k, Time_Sep, thres1, thres2, lam1, lam2)
+        NewCost = Annealing_Cost(Anneal_Seq, Ac_Info, ArrTime, ServTime, ArrTime_Sorted, wlb_tm, wub_tm, 0, NoA, w_rho, k, Time_Sep, cost_fn)
 
         #print('Opt_Seq: '+str(Opt_Seq)+' Cost: '+str(OptCost))
         #print('New Seq: '+str(Anneal_Seq)+' Cost: '+str(NewCost))
@@ -66,7 +66,7 @@ def Perm_Heur_New(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min
 
     return OptCost,c
 
-def Perm_Heur(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,pool_max,list_min,wlb_tm,wub_tm, NoA: int, w_rho: float, k: int, Time_Sep: List[List[int]], thres1: int, thres2: int, lam1: float, lam2: float, f1: TextIO):
+def Perm_Heur(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,pool_max,list_min,wlb_tm,wub_tm, NoA: int, w_rho: float, k: int, Time_Sep: List[List[int]], cost_fn: Cost, f1: TextIO):
 
     tm=0
 
@@ -143,7 +143,7 @@ def Perm_Heur(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,pool_max,list_min,wlb_tm,w
                 t2=perm_queue_complete+serv
                 perm_queue_complete=max(t1,t2)
 
-                perm_cost+=getcost(Ac_Info[AC].orig_sched_time,ArrTime[AC][0],Ac_Info[AC].travel_time,perm_queue_complete,Ac_Info[AC].passenger_weight,thres1,thres2, lam1, lam2)
+                perm_cost += cost_fn(Ac_Info[AC].orig_sched_time,ArrTime[AC][0], Ac_Info[AC].travel_time, perm_queue_complete, Ac_Info[AC].passenger_weight)
 
                 latest_tm=release_time
                 perm_prev_class=perm_class
@@ -185,10 +185,10 @@ def Perm_Heur(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,pool_max,list_min,wlb_tm,w
         f1.write(str(AC)+','+str(prev_class)+','+str(cur_class)+','+str(Time_Sep[prev_class][cur_class]/60)+','+str(Ac_Info[AC].ps_time)+','+str(Ac_Info[AC].eta)+','+str(Ac_Info[AC].pool_time)+','+str(release_time)+','+str(trav_time)+',')
         # for j in range(k):
         # 	f1.write(str(Ac_Info[AC].service_rns[j])+',')
-        f1.write(str(actual_serv)+','+str(begin_serv)+','+str(queue_complete)+','+str(queue_complete-begin_serv)+','+str(Ac_Info[AC].passenger_weight)+','+str(getcost(Ac_Info[AC].ps_time,ArrTime[AC][0],Ac_Info[AC].travel_time,queue_complete,Ac_Info[AC].passenger_weight,thres1,thres2, lam1, lam2))+'\n')
+        f1.write(str(actual_serv)+','+str(begin_serv)+','+str(queue_complete)+','+str(queue_complete-begin_serv)+','+str(Ac_Info[AC].passenger_weight)+','+str(cost_fn(Ac_Info[AC].ps_time,ArrTime[AC][0],Ac_Info[AC].travel_time,queue_complete,Ac_Info[AC].passenger_weight))+'\n')
 
-        if queue_complete>Ac_Info[AC].ps_time+thres1:
-            totcost+=getcost(Ac_Info[AC].orig_sched_time,ArrTime[AC][0],Ac_Info[AC].travel_time,queue_complete,Ac_Info[AC].passenger_weight,thres1,thres2, lam1, lam2)
+        if queue_complete > Ac_Info[AC].ps_time + cost_fn.thres1:
+            totcost += cost_fn(Ac_Info[AC].orig_sched_time, ArrTime[AC][0], Ac_Info[AC].travel_time, queue_complete, Ac_Info[AC].passenger_weight)
         tm=release_time
         prev_class=cur_class
 

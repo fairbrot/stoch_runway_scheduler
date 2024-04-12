@@ -3,7 +3,7 @@ import logging
 import math
 import random
 import numpy as np
-from .utils import weather, getcost, FlightStatus, FlightInfo
+from .utils import weather, FlightStatus, FlightInfo, Cost
 from .gamma import sample_cond_gamma
 from .annealing_cost import Annealing_Cost
 
@@ -160,7 +160,7 @@ def generate_trajectory(Dep_time: float, Ps_time: float, tau: int, wiener_sig: f
 
     return pool_arr_time, travel_time, brown_motion
 
-def Calculate_FCFS(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, wlb_tm, wub_tm, NoA: int, w_rho: float, k: int, Time_Sep: List[List[int]], thres1: int, thres2: int, lam1: float, lam2: float):
+def Calculate_FCFS(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, wlb_tm, wub_tm, NoA: int, w_rho: float, k: int, Time_Sep: List[List[int]], cost_fn: Cost):
 
     tm=0
 
@@ -170,16 +170,16 @@ def Calculate_FCFS(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_mi
     queue_complete=0
     weather_state=0
 
-    FCFS_Seq=[0]*NoA
+    FCFS_Seq = [0]*NoA
     for i in range(NoA):
         FCFS_Seq[i]=ArrTime_Sorted[i][1]
 
-    FCFS_cost = Annealing_Cost(FCFS_Seq, Ac_Info, ArrTime, ServTime, ArrTime_Sorted, wlb_tm, wub_tm, 0, NoA, w_rho, k, Time_Sep, thres1, thres2, lam1, lam2)
+    FCFS_cost = Annealing_Cost(FCFS_Seq, Ac_Info, ArrTime, ServTime, ArrTime_Sorted, wlb_tm, wub_tm, 0, NoA, w_rho, k, Time_Sep, cost_fn)
 
     return FCFS_cost
 
 
-def Posthoc_Check(seq,Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm,output, NoA: int, w_rho: float, k: int, Time_Sep: List[List[int]], thres1: int, thres2: int, lam1: float, lam2: float):
+def Posthoc_Check(seq,Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm,output, NoA: int, w_rho: float, k: int, Time_Sep: List[List[int]], cost_fn: Cost):
 
     perm=seq
     perm_cost=0
@@ -212,10 +212,10 @@ def Posthoc_Check(seq,Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm,outp
         t2=perm_queue_complete+serv
         perm_queue_complete=max(t1,t2)
 
-        perm_cost+=getcost(Ac_Infoi.orig_sched_time,ArrTime[AC][0],trav_time,perm_queue_complete,Ac_Infoi.passenger_weight,thres1,thres2, lam1, lam2)
+        perm_cost += cost_fn(Ac_Infoi.orig_sched_time, ArrTime[AC][0], trav_time, perm_queue_complete, Ac_Infoi.passenger_weight)
 
         if output==1:
-            print('AC: '+str(AC)+' class: '+str(perm_class)+' release_time: '+str(release_time)+' trav_time: '+str(trav_time)+' begin_serv: '+str(begin_serv)+' t1: '+str(t1)+' t2: '+str(t2)+' finish time: '+str(perm_queue_complete)+' weather state: '+str(perm_weather_state)+' pax weight: '+str(Ac_Infoi.passenger_weight)+' cost: '+str(getcost(Ac_Infoi.ps_time,ArrTime[AC][0],trav_time,perm_queue_complete,Ac_Infoi.passenger_weight,thres1,thres2, lam1, lam2)))
+            print('AC: '+str(AC)+' class: '+str(perm_class)+' release_time: '+str(release_time)+' trav_time: '+str(trav_time)+' begin_serv: '+str(begin_serv)+' t1: '+str(t1)+' t2: '+str(t2)+' finish time: '+str(perm_queue_complete)+' weather state: '+str(perm_weather_state)+' pax weight: '+str(Ac_Infoi.passenger_weight)+' cost: '+str(cost_fn(Ac_Infoi.ps_time,ArrTime[AC][0],trav_time,perm_queue_complete,Ac_Infoi.passenger_weight)))
 
         latest_tm=release_time
         perm_prev_class=perm_class
@@ -395,7 +395,7 @@ def Update_Stats(tm: float, AC: int, Ac_Info: List[FlightInfo], Ac_queue: List[i
 
     return real_queue_complete, next_completion_time, latest_class, Ov_GA_counter
 
-def Serv_Completions(Ac_Info, Ac_queue, prev_class, totserv, Ac_finished, tm, next_completion_time, thres1: int, thres2: int, lam1: float, lam2: float, f: TextIO, SubPolicy, rep, Time_Sep: List[List[int]], Left_queue):
+def Serv_Completions(Ac_Info, Ac_queue, prev_class, totserv, Ac_finished, tm, next_completion_time, cost_fn: Cost, f: TextIO, SubPolicy, rep, Time_Sep: List[List[int]], Left_queue):
 
     stepthrough_logger = logging.getLogger('stepthrough')
     step_summ_logger = logging.getLogger('step_summ')
@@ -425,14 +425,14 @@ def Serv_Completions(Ac_Info, Ac_queue, prev_class, totserv, Ac_finished, tm, ne
             step_summ_logger.info('* Service completion finished for aircraft '+str(AC)+'\n'+'\n')
             if Ac_Infoi.status == FlightStatus.IN_QUEUE:
                 Ac_Infoi.status = FlightStatus.DEP_NOT_READY # JF Note: check with Rob
-                arr_cost += getcost(Ac_Infoi.orig_sched_time, Ac_Infoi.pool_time, Ac_Infoi.travel_time, finish_time,Ac_Infoi.passenger_weight,thres1,thres2, lam1, lam2)
+                arr_cost += cost_fn(Ac_Infoi.orig_sched_time, Ac_Infoi.pool_time, Ac_Infoi.travel_time, finish_time, Ac_Infoi.passenger_weight)
                 #print('* Cost incurred is '+str(arr_cost))
                 totserv+=1
             else: # JF Question: is this clause needed?
                 Ac_Infoi.status = FlightStatus.FINISHED
-                arr_cost += getcost(Ac_Infoi.orig_sched_time, Ac_Infoi.pool_time, Ac_Infoi.travel_time, finish_time, Ac_Infoi.passenger_weight, thres1, thres2, lam1, lam2)
+                arr_cost += cost_fn(Ac_Infoi.orig_sched_time, Ac_Infoi.pool_time, Ac_Infoi.travel_time, finish_time, Ac_Infoi.passenger_weight)
 
-            f.write(str(SubPolicy)+','+str(rep)+','+str(AC)+','+str(Ac_Infoi.flight_id)+','+str(prev_class)+','+str(current_class)+','+str(Time_Sep[prev_class][current_class]/60)+','+str(Ac_Infoi.orig_sched_time)+','+str(Ac_Infoi.ps_time)+','+str(Ac_Infoi.pool_time)+','+str(Ac_Infoi.release_time)+','+str(Ac_Infoi.travel_time)+','+str(Ac_Infoi.weather_state)+','+str(Ac_Infoi.enters_service)+','+str(Ac_Infoi.service_time)+','+str(Ac_Infoi.service_completion_time)+','+str(max(0,finish_time-(Ac_Infoi.ps_time+thres1)))+','+str(finish_time-(Ac_Infoi.pool_time+Ac_Infoi.travel_time))+','+str(Ac_Infoi.passenger_weight)+','+str(getcost(Ac_Infoi.ps_time,Ac_Infoi.pool_time,Ac_Infoi.travel_time,finish_time,Ac_Infoi.passenger_weight,thres1,thres2, lam1, lam2))+',')
+            f.write(str(SubPolicy)+','+str(rep)+','+str(AC)+','+str(Ac_Infoi.flight_id)+','+str(prev_class)+','+str(current_class)+','+str(Time_Sep[prev_class][current_class]/60)+','+str(Ac_Infoi.orig_sched_time)+','+str(Ac_Infoi.ps_time)+','+str(Ac_Infoi.pool_time)+','+str(Ac_Infoi.release_time)+','+str(Ac_Infoi.travel_time)+','+str(Ac_Infoi.weather_state)+','+str(Ac_Infoi.enters_service)+','+str(Ac_Infoi.service_time)+','+str(Ac_Infoi.service_completion_time)+','+str(max(0,finish_time-(Ac_Infoi.ps_time+thres1)))+','+str(finish_time-(Ac_Infoi.pool_time+Ac_Infoi.travel_time))+','+str(Ac_Infoi.passenger_weight)+','+str(cost_fn(Ac_Infoi.ps_time, Ac_Infoi.pool_time, Ac_Infoi.travel_time, finish_time, Ac_Infoi.passenger_weight))+',')
             f.write(str(Ac_Infoi.counter)+','+str(Ac_Infoi.qp)+',')
 
             if SubPolicy in ('GA','GAD','VNS','VNSD'):

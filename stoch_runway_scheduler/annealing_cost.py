@@ -1,8 +1,8 @@
 from typing import List
 import math
-from .utils import weather, getcost
+from .utils import weather, Cost
 
-def Annealing_Cost(seq, Ac_Info, ArrTime, ServTime, ArrTime_Sorted, wlb_tm, wub_tm, output, NoA: int, w_rho: float, k: int, Time_Sep: List[List[int]], thres1: int, thres2: int, lam1: float, lam2: float):
+def Annealing_Cost(seq, Ac_Info, ArrTime, ServTime, ArrTime_Sorted, wlb_tm, wub_tm, output, NoA: int, w_rho: float, k: int, Time_Sep: List[List[int]], cost_fn: Cost):
 
     perm=seq
     perm_cost=0
@@ -12,11 +12,11 @@ def Annealing_Cost(seq, Ac_Info, ArrTime, ServTime, ArrTime_Sorted, wlb_tm, wub_
     perm_weather_state=0
     j=0
 
-    while j<NoA:
+    while j < NoA:
 
         AC=perm[j]
         Ac_Infoi=Ac_Info[AC]
-        release_time=max(latest_tm,ArrTime[AC][0])
+        release_time = max(latest_tm, ArrTime[AC][0])
         trav_time=Ac_Infoi.travel_time
         perm_class=Ac_Infoi.ac_class
         begin_serv=max(release_time,perm_queue_complete)
@@ -33,10 +33,10 @@ def Annealing_Cost(seq, Ac_Info, ArrTime, ServTime, ArrTime_Sorted, wlb_tm, wub_
         t2=perm_queue_complete+serv
         perm_queue_complete=max(t1,t2)
 
-        perm_cost+=getcost(Ac_Infoi.orig_sched_time,ArrTime[AC][0],trav_time,perm_queue_complete,Ac_Infoi.passenger_weight,thres1,thres2, lam1, lam2)
+        perm_cost += cost_fn(Ac_Infoi.orig_sched_time, ArrTime[AC][0], trav_time, perm_queue_complete, Ac_Infoi.passenger_weight)
 
         if output==1:
-            print('AC: '+str(AC)+' class: '+str(perm_class)+' release_time: '+str(release_time)+' trav_time: '+str(trav_time)+' begin_serv: '+str(begin_serv)+' t1: '+str(t1)+' t2: '+str(t2)+' finish time: '+str(perm_queue_complete)+' weather state: '+str(perm_weather_state)+' pax weight: '+str(Ac_Infoi.passenger_weight)+' cost: '+str(getcost(Ac_Infoi.ps_time,ArrTime[AC][0],trav_time,perm_queue_complete,Ac_Infoi.passenger_weight,thres1,thres2, lam1, lam2)))
+            print('AC: '+str(AC)+' class: '+str(perm_class)+' release_time: '+str(release_time)+' trav_time: '+str(trav_time)+' begin_serv: '+str(begin_serv)+' t1: '+str(t1)+' t2: '+str(t2)+' finish time: '+str(perm_queue_complete)+' weather state: '+str(perm_weather_state)+' pax weight: '+str(Ac_Infoi.passenger_weight)+' cost: '+str(cost_fn(Ac_Infoi.ps_time,ArrTime[AC][0],trav_time,perm_queue_complete,Ac_Infoi.passenger_weight)))
 
         latest_tm=release_time
         perm_prev_class=perm_class

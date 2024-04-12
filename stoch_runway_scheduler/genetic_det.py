@@ -1,6 +1,6 @@
 from typing import List
 import time
-from .utils import weather, getcost, FlightInfo, SequenceInfo
+from .utils import weather, FlightInfo, SequenceInfo, Cost
 from .gamma import gamma_cond_exp
 
 # JF: This is the main deterministic heuristic
@@ -9,8 +9,7 @@ def Genetic_determ(Ac_Info: List[FlightInfo], Arr_Pool: List[int], Arr_NotReady:
                     Ac_queue: List[int], Left_queue: List[int], tm: float, NoA: int, k:int, 
                     prev_class: int, GA_PopList: List[List[int]], GA_Info: List[SequenceInfo],
                     wlb, wub, Opt_List: List[SequenceInfo], tau: int, Max_LookAhead: int, 
-                    Time_Sep: List[List[int]], thres1:int, thres2: int, lam1: float, lam2: 
-                    float, tot_arr_cost: float, tot_dep_cost: float, w_rho: float, 
+                    Time_Sep: List[List[int]], cost_fn: Cost, tot_arr_cost: float, tot_dep_cost: float, w_rho: float, 
                     stepthrough:int, step_summ:int, step_new: int):
 
     output = 0 # output == 1 means we're printing results as we go along; output == 2 means we're outputting results to "Detailed" csv file
@@ -74,9 +73,9 @@ def Genetic_determ(Ac_Info: List[FlightInfo], Arr_Pool: List[int], Arr_NotReady:
 
         queue_complete=max(t1,t2)
 
-        basecost+=getcost(Ac_Infoi.orig_sched_time,Ac_Infoi.pool_time,tau,queue_complete,Ac_Infoi.passenger_weight,thres1,thres2, lam1, lam2)
+        basecost += cost_fn(Ac_Infoi.orig_sched_time,Ac_Infoi.pool_time,tau,queue_complete,Ac_Infoi.passenger_weight)
         if stepthrough==1:
-            st.write(str(queue_complete)+','+str(Ac_Infoi.passenger_weight)+','+str(getcost(Ac_Infoi.ps_time,Ac_Infoi.pool_time,tau,queue_complete,Ac_Infoi.passenger_weight,thres1,thres2, lam1, lam2))+'\n')
+            st.write(str(queue_complete)+','+str(Ac_Infoi.passenger_weight)+','+str(cost_fn(Ac_Infoi.ps_time, Ac_Infoi.pool_time, tau, queue_complete, Ac_Infoi.passenger_weight))+'\n')
 
         perm_prev_class=cur_class\
 
@@ -105,10 +104,10 @@ def Genetic_determ(Ac_Info: List[FlightInfo], Arr_Pool: List[int], Arr_NotReady:
             queue_complete=max(t1,t2)
 
             perm_prev_class=cur_class
-            basecost+=getcost(Ac_Infoi.orig_sched_time,Ac_Infoi.pool_time,tau,queue_complete,Ac_Infoi.passenger_weight,thres1,thres2, lam1, lam2)
+            basecost+=cost_fn(Ac_Infoi.orig_sched_time,Ac_Infoi.pool_time,tau,queue_complete,Ac_Infoi.passenger_weight)
 
             if stepthrough==1:
-                st.write(str(queue_complete)+','+str(Ac_Infoi.passenger_weight)+','+str(getcost(Ac_Infoi.ps_time,Ac_Infoi.pool_time,tau,queue_complete,Ac_Infoi.passenger_weight,thres1,thres2, lam1, lam2))+'\n')
+                st.write(str(queue_complete)+','+str(Ac_Infoi.passenger_weight)+','+str(cost_fn(Ac_Infoi.ps_time,Ac_Infoi.pool_time,tau,queue_complete,Ac_Infoi.passenger_weight))+'\n')
 
     else:
 
@@ -168,14 +167,14 @@ def Genetic_determ(Ac_Info: List[FlightInfo], Arr_Pool: List[int], Arr_NotReady:
 
             GA_Info[j].queue_probs[index]=(1-gam)*GA_Info[j].queue_probs[index]+gam*straight_into_service
 
-            permcost+=getcost(Ac_Infoi.orig_sched_time,ArrTime[AC],tau,AC_FinishTime,Ac_Infoi.passenger_weight,thres1,thres2, lam1, lam2) #Ac_Infoi.passenger_weight*(AC_FinishTime-(Ac_Infoi.ps_time+thres))**2
-            latest_tm=reltime
+            permcost += cost_fn(Ac_Infoi.orig_sched_time, ArrTime[AC], tau, AC_FinishTime, Ac_Infoi.passenger_weight)
+            latest_tm = reltime
 
             if stepthrough==1:
-                st.write(str(AC_FinishTime)+','+str(Ac_Infoi.passenger_weight)+','+str(getcost(Ac_Infoi.ps_time,ArrTime[AC],tau,AC_FinishTime,Ac_Infoi.passenger_weight,thres1,thres2, lam1, lam2))+'\n')
+                st.write(str(AC_FinishTime)+','+str(Ac_Infoi.passenger_weight)+','+str(cost_fn(Ac_Infoi.ps_time, ArrTime[AC], tau, AC_FinishTime, Ac_Infoi.passenger_weight))+'\n')
 
-            perm_queue_complete=AC_FinishTime
-            perm_prev_class=perm_class
+            perm_queue_complete = AC_FinishTime
+            perm_prev_class = perm_class
 
         if stepthrough==1:
             st.write('Final cost: '+','+str(permcost)+','+'Gamma: '+','+str(gam)+','+'Old cost: '+','+str(GA_Info[j].v)+',')
@@ -240,14 +239,14 @@ def Genetic_determ(Ac_Info: List[FlightInfo], Arr_Pool: List[int], Arr_NotReady:
 
             Opt_List[j].queue_probs[index]=(1-gam)*Opt_List[j].queue_probs[index]+gam*straight_into_service
 
-            permcost+=getcost(Ac_Infoi.orig_sched_time,ArrTime[AC],tau,AC_FinishTime,Ac_Infoi.passenger_weight,thres1,thres2, lam1, lam2) #Ac_Infoi.passenger_weight*(AC_FinishTime-(Ac_Infoi.ps_time+thres))**2
+            permcost += cost_fn(Ac_Infoi.orig_sched_time, ArrTime[AC], tau, AC_FinishTime, Ac_Infoi.passenger_weight)
             latest_tm=reltime
 
             if stepthrough==1:
-                st.write(str(AC_FinishTime)+','+str(Ac_Infoi.passenger_weight)+','+str(getcost(Ac_Infoi.ps_time,ArrTime[AC],tau,AC_FinishTime,Ac_Infoi.passenger_weight,thres1,thres2, lam1, lam2))+'\n')
+                st.write(str(AC_FinishTime)+','+str(Ac_Infoi.passenger_weight)+','+str(cost_fn(Ac_Infoi.ps_time, ArrTime[AC], tau, AC_FinishTime, Ac_Infoi.passenger_weight))+'\n')
 
-            perm_queue_complete=AC_FinishTime
-            perm_prev_class=perm_class
+            perm_queue_complete = AC_FinishTime
+            perm_prev_class = perm_class
 
         if stepthrough==1:
             st.write('Final cost: '+','+str(permcost)+','+'Gamma: '+','+str(gam)+','+'Old cost: '+','+str(Opt_List[j].v)+',')

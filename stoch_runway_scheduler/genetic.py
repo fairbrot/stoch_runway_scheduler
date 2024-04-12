@@ -5,12 +5,12 @@ import math
 import time
 import numpy as np 
 
-from .utils import weather, getcost, SequenceInfo, FlightInfo
+from .utils import weather, SequenceInfo, FlightInfo, Cost
 from .gamma import Gamma_GetServ, Gamma_GetServ_Future, Gamma_Conditional_GetServ
 from .simulate import simulate_weather
 
 # JF: this is the main sim heuristic
-def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, prev_class, GA_PopList, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, basecost, wlb, wub, Opt_List, soln_evals_tot, soln_evals_num, gamma_cdf, tau: int, Max_LookAhead: int, Time_Sep: List[List[int]], thres1: int, thres2: int, lam1: float, lam2: float, GA_Check_Increment: int, Opt_Size: int, w_rho: float, wiener_sig: float, weather_sig: float):
+def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, prev_class, GA_PopList, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, basecost, wlb, wub, Opt_List, soln_evals_tot, soln_evals_num, gamma_cdf, tau: int, Max_LookAhead: int, Time_Sep: List[List[int]], cost_fn: Cost, GA_Check_Increment: int, Opt_Size: int, w_rho: float, wiener_sig: float, weather_sig: float):
     # JF Note: could maybe remove argument Max_LookAhead if no_ACs can be inferred from other arguments
     stepthrough_logger = logging.getLogger("stepthrough")
     step_summ_logger = logging.getLogger("step_summ")
@@ -30,17 +30,17 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, 
     # Generate arrival and service time percentiles for AC not yet in queue
 
     for AC in Arr_Pool:
-        ArrTime[AC] = max(0, Ac_Info[AC].eta-tau)
+        ArrTime[AC] = max(0, Ac_Info[AC].eta - tau)
         Trav_Time[AC] = np.random.wald(tau, (tau/wiener_sig)**2)
-        ServTime[AC] = np.random.gamma(k,1)
+        ServTime[AC] = np.random.gamma(k, 1)
 
 
     for AC in Arr_NotReady:
-        sched=int(round(Ac_Info[AC].eta-(tm+tau),1))
+        sched = int(round(Ac_Info[AC].eta-(tm+tau),1))
         if sched<=0:
             ArrTime[AC]=tm
         else:
-            ArrTime[AC]=np.random.wald(sched,(sched/wiener_sig)**2)+tm
+            ArrTime[AC]=np.random.wald(sched,(sched/wiener_sig)**2) + tm
         Trav_Time[AC]=np.random.wald(tau,(tau/wiener_sig)**2)
 
 
@@ -73,7 +73,7 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, 
                 trav_time=np.random.wald(sched,(sched/wiener_sig)**2)
 
         queue_complete, straight_into_service = Gamma_Conditional_GetServ(k, Time_Sep, trav_time,rel_time,sv_time,prev_class,cur_class,tm,weather_state, gamma_cdf, w_rho)
-        basecost += getcost(Ac_Infoi.orig_sched_time, Ac_Infoi.pool_time, trav_time, queue_complete, Ac_Infoi.passenger_weight, thres1, thres2, lam1, lam2)
+        basecost += cost_fn(Ac_Infoi.orig_sched_time, Ac_Infoi.pool_time, trav_time, queue_complete, Ac_Infoi.passenger_weight)
         perm_prev_class = cur_class
 
 
@@ -101,7 +101,7 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, 
 
             queue_complete, straight_into_service = Gamma_GetServ(k, Time_Sep, rel_time, trav_time, perm_prev_class, cur_class, tm, weather_state, gamma_cdf, w_rho)
             perm_prev_class = cur_class
-            basecost += getcost(Ac_Infoi.orig_sched_time, Ac_Infoi.pool_time, trav_time, queue_complete, Ac_Infoi.passenger_weight, thres1, thres2, lam1, lam2)
+            basecost += cost_fn(Ac_Infoi.orig_sched_time, Ac_Infoi.pool_time, trav_time, queue_complete, Ac_Infoi.passenger_weight)
 
 
     else:
@@ -147,11 +147,11 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, 
 
             GA_Infoj.queue_probs[index]=(1-gam)*GA_Infoj.queue_probs[index]+gam*straight_into_service
 
-            permcost+=getcost(Ac_Infoi.orig_sched_time,ArrTime[AC],Trav_Time[AC],AC_FinishTime,Ac_Infoi.passenger_weight,thres1,thres2, lam1, lam2) #Ac_Infoi.passenger_weight*(AC_FinishTime-(Ac_Infoi.ps_time+thres))**2
+            permcost+=cost_fn(Ac_Infoi.orig_sched_time,ArrTime[AC],Trav_Time[AC],AC_FinishTime,Ac_Infoi.passenger_weight) #Ac_Infoi.passenger_weight*(AC_FinishTime-(Ac_Infoi.ps_time+thres))**2
             latest_tm=reltime
 
 
-            stepthrough_logger.info(str(AC_FinishTime)+','+str(Ac_Infoi.passenger_weight)+','+str(getcost(Ac_Infoi.ps_time,ArrTime[AC],Trav_Time[AC],AC_FinishTime,Ac_Infoi.passenger_weight,thres1,thres2, lam1, lam2))+'\n')
+            stepthrough_logger.info(str(AC_FinishTime)+','+str(Ac_Infoi.passenger_weight)+','+str(cost_fn(Ac_Infoi.ps_time,ArrTime[AC],Trav_Time[AC],AC_FinishTime,Ac_Infoi.passenger_weight))+'\n')
 
             perm_queue_complete=AC_FinishTime
             perm_prev_class=perm_class
@@ -212,10 +212,10 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, 
 
             Opt_Listj.queue_probs[index]=(1-gam)*Opt_Listj.queue_probs[index]+gam*straight_into_service
 
-            permcost+=getcost(Ac_Infoi.orig_sched_time,ArrTime[AC],Trav_Time[AC],AC_FinishTime,Ac_Infoi.passenger_weight,thres1,thres2, lam1, lam2) #Ac_Infoi.passenger_weight*(AC_FinishTime-(Ac_Infoi.ps_time+thres))**2
+            permcost+=cost_fn(Ac_Infoi.orig_sched_time,ArrTime[AC],Trav_Time[AC],AC_FinishTime,Ac_Infoi.passenger_weight) #Ac_Infoi.passenger_weight*(AC_FinishTime-(Ac_Infoi.ps_time+thres))**2
             latest_tm=reltime
 
-            stepthrough_logger.info(str(AC_FinishTime)+','+str(Ac_Infoi.passenger_weight)+','+str(getcost(Ac_Infoi.ps_time,ArrTime[AC],Trav_Time[AC],AC_FinishTime,Ac_Infoi.passenger_weight,thres1,thres2, lam1, lam2))+'\n')
+            stepthrough_logger.info(str(AC_FinishTime)+','+str(Ac_Infoi.passenger_weight)+','+str(cost_fn(Ac_Infoi.ps_time,ArrTime[AC],Trav_Time[AC],AC_FinishTime,Ac_Infoi.passenger_weight))+'\n')
 
             perm_queue_complete=AC_FinishTime
             perm_prev_class=perm_class

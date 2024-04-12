@@ -22,7 +22,7 @@ class FlightInfo:
     release_time: float # 4 time at which aircraft is released from pool
     enters_service: float # 5 the time at which aircraft enters service
     travel_time: float # 6 travel time (generated in advance), # JF Question note from entering pool to runway? Update_ETAs suggests this is the case
-    service_rns: List[float] # 7 list of random numbers used to calculate service times - JF NOTE: NOT USED!
+    service_rns: List[float] # 7 list of random numbers used to calculate service times
     service_time: float # 8 actual service time s1+Z2 (worked out after class information is known)
     pool_time: float # 9 actual time that they join the pool (generated in advance)
     passenger_weight: float # g_i
@@ -114,16 +114,26 @@ def weather(tm, wlb, wub): # wlb is starting time for bad weather period, wub is
 
     return get_weather_state
 
-def getcost(ps_time, pool_time, trav_time, landing_time, pax_weight, thres1, thres2, lam1: float, lam2: float):
 
-    cost=0
-    #lam1=0.5 #weight for punctuality
-    #lam2=0.5 #weight for queueing HMMM
+@dataclass
+class Cost:
+    thres1: float # gamma^S in paper - tolerance for schedule delay i.e. if this is 15 minutes, then delays less than 15 minutes don't induce any penalty
+    thres2: float # gamma^W in paper - tolerance for extra airborne delay
+    lam1: float # theta^S in paper - relative weight on schedule delay
+    lam2: float # theta^W in paper - relative weight on extra airborne delay
 
-    if landing_time > ps_time+thres1:
-        cost+=lam1*pax_weight*(landing_time-(ps_time+thres1))**2
+    def __call__(self, ps_time: float, pool_time: float, trav_time: float, landing_time: float, pax_weight: float) -> float:
+        """Calculates cost for a given flight which is a weighted sum of penalties for schedule delay and extra airborne delay.
 
-    if landing_time > pool_time+trav_time+thres2:
-        cost+=lam2*pax_weight*(landing_time-(pool_time+trav_time+thres2))**2
-
-    return cost
+        Arguments:
+        ----------
+        ps_time: scheduled arrival time
+        pool_time: time at which aircraft joins pool
+        trav_time: travel time between joining pool and reaching runway
+        landing_time: actual time aircraft lands (after serviced in queue)
+        pax_weight: weighting dependent on importance of flight (e.g. may depend on passengers)
+        """
+        C_S = max(landing_time - (ps_time + self.thres1), 0)**2
+        # JF Question: this needs explaining to me - formula seems a bit different to what used in paper
+        C_W = max(landing_time - (pool_time + trav_time + self.thres2), 0)**2
+        return pax_weight * (self.lam1 * C_S + self.lam2 * C_W)

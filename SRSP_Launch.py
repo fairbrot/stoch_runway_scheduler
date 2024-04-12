@@ -10,7 +10,7 @@ import os
 
 import numpy as np 
 
-from stoch_runway_scheduler import generate_weather, generate_trajectory, read_flight_data, sample_pretac_delay, weather, Genetic, Genetic_determ, Populate, Repopulate_VNS, sample_cond_gamma, getcost, Annealing_Cost, Perm_Heur, Perm_Heur_New, Calculate_FCFS, sample_gamma, gamma_create_cdf, Posthoc_Check, Update_Stats, Update_ETAs, Serv_Completions, FlightInfo, FlightStatus, SequenceInfo
+from stoch_runway_scheduler import generate_weather, generate_trajectory, read_flight_data, sample_pretac_delay, weather, Genetic, Genetic_determ, Populate, Repopulate_VNS, sample_cond_gamma, Annealing_Cost, Perm_Heur, Perm_Heur_New, Calculate_FCFS, sample_gamma, gamma_create_cdf, Posthoc_Check, Update_Stats, Update_ETAs, Serv_Completions, FlightInfo, FlightStatus, SequenceInfo, Cost
 
 #################
 # CONIFIGUATION #
@@ -201,6 +201,8 @@ while rep < no_reps:
     # Randomly generate thres1 (thres2 is set above)
     # Random so results could potentially be stratified
     thres1 = random.choice(pot_thres1) # 15 means allow 15 minutes schedule delay
+
+    cost_fn = Cost(thres1, thres2, lam1, lam2)
 
     print('*** Creating the Gamma CDF...')
     gamma_cdf = gamma_create_cdf(k)
@@ -409,7 +411,7 @@ while rep < no_reps:
 
                     # Gets important statistics about aircraft being released and serviced
                     # some of these outputs are used for simulation itself
-                    real_queue_complete, next_completion_time, latest_class, Ov_GA_counter = Update_Stats(tm,AC,Ac_Info,Ac_queue,real_queue_complete,wlb_tm,wub_tm,latest_class,Ov_GA_counter,next_completion_time, k, Time_Sep, w_rho, SubPolicy, counter, qp)
+                    real_queue_complete, next_completion_time, latest_class, Ov_GA_counter = Update_Stats(tm,AC,Ac_Info,Ac_queue,real_queue_complete, wlb_tm, wub_tm,latest_class,Ov_GA_counter,next_completion_time, k, Time_Sep, w_rho, SubPolicy, counter, qp)
 
                 else:
                     # Important: if aircraft not in the pool then don't consider any others (order in Ac_Added comes from a sequence and is important)
@@ -468,12 +470,12 @@ while rep < no_reps:
 
         if len(Arr_Pool) + len(Arr_NotReady) > 0:
             if SubPolicy == 'VNS':
-                # JF Question: what is happening here?
-                Ac_added, counter, qp, pruned, GA_CheckSize, GA_counter, soln_evals_tot, soln_evals_num = Genetic(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, max(tm,0), k, prev_class, GA_PopList, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, tot_arr_cost + tot_dep_cost, wlb, wub, Opt_List, soln_evals_tot, soln_evals_num, gamma_cdf, tau, Max_LookAhead, Time_Sep, thres1, thres2, lam1, lam2, GA_Check_Increment, Opt_Size, w_rho, wiener_sig, weather_sig)
+                # JF Question: should we be inputting wlb_tm and wub_tm rather than wlb and wub here?
+                Ac_added, counter, qp, pruned, GA_CheckSize, GA_counter, soln_evals_tot, soln_evals_num = Genetic(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, max(tm,0), k, prev_class, GA_PopList, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, tot_arr_cost + tot_dep_cost, wlb, wub, Opt_List, soln_evals_tot, soln_evals_num, gamma_cdf, tau, Max_LookAhead, Time_Sep, cost_fn, GA_Check_Increment, Opt_Size, w_rho, wiener_sig, weather_sig)
                 Ov_GA_counter+=1
                 stepthrough_logger.info('GA_counter is %d', GA_counter)
             elif SubPolicy=='VNSD':
-                Ac_added, counter, qp, stored_queue_complete = Genetic_determ(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, Left_queue, max(tm,0), NoA, k, prev_class, GA_PopList, GA_Info, wlb, wub, Opt_List, tau, Max_LookAhead, Time_Sep, thres1, thres2, lam1, lam2, tot_arr_cost, tot_dep_cost, w_rho, stepthrough, step_summ, step_new)
+                Ac_added, counter, qp, stored_queue_complete = Genetic_determ(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, Left_queue, max(tm,0), NoA, k, prev_class, GA_PopList, GA_Info, wlb, wub, Opt_List, tau, Max_LookAhead, Time_Sep, cost_fn, tot_arr_cost, tot_dep_cost, w_rho, stepthrough, step_summ, step_new)
                 Ov_GA_counter += 1
                 GA_counter += 1
                 stepthrough_logger.info('GA_counter is %d', GA_counter)
@@ -536,13 +538,13 @@ while rep < no_reps:
 
         ArrTime_Sorted.sort(key=lambda x: x[0])
 
-        FCFS_cost = Calculate_FCFS(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, wlb_tm, wub_tm, NoA, w_rho, k, Time_Sep, thres1, thres2, lam1, lam2)
+        FCFS_cost = Calculate_FCFS(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, wlb_tm, wub_tm, NoA, w_rho, k, Time_Sep, cost_fn)
         gg.write('FCFS'+','+str(FCFS_cost)+',')
 
-        perm_heur_cost, AC_Used = Perm_Heur(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, wlb_tm, wub_tm, NoA, w_rho, k, Time_Sep, thres1, thres2, lam1, lam2, f1)
+        perm_heur_cost, AC_Used = Perm_Heur(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, wlb_tm, wub_tm, NoA, w_rho, k, Time_Sep, cost_fn, f1)
         gg.write('Perm Heuristic'+','+str(perm_heur_cost)+',')
 
-        perm_heur_cost, AC_Used = Perm_Heur_New(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, wlb_tm, wub_tm, NoA, w_rho, k, Time_Sep, thres1, thres2, lam1, lam2)
+        perm_heur_cost, AC_Used = Perm_Heur_New(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, wlb_tm, wub_tm, NoA, w_rho, k, Time_Sep, cost_fn)
         gg.write('New Perm Heuristic'+','+str(perm_heur_cost)+',')
 
         gg.write('\n')
