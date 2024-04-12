@@ -30,8 +30,7 @@ def Repopulate_VNS(GA_PopList: List[List[int]], GA_Info: List[SequenceInfo],
     """
 
     # JF Question: this function seems to keep best previous `Opt_Size` sequences from GA_PopList and Opt_List
-    #              and then create a completely new GA_PopList with GA_PopSize sequences.abs(
-    #              Also, 
+    #              and then create a completely new GA_PopList with GA_PopSize sequences.
     #
     # JF Note: I don't fully understand logic behind VNS_counter and Opt_List
 
@@ -265,23 +264,35 @@ def Populate(Ac_Info: List[FlightInfo], base_seq: List[int],
     return GA_PopList, GA_Info
 
 def mutate_sequence(base_seq: List[int]) -> List[int]:
-        no_ACs = len(base_seq)
-        p = min(4, no_ACs) # no. of ACs to shuffle around
-        r = no_ACs - p + 1 # no. of possible start positions
+    """
+    Modifies a sequence by selecting a random slice of the second
+    (of maximum length 4) and randomly shuffling this.
 
-        L = r*(r+1)/2 # total weight
-        triang_probs = tuple((r - i)/L for i in range(r))
+    This is mutate sequence operation described in Appendix C
+    of "A New Simheuristic Approach for Stochastic Runway Scheduling"
+    by Shone et al. (2024).
 
-        # Randomly select start of subsequence to shuffle
-        # Use a discrete triangular distribution to put a priority on
-        # moving flights near front of sequence
-        pos = np.random.choice(range(r), p=triang_probs)
+    Arguments
+    ---------
+    base_seq: sequence to be permutated
+    """
+    no_ACs = len(base_seq)
+    p = min(4, no_ACs) # no. of ACs to shuffle around
+    r = no_ACs - p + 1 # no. of possible start positions
 
-        new_seq = base_seq[:]
-        seq_slice = random.sample(new_seq[pos:(pos+p)], k = p)
-        new_seq[pos:(pos+p)] = seq_slice
+    L = r*(r+1)/2 # total weight
+    triang_probs = tuple((r - i)/L for i in range(r))
 
-        return new_seq
+    # Randomly select start of subsequence to shuffle
+    # Use a discrete triangular distribution to put a priority on
+    # moving flights near front of sequence
+    pos = np.random.choice(range(r), p=triang_probs)
+
+    new_seq = base_seq[:]
+    seq_slice = random.sample(new_seq[pos:(pos+p)], k = p)
+    new_seq[pos:(pos+p)] = seq_slice
+
+    return new_seq
 
 def heuristic_move(base_seq: List) -> List:
     """
