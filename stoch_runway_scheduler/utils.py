@@ -102,31 +102,28 @@ def read_flight_data(data_fn: str, min_time: int, max_time: int, wiener_sig: flo
 
 def weather(tm, wlb, wub): # wlb is starting time for bad weather period, wub is ending time
 
-    if wlb<wub:
-
-        if tm<wlb:
+    if wlb < wub:
+        if tm < wlb:
             get_weather_state=0
-        elif tm<wub:
+        elif tm < wub:
             get_weather_state=1
         else:
             get_weather_state=2
-
     else:
-
         get_weather_state=0
 
     return get_weather_state
 
-def getcost(ps_time,pool_time,trav_time,landing_time,pax_weight,thres1,thres2, lam1: float, lam2: float):
+def getcost(ps_time, pool_time, trav_time, landing_time, pax_weight, thres1, thres2, lam1: float, lam2: float):
 
     cost=0
     #lam1=0.5 #weight for punctuality
     #lam2=0.5 #weight for queueing HMMM
 
-    if landing_time>ps_time+thres1:
+    if landing_time > ps_time+thres1:
         cost+=lam1*pax_weight*(landing_time-(ps_time+thres1))**2
 
-    if landing_time>pool_time+trav_time+thres2:
+    if landing_time > pool_time+trav_time+thres2:
         cost+=lam2*pax_weight*(landing_time-(pool_time+trav_time+thres2))**2
 
     return cost

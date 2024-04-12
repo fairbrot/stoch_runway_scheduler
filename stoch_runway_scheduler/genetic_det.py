@@ -13,10 +13,10 @@ def Genetic_determ(Ac_Info: List[FlightInfo], Arr_Pool: List[int], Arr_NotReady:
                     float, tot_arr_cost: float, tot_dep_cost: float, w_rho: float, 
                     stepthrough:int, step_summ:int, step_new: int):
 
-    output=0 #output==1 means we're printing results as we go along; output==2 means we're outputting results to "Detailed" csv file
-    ee=0
-    if stepthrough==1:
-        ee=1
+    output = 0 # output == 1 means we're printing results as we go along; output == 2 means we're outputting results to "Detailed" csv file
+    ee = 0
+    if stepthrough == 1:
+        ee = 1
     start_time=time.time()
 
     if stepthrough==1:
@@ -26,7 +26,7 @@ def Genetic_determ(Ac_Info: List[FlightInfo], Arr_Pool: List[int], Arr_NotReady:
     ServTime=[0]*NoA
     Trav_Time=[0]*NoA
 
-    #Generate arrival and service time percentiles for AC not yet in queue
+    # Generate arrival and service time percentiles for AC not yet in queue
 
     ArrTime_Sorted=[]
 
