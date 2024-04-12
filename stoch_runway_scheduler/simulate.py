@@ -103,6 +103,62 @@ def simulate_weather(tm: float, wlb: float, wub: float, weather_sig: float) -> T
             chk = 1
     return wlb_gen, wub_gen
 
+def simulate_flight_times(tm: float, Ac_Info: List[FlightInfo], tau: float, k: int, wiener_sig: float) -> Tuple[List[float], List[float], List[float]]:
+    """
+    Simulates arrival in pool times and travel times conditional on situation at time tm.
+
+    Arguments:
+    ----------
+    tm: current time
+    Ac_Info: information for all flights at current time
+    tau: threshold for reaching pool (flight in pool when ETA - tm <= tau)
+    k: Erlang shape parameter for service times
+    wiener_sig: standard deviation of Brownian motion
+
+    Returns:
+    -------
+    ArrTime: List of arrival times in Pool (0 for any flights already served)
+    Trav_Time: List of travel times between entering pool and reaching runway (0 for any flights already served)
+    ServTimes: List of standardized service times (0 for any flights in queue or already served)
+    """
+    NoA = len(Ac_Info)
+
+    ArrTime = [0]*NoA # pool time
+    Trav_Time = [0]*NoA # travel time between pool and runway
+    ServTime = [0]*NoA # standardized service time
+
+    for AC, info in enumerate(Ac_Info):
+        match info.status:
+            case FlightStatus.NOT_READY:
+                sched = int(round(Ac_Info[AC].eta-(tm+tau),1)) # JF Question: what is this?
+                if sched<=0:
+                    ArrTime[AC]=tm
+                else:
+                    ArrTime[AC]=np.random.wald(sched,(sched/wiener_sig)**2) + tm
+                Trav_Time[AC]=np.random.wald(tau,(tau/wiener_sig)**2)
+                ServTime[AC]=np.random.gamma(k,1)
+
+            case FlightStatus.IN_POOL:
+                ArrTime[AC] = max(0, Ac_Info[AC].eta - tau) # JF Question: Time aircraft arrives in Pool - could this not be replaced with Ac_Info[AC].pool_time?
+                Trav_Time[AC] = np.random.wald(tau, (tau / wiener_sig)**2)
+                ServTime[AC] = np.random.gamma(k, 1)
+
+            case FlightStatus.IN_QUEUE:
+                # RS: this block of code is probably needed but wasn't included in the 5000 experiments for the paper
+                # JF Question : current code seemed incorrect - I've tried to adapt below to use np.wald. Please check this.
+                if tm >= info.eta:
+                	Trav_Time[AC] = info.travel_time # travel time has already finished
+                else:
+                	# z=int(random.randrange(1,999))
+                	# sched=int(10*round(Ac_Infoi.eta-tm,1))
+                	# trav_time=wiener_cdf[sched][z]
+                    # sched = int(round(info.eta - tm, 1)) # similar to NOT_READY case
+                    # trav_time = np.random.wald(sched,(sched/wiener_sig)**2) # JF Question: is this right?
+                    Trav_Time[AC] = np.random.wald(tau, (tau/wiener_sig)**2) # JF: this was previously used
+                    ArrTime[AC] = info.pool_time
+                
+    return ArrTime, Trav_Time, ServTime
+
 def generate_trajectory(Dep_time: float, Ps_time: float, tau: int, wiener_sig: float, freq: int):
     """
     Generates a trajectory for an aircraft.
