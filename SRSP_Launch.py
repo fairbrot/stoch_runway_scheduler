@@ -8,9 +8,9 @@ import random
 import time
 import os
 
-import numpy as np 
+import numpy as np
 
-from stoch_runway_scheduler import generate_weather, generate_trajectory, read_flight_data, sample_pretac_delay, weather, Genetic, Genetic_determ, Populate, Repopulate_VNS, sample_cond_gamma, Annealing_Cost, Perm_Heur, Perm_Heur_New, Calculate_FCFS, sample_gamma, gamma_create_cdf, Posthoc_Check, Update_Stats, Update_ETAs, Serv_Completions, FlightInfo, FlightStatus, SequenceInfo, Cost
+from stoch_runway_scheduler import generate_weather, generate_trajectory, read_flight_data, sample_pretac_delay, weather, Genetic, Genetic_determ, Populate, Repopulate_VNS, sample_cond_gamma, Annealing_Cost, Perm_Heur, Perm_Heur_New, Calculate_FCFS, gamma_create_cdf, Posthoc_Check, Update_Stats, Update_ETAs, Serv_Completions, FlightInfo, FlightStatus, SequenceInfo, Cost
 
 #################
 # CONIFIGUATION #
@@ -156,9 +156,11 @@ while rep < no_reps:
     #---------------------------------------------------------#
     # Read flight data file and initialise pretactical delays #
     #---------------------------------------------------------#
+    # Orig_Ps = sched arrival time
+    # Dep_Ps = time at which tactical delay begins (called h in paper)
     flight_id, Ac_class, Orig_Ps, Dep_Ps, Alpha_Ps, Beta_Ps, late_means = read_flight_data(DATA_DIR + '/flight_pretac_data.csv',
                                                                                             min_ps_time, max_ps_time, wiener_sig)
-    pretac_delays = [sample_pretac_delay(a, b, ps_t, hi, l_mn) for (a, b, ps_t, hi, l_mn) in zip(Alpha_Ps, Beta_Ps, Orig_Ps, Dep_Ps, late_means)]
+    pretac_delays = [sample_pretac_delay(alpha, beta, a, h, x_bar) for (alpha, beta, a, h, x_bar) in zip(Alpha_Ps, Beta_Ps, Orig_Ps, Dep_Ps, late_means)]
     # this stores the adjusted scheduled times for aircraft after applying the random pre-tactical delay
     Arr_Ps = [orig_ps + pretac_d for (orig_ps, pretac_d) in zip(Orig_Ps, pretac_delays)]
 

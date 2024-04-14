@@ -1,57 +1,28 @@
 from typing import List
 import random
 import math
+import numpy as np
 
+def sample_pretac_delay(alpha: float, beta: float, a: float, h: float, x_bar: float) -> float:
+    """
+    Sample pre-tactical delay for given flight.
 
-def sample_gamma(k, beta):
+    Pretactical delay is Y - (a - h)
+    where a is scheduled arrival time, h is time tactical uncertainty begins
+    and Y is a Gamma distribution with shape and rate parameters alpha and beta.
+    If alpha or beta parameters are not valid i.e. <= 0, then pre-tactical
+    delay is a given constant x_bar (mean delay).
 
-    #gamma dist with mean k*beta and variance k*beta^2
-
-    n=int(k)
-    delt=k-n
-
-    # Generate a Gamma(k,1) RV
-    # https://en.wikipedia.org/wiki/Gamma_distribution#Generating_gamma-distributed_random_variables
-
-    #First do the integer part
-    intpart=0
-    for m in range(n):
-        z=random.random()
-        intpart+=-math.log(z)
-
-    #Now do the fractional part
-
-    c=0
-
-    while c==0:
-
-        u=random.random()
-        v=random.random()
-        w=random.random()
-
-        if u<=math.exp(1)/(math.exp(1)+delt):
-            xi=max(0.0001,v**(1/delt)) #altered due to numerical errors
-            #print('k: '+str(k)+' n: '+str(n)+' delt: '+str(delt)+' u: '+str(u)+' v: '+str(v)+' w: '+str(w)+' xi: '+str(xi))
-            eta=w*xi**(delt-1)
-        else:
-            xi=1-math.log(v)
-            eta=w*math.exp(-xi)
-        if eta<=(xi**(delt-1))*math.exp(-xi):
-            c=1
-
-    #Finally, scale the RV
-
-    x=beta*(xi+intpart)
-
-    return x
-
-def sample_pretac_delay(alpha: float, beta: float, ps_time: float, h: float, lateness_mn: float) -> float:
+    See section 4 of 
+    "A New Simheuristic Approach fo Stochastic Runway Scheduling" (2022) by Shone et al
+    for more details.
+    """
     if alpha > 0 and beta > 0:
-        pretac_delay = sample_gamma(alpha, 1/beta) - (ps_time - h) # Here we sample from a gamma distribution to get the pre-tactical delay for the flight under consideration.
+        # Note that numpy is parameterised by shape=alpha and scale = 1/beta
+        pretac_delay = np.random.gamma(alpha, 1/beta) - (a - h)
     else: # in this case there isn't a well defined Gamma distribution
         # In this case the pre-tactical delay is set equal to the average lateness rather than being sampled randomly.
-        # JF Question: why is this case needed?
-        pretac_delay = lateness_mn
+        pretac_delay = x_bar
     return pretac_delay
 
 
