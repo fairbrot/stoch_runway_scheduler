@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 from enum import Enum
 from dataclasses import dataclass
 import csv
@@ -46,7 +46,57 @@ class SequenceInfo:
     # service immediately, this triggers release from pool.
     w: float # W_s^n in paper (eqn 15)
 
-def read_flight_data(data_fn: str, min_time: int, max_time: int, wiener_sig: float):
+def read_flight_data(data_fn: str, min_time: int, max_time: int, wiener_sig: float) -> Tuple(List[str], List[int], List[int], List[int], List[float], List[float], List[float]):
+    """
+    Reads flight data from CSV file.
+
+    Each flight corresponds to a row of the table and has the following attributes:
+
+    Arr Time (int): Pre-scheduled arrival time at airport. 
+    Class (int): Weight class of aircraft (0 = H (Heavy), 1 = U, 2 = M, 3 = L)
+    Flight number (str): IATA flight designator (e.g. BA032)
+    Dep time (int): Departure time from origin aiport (< Arr Time)
+    Flight time (int): duration of flight
+    Pretac_mean (float): mean of pretactical data (i.e. E[A] - a)
+    Pretac_var (float): variance of arrival time (or pretactical delay) (i.e. Var[A])
+
+    Times are given in minutes after midnight (e.g. 360 is 6AM).
+    Durations are also given in minutes.
+
+    Function processes these inputs and outputs flight attributes as lists.
+    In particular, only flights which occur within given time interval
+    are included, and for each of these flights, the times are adjusted
+    so that the beginning of the time horizon is 0, and parameters
+    for a Gamma random variable for each flight, Y, which is used to calculate
+    pre-tactical delays, are calculated. 
+    Pre-tactical delays in particular are given by Y - (a - h).
+    These parameters are set so that
+    the overall mean and variance of the actual arrival time (calculated empirically)
+    match those simulated by pre-tactical and tactical delays.
+    See section 4 of 
+    "A New Simheuristic Approach fo Stochastic Runway Scheduling" (2022) by Shone et al
+    for more details.
+
+    Arguments:
+    ---------
+    data_fn: path of CSV to load
+    min_time: Start time of time horizon under consideration
+    max_time: End time of time horizon under consideration
+    wiener_sig: standard deviation of Brownian motion used in tactical delays
+
+    Returns:
+    ---------
+    flight_id: IATA flight designators for each flight
+    Ac_class: Weight classes
+    Orig_Ps: Adjusted scheduled arrival times of flights at destination airport
+    Dep_Ps: Adjusted times at which tactical uncertainty begins (i.e. h)
+    Alpha_Ps: Shape parameters of Gamma distributions used to calculate pre-tactical delay
+    Beta_Ps: Rate parameters of Gamma distributions used to calculate pre-tactical delay
+    late_means: Average lateness values for arriving
+    """
+    # JF Question: ask Rob to check accuracy of above docstring
+    # JF Question: is a column fo Flight time necessary? This could be inferred from Dep and Arr times
+
     Ac_class = [] # this will store the weight class for each aircraft
     Orig_Ps = [] # original pre-scheduled times of aircraft, before applying the pre-tactical delay
     Dep_Ps = []  # h (i.e. time at which tactical uncertainty begins)
@@ -67,8 +117,7 @@ def read_flight_data(data_fn: str, min_time: int, max_time: int, wiener_sig: flo
                 flight_name = str(inputdata[i][3]) # flight number
                 dep_time = int(inputdata[i][4]) # departure time from the origin airport
                 # scheduled flight dur, i.e. difference between scheduled departure and arrival time
-                # JF Question: This doesn't seem to be used at the moment?
-                sched_dur = int(inputdata[i][5]) 
+                sched_dur = int(inputdata[i][5]) # JF Question: This doesn't seem to be used at the moment?
                 lateness_mn = float(inputdata[i][6]) # mean lateness based on historical data
                 lateness_var = float(inputdata[i][7]) # variance of lateness based on historical data
 
@@ -82,7 +131,7 @@ def read_flight_data(data_fn: str, min_time: int, max_time: int, wiener_sig: flo
                 
                 # The equations for xi_bar, si2, h_i, alpha and beta below are for calculating the parameters of the gamma distribution 
                 # used for the pre-tactical delay. Details of this method are in Section 4 of the paper.
-                xibar = ps_time + lateness_mn
+                xibar = ps_time + lateness_mn # I.e. mean arrival time
                 si2 = lateness_var 
 
                 alpha = ((xibar-h)**2)/(si2-(wiener_sig**2)*(xibar-h)) # Can be negative via denominator
