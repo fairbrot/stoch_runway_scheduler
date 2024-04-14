@@ -46,7 +46,7 @@ class SequenceInfo:
     # service immediately, this triggers release from pool.
     w: float # W_s^n in paper (eqn 15)
 
-def read_flight_data(data_fn: str, min_time: int, max_time: int, wiener_sig: float) -> Tuple(List[str], List[int], List[int], List[int], List[float], List[float], List[float]):
+def read_flight_data(data_fn: str, min_time: int, max_time: int, wiener_sig: float) -> Tuple[List[str], List[int], List[int], List[int], List[float], List[float], List[float]]:
     """
     Reads flight data from CSV file.
 
