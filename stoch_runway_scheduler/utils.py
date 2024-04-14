@@ -16,7 +16,7 @@ class FlightStatus(Enum):
 @dataclass
 class FlightInfo:
     status: FlightStatus
-    ac_class: int 
+    ac_class: int
     ps_time: float # 2 pre-scheduled time (plus pre-tactical delay)
     eta: float # 3 latest ETA
     release_time: float # 4 time at which aircraft is released from pool
