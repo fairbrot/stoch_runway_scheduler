@@ -477,7 +477,7 @@ def Serv_Completions(Ac_Info, Ac_queue, prev_class, totserv, Ac_finished, tm, ne
             stepthrough_logger.info('* Service completion finished for aircraft '+str(AC)+'\n'+'\n')
             step_summ_logger.info('* Service completion finished for aircraft '+str(AC)+'\n'+'\n')
             if Ac_Infoi.status == FlightStatus.IN_QUEUE:
-                Ac_Infoi.status = FlightStatus.DEP_NOT_READY # JF Note: check with Rob
+                Ac_Infoi.status = FlightStatus.FINISHED # JF Note: check with Rob
                 arr_cost += cost_fn(Ac_Infoi.orig_sched_time, Ac_Infoi.pool_time, Ac_Infoi.travel_time, finish_time, Ac_Infoi.passenger_weight)
                 totserv+=1
             else: # JF Question: is this clause needed?

@@ -10,7 +10,6 @@ class FlightStatus(Enum):
     NOT_READY = 0
     IN_POOL = 1
     IN_QUEUE = 2
-    DEP_NOT_READY = 3 # JF Question: should these final two be combined?
     FINISHED = 6
 
 @dataclass
