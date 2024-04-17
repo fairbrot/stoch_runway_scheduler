@@ -55,11 +55,13 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, 
             rel_time = Ac_Infoi.release_time
             cur_class = Ac_Infoi.ac_class
             weather_state = weather(rel_time, wlb_gen, wub_gen) # weather(queue_complete, wlb_gen, wub_gen)
+            trav_time = Trav_Time[AC]
 
             # JF Question: Not sure how this first case arises - perhaps it is a mistake? trav_time isn't even defined for flight j
             if trav_time <= 0:
                 trav_time=0
             else:
+                # Why is this sampled again? Don't we already have travel time for flights in queue?
                 trav_time = np.random.wald(tau, (tau/wiener_sig)**2)
 
             # if tm>=Ac_Infoi.eta: #this block of code is probably needed but wasn't included in the 5000 experiments for the paper
