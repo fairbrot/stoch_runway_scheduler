@@ -435,12 +435,9 @@ def Update_Stats(tm: float, AC: int, Ac_Info: List[FlightInfo], Ac_queue: List[i
     Ac_Infoi.service_time = actual_serv
     Ac_Infoi.service_completion_time = finish_time
 
-    if SubPolicy in ('GA','GAD','VNS','VNSD'):
-        # Counter reset when flight released
-        Ac_Infoi.counter = Ov_GA_counter
-        Ov_GA_counter = 0
-    else:
-        Ac_Infoi.counter=counter
+    Ac_Infoi.counter = Ov_GA_counter
+    Ov_GA_counter = 0
+
     Ac_Infoi.qp = qp
 
     latest_class = cur_class
@@ -480,9 +477,8 @@ def Serv_Completions(Ac_Info, Ac_queue, prev_class, totserv, Ac_finished, tm, ne
             stepthrough_logger.info('* Service completion finished for aircraft '+str(AC)+'\n'+'\n')
             step_summ_logger.info('* Service completion finished for aircraft '+str(AC)+'\n'+'\n')
             if Ac_Infoi.status == FlightStatus.IN_QUEUE:
-                Ac_Infoi.status = FlightStatus.DEP_NOT_READY # JF Note: check with Rob
+                Ac_Infoi.status = FlightStatus.FINISHED # JF Note: check with Rob
                 arr_cost += cost_fn(Ac_Infoi.orig_sched_time, Ac_Infoi.pool_time, Ac_Infoi.travel_time, finish_time, Ac_Infoi.passenger_weight)
-                #print('* Cost incurred is '+str(arr_cost))
                 totserv+=1
             else: # JF Question: is this clause needed?
                 Ac_Infoi.status = FlightStatus.FINISHED
@@ -491,15 +487,7 @@ def Serv_Completions(Ac_Info, Ac_queue, prev_class, totserv, Ac_finished, tm, ne
             f.write(str(SubPolicy)+','+str(rep)+','+str(AC)+','+str(Ac_Infoi.flight_id)+','+str(prev_class)+','+str(current_class)+','+str(Time_Sep[prev_class][current_class]/60)+','+str(Ac_Infoi.orig_sched_time)+','+str(Ac_Infoi.ps_time)+','+str(Ac_Infoi.pool_time)+','+str(Ac_Infoi.release_time)+','+str(Ac_Infoi.travel_time)+','+str(Ac_Infoi.weather_state)+','+str(Ac_Infoi.enters_service)+','+str(Ac_Infoi.service_time)+','+str(Ac_Infoi.service_completion_time)+','+str(max(0,finish_time-(Ac_Infoi.ps_time+thres1)))+','+str(finish_time-(Ac_Infoi.pool_time+Ac_Infoi.travel_time))+','+str(Ac_Infoi.passenger_weight)+','+str(cost_fn(Ac_Infoi.ps_time, Ac_Infoi.pool_time, Ac_Infoi.travel_time, finish_time, Ac_Infoi.passenger_weight))+',')
             f.write(str(Ac_Infoi.counter)+','+str(Ac_Infoi.qp)+',')
 
-            if SubPolicy in ('GA','GAD','VNS','VNSD'):
-                f.write(str(Ac_Infoi.pred_cost)+',')
-            # if SubPolicy in ('VNS'):
-            # 	f.write(str(Loop_Evals/Loop_Nums)+',')
-            # elif SubPolicy in ('VNSD'):
-            # 	f.write(',')
-            # if SubPolicy in ('GA','GAD','VNS','VNSD'):
-            # 	f.write(str(elap_tot/elap_num)+','+str(Repop_elap_tot/Repop_elap_num)+','+str(Pop_elap_tot/Pop_elap_num)+',')
-                #f.write(str(elap)+','+str(Repop_elap)+','+str(Pop_elap)+',')
+            f.write(str(Ac_Infoi.pred_cost)+',')
             f.write('\n')
 
             prev_class = current_class
@@ -507,10 +495,6 @@ def Serv_Completions(Ac_Info, Ac_queue, prev_class, totserv, Ac_finished, tm, ne
             Left_queue.append(AC)
             Ac_queue.remove(AC)
 
-            #print('Arr_NotReady is: '+str(Arr_NotReady))
-            #print('Arr_Pool is: '+str(Arr_Pool))
-            #print('Ac_queue is: '+str(Ac_queue))
-            #print('Left_queue is: '+str(Left_queue))
             print(str(SubPolicy)+' totserv: '+str(totserv))
 
             if len(Ac_queue)>0:

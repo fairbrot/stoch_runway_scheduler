@@ -9,6 +9,7 @@ packages = [{include = "stoch_runway_scheduler"}]
 [tool.poetry.dependencies]
 python = "^3.11"
 numpy = "^1.26.4"
+scipy = "^1.13.0"
 
 
 [tool.poetry.group.test.dependencies]

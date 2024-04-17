@@ -10,7 +10,7 @@ from .gamma import Gamma_GetServ, Gamma_GetServ_Future, Gamma_Conditional_GetSer
 from .simulate import simulate_weather, simulate_flight_times
 
 # JF: this is the main sim heuristic
-def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, prev_class, GA_PopList, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, basecost, wlb, wub, Opt_List, soln_evals_tot, soln_evals_num, gamma_cdf, tau: int, Max_LookAhead: int, Time_Sep: List[List[int]], cost_fn: Cost, GA_Check_Increment: int, Opt_Size: int, w_rho: float, wiener_sig: float, weather_sig: float):
+def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, prev_class, GA_PopList, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, basecost, wlb, wub, Opt_List, soln_evals_tot, soln_evals_num, tau: int, Max_LookAhead: int, Time_Sep: List[List[int]], cost_fn: Cost, GA_Check_Increment: int, Opt_Size: int, w_rho: float, wiener_sig: float, weather_sig: float):
     # JF Note: could maybe remove argument Max_LookAhead if no_ACs can be inferred from other arguments
     stepthrough_logger = logging.getLogger("stepthrough")
     step_summ_logger = logging.getLogger("step_summ")
@@ -42,7 +42,7 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, 
         cur_class = Ac_Infoi.ac_class
         weather_state = Ac_Infoi.weather_state
 
-        queue_complete, straight_into_service = Gamma_Conditional_GetServ(k, Time_Sep, Trav_Time[AC], rel_time, sv_time, prev_class, cur_class, tm, weather_state, gamma_cdf, w_rho)
+        queue_complete, straight_into_service = Gamma_Conditional_GetServ(k, Time_Sep, Trav_Time[AC], rel_time, sv_time, prev_class, cur_class, tm, weather_state, w_rho)
         basecost += cost_fn(Ac_Infoi.orig_sched_time, ArrTime[AC], Trav_Time[AC], queue_complete, Ac_Infoi.passenger_weight)
         perm_prev_class = cur_class
 
@@ -55,11 +55,13 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, 
             rel_time = Ac_Infoi.release_time
             cur_class = Ac_Infoi.ac_class
             weather_state = weather(rel_time, wlb_gen, wub_gen) # weather(queue_complete, wlb_gen, wub_gen)
+            trav_time = Trav_Time[AC]
 
             # JF Question: Not sure how this first case arises - perhaps it is a mistake? trav_time isn't even defined for flight j
             if trav_time <= 0:
                 trav_time=0
             else:
+                # Why is this sampled again? Don't we already have travel time for flights in queue?
                 trav_time = np.random.wald(tau, (tau/wiener_sig)**2)
 
             # if tm>=Ac_Infoi.eta: #this block of code is probably needed but wasn't included in the 5000 experiments for the paper
@@ -69,7 +71,8 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, 
             # 	sched=int(10*round(Ac_Infoi.eta-tm,1))
             # 	trav_time=wiener_cdf[sched][z]
 
-            queue_complete, straight_into_service = Gamma_GetServ(k, Time_Sep, rel_time, trav_time, perm_prev_class, cur_class, tm, weather_state, gamma_cdf, w_rho)
+            # JF: does tm need updating here for other flights
+            queue_complete, straight_into_service = Gamma_GetServ(k, Time_Sep, rel_time, trav_time, perm_prev_class, cur_class, tm, weather_state, w_rho)
             perm_prev_class = cur_class
             basecost += cost_fn(Ac_Infoi.orig_sched_time, Ac_Infoi.pool_time, trav_time, queue_complete, Ac_Infoi.passenger_weight)
 
