@@ -5,7 +5,7 @@ import csv
 import math
 import random
 
-#0: not ready yet (arrival), 1: in arrival pool, 2: added to arrival queue, 3: not ready yet (departure), 4: in departure pool, 5: added to departure queue, 6: finished.
+# 0: not ready yet (arrival), 1: in arrival pool, 2: added to arrival queue, 3: not ready yet (departure), 4: in departure pool, 5: added to departure queue, 6: finished.
 class FlightStatus(Enum):
     NOT_READY = 0
     IN_POOL = 1
@@ -44,6 +44,7 @@ class SequenceInfo:
     # Rob thinks this upsilon is redundant as Rob set lambda to zero in paper which means that if one random trajectory where aircraft enters
     # service immediately, this triggers release from pool.
     w: float # W_s^n in paper (eqn 15)
+    age: int # number of times sequence has been passed to Repopulate
 
 def read_flight_data(data_fn: str, min_time: int, max_time: int, wiener_sig: float) -> Tuple[List[str], List[int], List[int], List[int], List[float], List[float], List[float]]:
     """

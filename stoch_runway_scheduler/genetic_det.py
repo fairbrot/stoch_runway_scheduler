@@ -8,9 +8,8 @@ from .gamma import gamma_cond_exp
 def Genetic_determ(Ac_Info: List[FlightInfo], Arr_Pool: List[int], Arr_NotReady: List[int], 
                     Ac_queue: List[int], Left_queue: List[int], tm: float, NoA: int, k:int, 
                     prev_class: int, GA_PopList: List[List[int]], GA_Info: List[SequenceInfo],
-                    wlb, wub, Opt_List: List[SequenceInfo], tau: int, Max_LookAhead: int, 
-                    Time_Sep: List[List[int]], cost_fn: Cost, tot_arr_cost: float, tot_dep_cost: float, w_rho: float, 
-                    stepthrough:int, step_summ:int, step_new: int):
+                    wlb, wub, tau: int, Max_LookAhead: int, Time_Sep: List[List[int]], cost_fn: Cost, 
+                    tot_arr_cost: float, tot_dep_cost: float, w_rho: float, stepthrough:int, step_summ:int, step_new: int):
 
     output = 0 # output == 1 means we're printing results as we go along; output == 2 means we're outputting results to "Detailed" csv file
     ee = 0
@@ -189,86 +188,6 @@ def Genetic_determ(Ac_Info: List[FlightInfo], Arr_Pool: List[int], Arr_NotReady:
             st2.write(str(GA_Info[j].v)+',')
         st2.write('\n')
 
-    #### UPDATE SEQS IN THE OPT LIST ####
-
-    for j in range(len(Opt_List)):
-
-        if stepthrough==1:
-            st.write('\n'+'Now trying sequence '+','+str(Opt_List[j].sequence)+'\n')
-            st.write('AC'+','+'Class'+','+'Time Sep'+','+'Arrives in pool'+','+'Release time'+','+'Travel time'+','+'Enters serv'+','+'Actual serv'+','+'Finish time'+','+'Pax weight'+','+'Cost'+'\n')
-
-        permcost=basecost
-        latest_tm=tm
-        perm_prev_class=stored_prev_class
-        perm_queue_complete=queue_complete
-        #perm_weather_state=weather_state
-
-        perm=Opt_List[j].sequence
-        Opt_List[j].n_traj+=1
-        #gam=0.01
-        gam=1/Opt_List[j].n_traj
-
-        #print('GA_Info: '+str(GA_Info))
-
-        no_ACs=min(Max_LookAhead,len(perm)) #min(AC_List_Length,len(Arr_Pool)+len(Arr_NotReady))
-        for index in range(no_ACs):
-
-            #index=perm[i]
-            AC=perm[index]
-            Ac_Infoi=Ac_Info[AC]
-            perm_class=Ac_Infoi.ac_class
-            reltime=max(latest_tm,ArrTime[AC])
-
-            if stepthrough==1:
-                st.write(str(AC)+','+str(Ac_Infoi.ac_class)+','+str(Time_Sep[perm_prev_class][perm_class]/60)+','+str(ArrTime[AC])+','+str(reltime)+','+str(tau)+','+str(perm_queue_complete)+',')
-
-            t1=reltime+tau
-            if reltime>=wlb and reltime<=wub:
-                exp_serv=w_rho*Time_Sep[perm_prev_class][perm_class]/60
-            else:
-                exp_serv=Time_Sep[perm_prev_class][perm_class]/60
-            t2=perm_queue_complete+exp_serv
-            if stepthrough==1:
-                st.write(str(exp_serv)+',')
-
-            AC_FinishTime=max(t1,t2)
-            if t1>=t2:
-                straight_into_service=1
-            else:
-                straight_into_service=0
-
-            Opt_List[j].queue_probs[index]=(1-gam)*Opt_List[j].queue_probs[index]+gam*straight_into_service
-
-            permcost += cost_fn(Ac_Infoi.orig_sched_time, ArrTime[AC], tau, AC_FinishTime, Ac_Infoi.passenger_weight)
-            latest_tm=reltime
-
-            if stepthrough==1:
-                st.write(str(AC_FinishTime)+','+str(Ac_Infoi.passenger_weight)+','+str(cost_fn(Ac_Infoi.ps_time, ArrTime[AC], tau, AC_FinishTime, Ac_Infoi.passenger_weight))+'\n')
-
-            perm_queue_complete = AC_FinishTime
-            perm_prev_class = perm_class
-
-        if stepthrough==1:
-            st.write('Final cost: '+','+str(permcost)+','+'Gamma: '+','+str(gam)+','+'Old cost: '+','+str(Opt_List[j].v)+',')
-
-        Opt_List[j].v=(1-gam)*Opt_List[j].v+gam*permcost
-        if stepthrough==1:
-            st.write('Total cost: '+','+str(Opt_List[j].v)+','+'Queue probs: '+','+str(Opt_List[j].queue_probs)+'\n'+'\n')
-
-    if step_summ==1:
-        Opt_List.sort(key=lambda x: x.sequence)
-        for j in range(len(Opt_List)):
-            st2.write(str(Opt_List[j].v)+',')
-        st2.write('\n')
-
-    # minperm=0
-    # mincost=0
-    # for j in range(len(GA_Info)):
-    # 	if j==0 or GA_Info[j].v<mincost:
-    # 		mincost=GA_Info[j].v
-    # 		minperm=j
-
-    Opt_List.sort(key=lambda x: x.v)
     GA_Info.sort(key=lambda x: x.v)
 
     Ac_added=[]
@@ -276,18 +195,8 @@ def Genetic_determ(Ac_Info: List[FlightInfo], Arr_Pool: List[int], Arr_NotReady:
     qp=0
 
     if len(Arr_Pool)>0:
-
-        if len(GA_Info)>0 and len(Opt_List)>0:
-            if Opt_List[0].v<GA_Info[0].v:
-                perm=Opt_List[0]
-            else:
-                perm=GA_Info[0]
-        elif len(Opt_List)>0:
-            perm=Opt_List[0]
-        elif len(GA_Info)>0:
-            perm=GA_Info[0]
-        else:
-            assert 1==2
+        assert len(GA_Info) > 0
+        perm = GA_Info[0]
 
         if perm[0][0] in Arr_Pool:
 

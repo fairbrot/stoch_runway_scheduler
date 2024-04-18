@@ -271,20 +271,7 @@ while rep < no_reps:
     # Opt_Seq = FSFS_seq[:]
     OptCost = 1000000 # initial cost
     queue_probs = [0] * NoA # JF Question: this is shared between solutions? Should this really be the case? Possibly is independent of sequence
-    Opt_List = [] # For storing SequenceInfo of best solutions
-    Opt_Seqs = []
     S_min = 10 # Length of shortlist JF - Perhaps move to parameters
-
-    # JF Note: we may now not need separate lists Opt_Seqs and GA_PopList - Rob thinks a list of best sequences probably isn't needed now
-    # Only really need to keep best sequence and mutate from that.
-    # When Rob wrote this code originally he had idea of using best n sequences for generating new sequences
-    # Create an initial population of sequences for Opt_Seq
-    # which shouldn't intersect GA_PopList
-    while len(Opt_List) < S_min:
-        new_seq = random.sample(FSFS_seq, k=len(FSFS_seq)) # shuffle fcfs sequence
-        if new_seq not in GA_PopList and new_seq not in Opt_Seqs: # This is just to initialise opt_list - we want to compare with distinct GA_PopList
-            Opt_List.append(SequenceInfo(new_seq[:],0,0,queue_probs,0)) # analogous to GA_Info
-            Opt_Seqs.append(new_seq[:])
 
     GA_Check_Increment = GA_LoopSize / 10 # Called r in paper - how often to do ranking and selection
     # Is done for every iteration for VNSD
@@ -370,24 +357,11 @@ while rep < no_reps:
         # tm >= may be redundant
         if tm >= 0 and len(Ac_added) > 0 and Ac_added[0] in Arr_Pool:
             # First, find best sequence
-            Opt_List.sort(key=lambda x: x.v) # sort by mean V_s^n
             GA_Info.sort(key=lambda x: x.v)
             # Set up base sequence and pred_cost (latest predicted cost)
-            if len(Opt_List) > 0 and len(GA_Info) > 0: # If both lists non-empty then compare best in one with best inother
-                if Opt_List[0][2] < GA_Info[0][2]:
-                    base_seq = Opt_List[0].sequence[:]
-                    pred_cost = Opt_List[0].v
-                else:
-                    base_seq = GA_Info[0].sequence[:]
-                    pred_cost = GA_Info[0].v
-            elif len(Opt_List) > 0:
-                base_seq = Opt_List[0].sequence[:]
-                pred_cost = Opt_List[0].v
-            elif len(GA_Info) > 0:
+            if len(GA_Info) > 0: # JF Question: is this condition needed?
                 base_seq = GA_Info[0].sequence[:]
                 pred_cost = GA_Info[0].v
-            else:
-                assert 1 == 2
             # For each aircraft being released...
             for AC in Ac_added:
                 if AC in Arr_Pool:
@@ -411,19 +385,6 @@ while rep < no_reps:
             GA_PopList, GA_Info = Populate(Ac_Info, base_seq, Arr_Pool, Arr_NotReady, GA_PopSize, Max_LookAhead)
             queue_probs = [0]*(len(Arr_Pool)+len(Arr_NotReady))
 
-            Opt_List = []
-            Opt_Seqs = []
-            c = 0 # JF Question: Is this actually used?
-            # This looks very similar to initialisation of Opt_List above
-            while len(Opt_List)<S_min and c < 25:
-                new_seq = base_seq[:]
-                random.shuffle(new_seq)
-                if new_seq not in GA_PopList and new_seq not in Opt_Seqs:
-                    Opt_List.append(SequenceInfo(new_seq[:],0,0,queue_probs,0))
-                    Opt_Seqs.append(new_seq[:])
-                    c = 0
-                else:
-                    c += 1
             GA_counter = 0 # reset counter
             GA_CheckSize = GA_Check_Increment # next point to check
 
@@ -436,8 +397,8 @@ while rep < no_reps:
                 Loop_Nums+=1
                 Loop_Evals += GA_counter
                 # Create more seqeuences from best current sequence
-                GA_PopList, GA_Info, Opt_List, VNS_counter, tot_mut = Repopulate_VNS(GA_PopList, GA_Info, GA_PopSize,
-                                                                                        Opt_List, S_min, VNS_counter, VNS_limit, tot_mut)
+                VNS_counter, tot_mut = Repopulate_VNS(GA_Info, GA_PopSize, S_min,
+                                                        VNS_counter, VNS_limit, tot_mut)
                 GA_counter = 0
                 GA_CheckSize = GA_Check_Increment
                 mv_time = 1
@@ -456,11 +417,11 @@ while rep < no_reps:
         if len(Arr_Pool) + len(Arr_NotReady) > 0:
             if SubPolicy == 'VNS':
                 # JF Question: should we be inputting wlb_tm and wub_tm rather than wlb and wub here?
-                Ac_added, counter, qp, pruned, GA_CheckSize, GA_counter, soln_evals_tot, soln_evals_num = Genetic(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, max(tm,0), k, prev_class, GA_PopList, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, tot_arr_cost + tot_dep_cost, wlb, wub, Opt_List, soln_evals_tot, soln_evals_num, tau, Max_LookAhead, Time_Sep, cost_fn, GA_Check_Increment, S_min, w_rho, wiener_sig, weather_sig)
+                Ac_added, counter, qp, pruned, GA_CheckSize, GA_counter, soln_evals_tot, soln_evals_num = Genetic(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, max(tm,0), k, prev_class, GA_PopList, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, tot_arr_cost + tot_dep_cost, wlb, wub, soln_evals_tot, soln_evals_num, tau, Max_LookAhead, Time_Sep, cost_fn, GA_Check_Increment, S_min, w_rho, wiener_sig, weather_sig)
                 Ov_GA_counter+=1
                 stepthrough_logger.info('GA_counter is %d', GA_counter)
             elif SubPolicy=='VNSD':
-                Ac_added, counter, qp, stored_queue_complete = Genetic_determ(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, Left_queue, max(tm,0), NoA, k, prev_class, GA_PopList, GA_Info, wlb, wub, Opt_List, tau, Max_LookAhead, Time_Sep, cost_fn, tot_arr_cost, tot_dep_cost, w_rho, stepthrough, step_summ, step_new)
+                Ac_added, counter, qp, stored_queue_complete = Genetic_determ(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, Left_queue, max(tm,0), NoA, k, prev_class, GA_PopList, GA_Info, wlb, wub, tau, Max_LookAhead, Time_Sep, cost_fn, tot_arr_cost, tot_dep_cost, w_rho, stepthrough, step_summ, step_new)
                 Ov_GA_counter += 1
                 GA_counter += 1
                 stepthrough_logger.info('GA_counter is %d', GA_counter)
@@ -475,7 +436,7 @@ while rep < no_reps:
             Update_ETAs(Ac_Info, Arr_NotReady, Dep_NotReady, Ac_queue, tm, Brown_Motion, Arr_Pool, tau, freq)
 
         if len(Ac_queue) > 0 and tm >= next_completion_time: #len(Ac_queue)>0:
-            arr_cost, dep_cost, totserv, prev_class, Ac_finished, next_completion_time = Serv_Completions(Ac_Info, Ac_queue, prev_class, totserv, Ac_finished, latest_time, next_completion_time, thres1, thres2, lam1, lam2, f, SubPolicy, rep, Time_Sep, Left_queue)
+            arr_cost, dep_cost, totserv, prev_class, Ac_finished, next_completion_time = Serv_Completions(Ac_Info, Ac_queue, prev_class, totserv, Ac_finished, latest_time, next_completion_time, cost_fn, f, SubPolicy, rep, Time_Sep, Left_queue)
             tot_arr_cost += arr_cost
             tot_dep_cost += dep_cost
 
@@ -501,7 +462,7 @@ while rep < no_reps:
 
     ArrTime_Sorted.sort(key=lambda x: x[0])
 
-    posthoc_cost = Posthoc_Check(Left_queue,Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm,0, NoA, w_rho, k, Time_Sep, thres1, thres2, lam1, lam2)
+    posthoc_cost = Posthoc_Check(Left_queue,Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm,0, NoA, w_rho, k, Time_Sep, cost_fn)
     gg.write('Posthoc Check'+','+str(posthoc_cost)+',')
 
     for i in range(NoA):

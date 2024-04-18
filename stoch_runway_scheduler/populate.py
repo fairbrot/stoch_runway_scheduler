@@ -8,9 +8,7 @@ import time
 import numpy as np
 from .utils import FlightInfo, SequenceInfo
 
-def Repopulate_VNS(GA_PopList: List[List[int]], GA_Info: List[SequenceInfo],
-                    GA_PopSize: int, Opt_List: List[SequenceInfo], S_min: int,
-                    VNS_counter: int, VNS_limit: int, tot_mut: int):
+def Repopulate_VNS(GA_Info: List[SequenceInfo], GA_PopSize: int, S_min: int, VNS_counter: int, VNS_limit: int, tot_mut: int):
     """
     Increases population of sequences GA_PopList (and associated GA_Info) to be at least GA_Popsize
     by modifying best current sequence.
@@ -19,20 +17,15 @@ def Repopulate_VNS(GA_PopList: List[List[int]], GA_Info: List[SequenceInfo],
 
     Arguments:
     ---------
-    GA_PopList: current list of sequences in population
     GA_Info: information associated with each sequence
     GA_PopSize: required size of population
-    Opt_List: current list of infomation on most "optimal" sequences
-    S_min: required size of Opt_List
+    S_min: size population is reduced to (Step 4B)
     VNS_counter: counter (m in paper)
     VNS_limit: m_mut in paper
     tot_mut: total number of times mutate_sequence has been run
     """
-
-    # JF Question: this function seems to keep best previous `S_min` sequences from GA_PopList and Opt_List
-    #              and then create a completely new GA_PopList with GA_PopSize sequences.
-    #
-    # JF Note: I don't fully understand logic behind VNS_counter and Opt_List
+    for info in GA_Info:
+        info.age += 1
 
     # VNS_counter counts how many non-improving heuristic moves we've made since the last reset
 
@@ -50,8 +43,6 @@ def Repopulate_VNS(GA_PopList: List[List[int]], GA_Info: List[SequenceInfo],
         flight_msg = str(j) + ',' + str(info.v) +',' + str(info.sequence) + '\n'
         stepthrough_logger.info(flight_msg)
         step_summ_logger.info(flight_msg)
-
-    #AC_remaining = len(Arr_Pool) + len(Arr_NotReady)
     
     # JF Note: previously used the line below
     #          to get length of sequence, 
@@ -59,109 +50,73 @@ def Repopulate_VNS(GA_PopList: List[List[int]], GA_Info: List[SequenceInfo],
     #          the current best sequence.
     #          This does create a new error in genetic however.
     # no_ACs = min(Max_LookAhead, AC_remaining)
-    assert len(Opt_List) != 0
-    no_ACs = len(Opt_List[0].sequence)
+    assert len(GA_Info) != 0 # JF Question: can this not be the case?
+    no_ACs = len(GA_Info[0].sequence)
 
     queue_probs = [0] * no_ACs
 
-    # Get best average cost (Best_in_pop, Best_in_opt)
-    # This block is only used to increment VNS_counter
-    # which keeps track of non-improving heuristic moves
-    # This checks whether or not the best sequence
+    # Get best sequence according to average cost
+    # This block is also used to increment VNS_counter
+    # which keeps track of times since the best sequence was
+    # found to be new
+    # This works by checking whether or not the best sequence
     # was already in the population last time we entered 4C
     # If it was we increment VNS_counter (m in pape)
     # otherwise we reset it to zero (steps a-b in 4C)
-    # JF Question: I don't understand how the below achieves this aim
-    if len(Opt_List) > 0 and len(GA_Info) > 0:
+    assert len(GA_Info) > 0 # JF Question: Is there any reason this would be zero?
 
-        GA_Info.sort(key=lambda x: x.v)
-        Best_in_pop = GA_Info[0].v
-        Opt_List.sort(key=lambda x: x.v)
-        Best_in_opt = Opt_List[0].v
-
-        if Best_in_opt < Best_in_pop:
-            VNS_counter += 1
-            step_new_logger.info('VNS_counter increased to %d', VNS_counter)
-        else:
-            VNS_counter = 0
-
-    elif len(Opt_List) > 0 and len(GA_Info) == 0:
+    # JF - need to check here whether best sequence was already in population
+    GA_Info.sort(key=lambda x: x.v)
+    best_seq_info = GA_Info[0]
+    if best_seq_info.age > 1:
         VNS_counter += 1
         step_new_logger.info('VNS_counter increased to %d', VNS_counter)
+    else:
+        VNS_counter = 0
+    Best_Seq = best_seq_info.sequence
 
+    # Filter populatation (Step 4B)
+    while len(GA_Info) > S_min:
+        GA_Info.pop()
 
-    # Get best n=S_min sequences from GA_Info and Opt_List
-    New_Opt_List=[]
+    # Reset all sequence information in GA_Info apart from age
     for info in GA_Info:
-        New_Opt_List.append(copy(info))
-    for info in Opt_List:
-        New_Opt_List.append(copy(info))
-
-    New_Opt_List.sort(key=lambda x: x.v)
-
-    while len(New_Opt_List) > S_min:
-        New_Opt_List.pop(len(New_Opt_List)-1)
-
-    Best_Seq = New_Opt_List[0].sequence
-
-    # Reset all sequence information in new list
-    Opt_Seqs = []
-    for info in New_Opt_List:
         info.n_traj = 0 # HMMM
         info.v = 0
         info.queue_probs = queue_probs
         info.w = 0
-        Opt_Seqs.append(info.sequence[:])
+
+    GA_PopList = [info.sequence for info in GA_Info]
 
     # Step c in 4C - apply mutate to ceate a new base sequence
     if VNS_counter >= VNS_limit:
         tot_mut += 1 # total mutations - only for logging purposes
         step_new_logger.info('Mutation performed!')
         # Perturb the optimal sequence
-        Opt_Seq = Best_Seq[:] # Opt_List[0][0]
+        Opt_Seq = Best_Seq[:]
         Best_Seq = mutate_sequence(Opt_Seq)
         VNS_counter = 0         # Reset counter
 
-    New_PopList = []
-
     # Apply heuristic move operator to generate enough sequences
     c = 0
-    # JF Question: we should have len(Opt_Seqs) == S_min because of code above (unless len(GA_Info) + len(Opt_List) < S_min to begin with)
-    while len(New_PopList) < GA_PopSize or len(Opt_Seqs) < S_min:
-
-        if c < 25: # no_ACs >= 6:
+    while len(GA_Info) < GA_PopSize:
+        if c < 25:
             new_seq = heuristic_move(Best_Seq) # Apply a change to the Best_Seq sequence
-        elif c < 50: #else:
+        elif c < 50:
             new_seq = random.sample(Best_Seq, k=len(Best_Seq)) # random shuffle
         else:
             # In this case, give up finding new sequences
             break
 
-        if new_seq not in New_PopList and new_seq not in Opt_Seqs:
-            if len(New_PopList) < GA_PopSize:
-                New_PopList.append(new_seq)
-                c = 0
-            else:
-                Opt_Seqs.append(new_seq)
-                New_Opt_List.append(SequenceInfo(new_seq, 0, 0, queue_probs, 0))
-                c = 0
+        if new_seq not in GA_PopList:
+            GA_PopList.append(new_seq)
+            GA_Info.append(SequenceInfo(new_seq, 0, 0, queue_probs, 0, 0))
+            c = 0
         else:
             c += 1
 
-    GA_PopList = New_PopList[:]
-
-    GA_Info = []
-    for j in range(len(GA_PopList)):
-        GA_Info.append(SequenceInfo(GA_PopList[j][:],0,0,queue_probs,0))
-
     GA_PopList_sorted=GA_PopList[:]
     GA_PopList_sorted.sort()
-
-    Opt_List = New_Opt_List[:]
-
-    # JF Question: I'm not really sure how this would happen
-    if len(Opt_List) == 0:
-        Opt_List = GA_Info[:]
 
     # More logging
     msg = 'Here is the new pop list after adding new sequences and sorting in sequence order:'
@@ -172,15 +127,8 @@ def Repopulate_VNS(GA_PopList: List[List[int]], GA_Info: List[SequenceInfo],
         stepthrough_logger.info(seq_msg)
         step_summ_logger.info(seq_msg)
 
-    step_new_logger.info('Here is the new Opt_List: ')
-    for seq_info in Opt_List:
-        step_new_logger.info(seq_info)
-    step_new_logger.info('Here is the new Pop_List:')
-    for seq in GA_PopList:
-        step_new_logger.info(seq)
-
     # JF Question: why is Opt_Seq returned but not Opt_Seqs?
-    return GA_PopList, GA_Info, Opt_List, VNS_counter, tot_mut
+    return VNS_counter, tot_mut
 
 # 
 def Populate(Ac_Info: List[FlightInfo], base_seq: List[int], 
@@ -206,6 +154,7 @@ def Populate(Ac_Info: List[FlightInfo], base_seq: List[int],
 
     # JF Question: should we add an assert that len(base_seq) <= Max_SeqLength? Yes
 
+
     # Number of flights not yet released from pool
     AC_remaining = len(Arr_Pool) + len(Arr_NotReady)
     no_ACs = min(Max_SeqLength, AC_remaining) # Lengths of all sequences that will be generated
@@ -230,7 +179,7 @@ def Populate(Ac_Info: List[FlightInfo], base_seq: List[int],
         remaining_seq = Arr_Pool + Arr_NotReady
         GA_PopList = [list(seq) for seq in itertools.permutations(remaining_seq)]
         # JF Question: Not clear why these all share same queue_probs list - this is not the case below where a new prob list is created for each sequence
-        GA_Info = [SequenceInfo(poplist[:], 0, 0, queue_probs, 0) for poplist in GA_PopList]
+        GA_Info = [SequenceInfo(poplist[:], 0, 0, queue_probs, 0, 0) for poplist in GA_PopList]
 
     else:
         GA_PopList = []
@@ -247,7 +196,7 @@ def Populate(Ac_Info: List[FlightInfo], base_seq: List[int],
             if new_seq not in GA_PopList:
                 GA_PopList.append(new_seq)
                 queue_probs = [0] * AC_remaining
-                GA_Info.append(SequenceInfo(new_seq[:], 0, 0, queue_probs, 0))
+                GA_Info.append(SequenceInfo(new_seq[:], 0, 0, queue_probs, 0, 0))
                 no_seqs += 1
             else:
                 # If already in population of sequences,
@@ -258,7 +207,7 @@ def Populate(Ac_Info: List[FlightInfo], base_seq: List[int],
                     if new_seq not in GA_PopList:
                         GA_PopList.append(new_seq)
                         queue_probs = [0] * AC_remaining
-                        GA_Info.append(SequenceInfo(new_seq[:], 0, 0, queue_probs, 0))
+                        GA_Info.append(SequenceInfo(new_seq[:], 0, 0, queue_probs, 0, 0))
                         no_seqs += 1
 
     return GA_PopList, GA_Info
