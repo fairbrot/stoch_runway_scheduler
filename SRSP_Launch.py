@@ -273,14 +273,14 @@ while rep < no_reps:
     queue_probs = [0] * NoA # JF Question: this is shared between solutions? Should this really be the case? Possibly is independent of sequence
     Opt_List = [] # For storing SequenceInfo of best solutions
     Opt_Seqs = []
-    Opt_Size = 10 # Length of shortlist JF - Perhaps move to parameters
+    S_min = 10 # Length of shortlist JF - Perhaps move to parameters
 
     # JF Note: we may now not need separate lists Opt_Seqs and GA_PopList - Rob thinks a list of best sequences probably isn't needed now
     # Only really need to keep best sequence and mutate from that.
     # When Rob wrote this code originally he had idea of using best n sequences for generating new sequences
     # Create an initial population of sequences for Opt_Seq
     # which shouldn't intersect GA_PopList
-    while len(Opt_List) < Opt_Size:
+    while len(Opt_List) < S_min:
         new_seq = random.sample(FSFS_seq, k=len(FSFS_seq)) # shuffle fcfs sequence
         if new_seq not in GA_PopList and new_seq not in Opt_Seqs: # This is just to initialise opt_list - we want to compare with distinct GA_PopList
             Opt_List.append(SequenceInfo(new_seq[:],0,0,queue_probs,0)) # analogous to GA_Info
@@ -415,7 +415,7 @@ while rep < no_reps:
             Opt_Seqs = []
             c = 0 # JF Question: Is this actually used?
             # This looks very similar to initialisation of Opt_List above
-            while len(Opt_List)<Opt_Size and c < 25:
+            while len(Opt_List)<S_min and c < 25:
                 new_seq = base_seq[:]
                 random.shuffle(new_seq)
                 if new_seq not in GA_PopList and new_seq not in Opt_Seqs:
@@ -437,7 +437,7 @@ while rep < no_reps:
                 Loop_Evals += GA_counter
                 # Create more seqeuences from best current sequence
                 GA_PopList, GA_Info, Opt_List, VNS_counter, tot_mut = Repopulate_VNS(GA_PopList, GA_Info, GA_PopSize,
-                                                                                        Opt_List, Opt_Size, VNS_counter, VNS_limit, tot_mut)
+                                                                                        Opt_List, S_min, VNS_counter, VNS_limit, tot_mut)
                 GA_counter = 0
                 GA_CheckSize = GA_Check_Increment
                 mv_time = 1
@@ -456,7 +456,7 @@ while rep < no_reps:
         if len(Arr_Pool) + len(Arr_NotReady) > 0:
             if SubPolicy == 'VNS':
                 # JF Question: should we be inputting wlb_tm and wub_tm rather than wlb and wub here?
-                Ac_added, counter, qp, pruned, GA_CheckSize, GA_counter, soln_evals_tot, soln_evals_num = Genetic(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, max(tm,0), k, prev_class, GA_PopList, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, tot_arr_cost + tot_dep_cost, wlb, wub, Opt_List, soln_evals_tot, soln_evals_num, tau, Max_LookAhead, Time_Sep, cost_fn, GA_Check_Increment, Opt_Size, w_rho, wiener_sig, weather_sig)
+                Ac_added, counter, qp, pruned, GA_CheckSize, GA_counter, soln_evals_tot, soln_evals_num = Genetic(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, max(tm,0), k, prev_class, GA_PopList, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, tot_arr_cost + tot_dep_cost, wlb, wub, Opt_List, soln_evals_tot, soln_evals_num, tau, Max_LookAhead, Time_Sep, cost_fn, GA_Check_Increment, S_min, w_rho, wiener_sig, weather_sig)
                 Ov_GA_counter+=1
                 stepthrough_logger.info('GA_counter is %d', GA_counter)
             elif SubPolicy=='VNSD':

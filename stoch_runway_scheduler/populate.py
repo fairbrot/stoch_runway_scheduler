@@ -9,7 +9,7 @@ import numpy as np
 from .utils import FlightInfo, SequenceInfo
 
 def Repopulate_VNS(GA_PopList: List[List[int]], GA_Info: List[SequenceInfo],
-                    GA_PopSize: int, Opt_List: List[SequenceInfo], Opt_Size: int,
+                    GA_PopSize: int, Opt_List: List[SequenceInfo], S_min: int,
                     VNS_counter: int, VNS_limit: int, tot_mut: int):
     """
     Increases population of sequences GA_PopList (and associated GA_Info) to be at least GA_Popsize
@@ -23,13 +23,13 @@ def Repopulate_VNS(GA_PopList: List[List[int]], GA_Info: List[SequenceInfo],
     GA_Info: information associated with each sequence
     GA_PopSize: required size of population
     Opt_List: current list of infomation on most "optimal" sequences
-    Opt_Size: required size of Opt_List
+    S_min: required size of Opt_List
     VNS_counter: counter (m in paper)
     VNS_limit: m_mut in paper
     tot_mut: total number of times mutate_sequence has been run
     """
 
-    # JF Question: this function seems to keep best previous `Opt_Size` sequences from GA_PopList and Opt_List
+    # JF Question: this function seems to keep best previous `S_min` sequences from GA_PopList and Opt_List
     #              and then create a completely new GA_PopList with GA_PopSize sequences.
     #
     # JF Note: I don't fully understand logic behind VNS_counter and Opt_List
@@ -90,7 +90,7 @@ def Repopulate_VNS(GA_PopList: List[List[int]], GA_Info: List[SequenceInfo],
         step_new_logger.info('VNS_counter increased to %d', VNS_counter)
 
 
-    # Get best n=Opt_Size sequences from GA_Info and Opt_List
+    # Get best n=S_min sequences from GA_Info and Opt_List
     New_Opt_List=[]
     for info in GA_Info:
         New_Opt_List.append(copy(info))
@@ -99,7 +99,7 @@ def Repopulate_VNS(GA_PopList: List[List[int]], GA_Info: List[SequenceInfo],
 
     New_Opt_List.sort(key=lambda x: x.v)
 
-    while len(New_Opt_List) > Opt_Size:
+    while len(New_Opt_List) > S_min:
         New_Opt_List.pop(len(New_Opt_List)-1)
 
     Best_Seq = New_Opt_List[0].sequence
@@ -126,8 +126,8 @@ def Repopulate_VNS(GA_PopList: List[List[int]], GA_Info: List[SequenceInfo],
 
     # Apply heuristic move operator to generate enough sequences
     c = 0
-    # JF Question: we should have len(Opt_Seqs) == Opt_Size because of code above (unless len(GA_Info) + len(Opt_List) < Opt_Size to begin with)
-    while len(New_PopList) < GA_PopSize or len(Opt_Seqs) < Opt_Size:
+    # JF Question: we should have len(Opt_Seqs) == S_min because of code above (unless len(GA_Info) + len(Opt_List) < S_min to begin with)
+    while len(New_PopList) < GA_PopSize or len(Opt_Seqs) < S_min:
 
         if c < 25: # no_ACs >= 6:
             new_seq = heuristic_move(Best_Seq) # Apply a change to the Best_Seq sequence
