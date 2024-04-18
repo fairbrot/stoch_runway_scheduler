@@ -7,8 +7,7 @@ from .gamma import gamma_cond_exp
 # Name may not be best choice
 def Genetic_determ(Ac_Info: List[FlightInfo], Arr_Pool: List[int], Arr_NotReady: List[int], 
                     Ac_queue: List[int], Left_queue: List[int], tm: float, NoA: int, k:int, 
-                    prev_class: int, GA_PopList: List[List[int]], GA_Info: List[SequenceInfo],
-                    wlb, wub, tau: int, Max_LookAhead: int, Time_Sep: List[List[int]], cost_fn: Cost, 
+                    prev_class: int, GA_Info: List[SequenceInfo], wlb, wub, tau: int, Max_LookAhead: int, Time_Sep: List[List[int]], cost_fn: Cost, 
                     tot_arr_cost: float, tot_dep_cost: float, w_rho: float, stepthrough:int, step_summ:int, step_new: int):
 
     output = 0 # output == 1 means we're printing results as we go along; output == 2 means we're outputting results to "Detailed" csv file

@@ -266,7 +266,7 @@ while rep < no_reps:
     FSFS_seq = [i for i in range(no_ACs)]
 
     # Arg 3 is Arr_Pool which is initially empty at this point
-    GA_PopList, GA_Info = Populate(Ac_Info, FSFS_seq, [], FSFS_seq, GA_PopSize, Max_LookAhead)
+    GA_Info = Populate(Ac_Info, FSFS_seq, [], FSFS_seq, GA_PopSize, Max_LookAhead)
 
     # Opt_Seq = FSFS_seq[:]
     OptCost = 1000000 # initial cost
@@ -282,8 +282,8 @@ while rep < no_reps:
     Ov_GA_counter = 0 # Rob thinks for logging purposes
 
     stepthrough_logger.info('Initial population of sequences:')
-    for (j, poplist) in enumerate(GA_PopList):
-        stepthrough_logger.info("%d, %s\n", j, poplist)
+    for (j, info) in enumerate(GA_Info):
+        stepthrough_logger.info("%d, %s\n", j, info.sequence)
 
     print(f'Ov_GA_counter: {Ov_GA_counter}')
 
@@ -382,7 +382,7 @@ while rep < no_reps:
                     break
 
             # We have released flights so we need to reinitialise population (Step 4A in paper)
-            GA_PopList, GA_Info = Populate(Ac_Info, base_seq, Arr_Pool, Arr_NotReady, GA_PopSize, Max_LookAhead)
+            GA_Info = Populate(Ac_Info, base_seq, Arr_Pool, Arr_NotReady, GA_PopSize, Max_LookAhead)
             queue_probs = [0]*(len(Arr_Pool)+len(Arr_NotReady))
 
             GA_counter = 0 # reset counter
@@ -417,11 +417,11 @@ while rep < no_reps:
         if len(Arr_Pool) + len(Arr_NotReady) > 0:
             if SubPolicy == 'VNS':
                 # JF Question: should we be inputting wlb_tm and wub_tm rather than wlb and wub here?
-                Ac_added, counter, qp, pruned, GA_CheckSize, GA_counter, soln_evals_tot, soln_evals_num = Genetic(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, max(tm,0), k, prev_class, GA_PopList, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, tot_arr_cost + tot_dep_cost, wlb, wub, soln_evals_tot, soln_evals_num, tau, Max_LookAhead, Time_Sep, cost_fn, GA_Check_Increment, S_min, w_rho, wiener_sig, weather_sig)
+                Ac_added, counter, qp, pruned, GA_CheckSize, GA_counter, soln_evals_tot, soln_evals_num = Genetic(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, max(tm,0), k, prev_class, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, tot_arr_cost + tot_dep_cost, wlb, wub, soln_evals_tot, soln_evals_num, tau, Max_LookAhead, Time_Sep, cost_fn, GA_Check_Increment, S_min, w_rho, wiener_sig, weather_sig)
                 Ov_GA_counter+=1
                 stepthrough_logger.info('GA_counter is %d', GA_counter)
             elif SubPolicy=='VNSD':
-                Ac_added, counter, qp, stored_queue_complete = Genetic_determ(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, Left_queue, max(tm,0), NoA, k, prev_class, GA_PopList, GA_Info, wlb, wub, tau, Max_LookAhead, Time_Sep, cost_fn, tot_arr_cost, tot_dep_cost, w_rho, stepthrough, step_summ, step_new)
+                Ac_added, counter, qp, stored_queue_complete = Genetic_determ(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, Left_queue, max(tm,0), NoA, k, prev_class, GA_Info, wlb, wub, tau, Max_LookAhead, Time_Sep, cost_fn, tot_arr_cost, tot_dep_cost, w_rho, stepthrough, step_summ, step_new)
                 Ov_GA_counter += 1
                 GA_counter += 1
                 stepthrough_logger.info('GA_counter is %d', GA_counter)

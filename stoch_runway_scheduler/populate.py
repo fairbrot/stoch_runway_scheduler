@@ -10,7 +10,7 @@ from .utils import FlightInfo, SequenceInfo
 
 def Repopulate_VNS(GA_Info: List[SequenceInfo], GA_PopSize: int, S_min: int, VNS_counter: int, VNS_limit: int, tot_mut: int):
     """
-    Increases population of sequences GA_PopList (and associated GA_Info) to be at least GA_Popsize
+    Increases population of sequences in GA_Info to be at least GA_Popsize
     by modifying best current sequence.
 
     Information on all sequences (including old ones) is reset.
@@ -148,7 +148,6 @@ def Populate(Ac_Info: List[FlightInfo], base_seq: List[int],
 
     Returns
     -------
-    GA_PopList: List of sequences
     GA_Info: List of information about sequences
     """
 
@@ -210,7 +209,7 @@ def Populate(Ac_Info: List[FlightInfo], base_seq: List[int],
                         GA_Info.append(SequenceInfo(new_seq[:], 0, 0, queue_probs, 0, 0))
                         no_seqs += 1
 
-    return GA_PopList, GA_Info
+    return GA_Info
 
 def mutate_sequence(base_seq: List[int]) -> List[int]:
     """

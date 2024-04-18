@@ -10,7 +10,7 @@ from .gamma import Gamma_GetServ, Gamma_GetServ_Future, Gamma_Conditional_GetSer
 from .simulate import simulate_weather, simulate_flight_times
 
 # JF: this is the main sim heuristic
-def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, prev_class, GA_PopList, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, basecost, wlb, wub, soln_evals_tot, soln_evals_num, tau: int, Max_LookAhead: int, Time_Sep: List[List[int]], cost_fn: Cost, GA_Check_Increment: int, S_min: int, w_rho: float, wiener_sig: float, weather_sig: float):
+def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, prev_class, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, basecost, wlb, wub, soln_evals_tot, soln_evals_num, tau: int, Max_LookAhead: int, Time_Sep: List[List[int]], cost_fn: Cost, GA_Check_Increment: int, S_min: int, w_rho: float, wiener_sig: float, weather_sig: float):
     # JF Note: could maybe remove argument Max_LookAhead if no_ACs can be inferred from other arguments
     stepthrough_logger = logging.getLogger("stepthrough")
     step_summ_logger = logging.getLogger("step_summ")
@@ -147,7 +147,7 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, 
         step_new_logger.info('GA_counter: '+','+str(GA_counter)+'\n')
         step_new_logger.info('Arr_Pool: '+','+str(Arr_Pool)+'\n')
         step_new_logger.info('Ac_queue: '+','+str(Ac_queue)+'\n'+'\n')
-        step_new_logger.info('GA_PopList:'+'\n')
+        step_new_logger.info('GA_Info:'+'\n')
         for i in range(len(GA_Info)):
             step_new_logger.info(str(GA_Info[i])+'\n')
 
@@ -183,7 +183,7 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, 
                 soln_evals_num+=1
                 GA_Info.remove(SequenceInfo(GA_Infoj.sequence,GA_Infoj.n_traj,GA_Infoj.v,GA_Infoj.queue_probs,GA_Infoj.w, GA_Infoj.age))
             else:
-                step_new_logger.info('Retained sequence '+','+str(GA_Infoj)+','+' in GA_PopList'+'\n')
+                step_new_logger.info('Retained sequence '+','+str(GA_Infoj)+','+' in GA_Info'+'\n')
                 j+=1
 
         if len(GA_Info) <= S_min:
