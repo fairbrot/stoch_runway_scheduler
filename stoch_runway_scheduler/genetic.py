@@ -16,7 +16,7 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, 
     step_summ_logger = logging.getLogger("step_summ")
     step_new_logger = logging.getLogger("step_new")
 
-    output = 0 # output=1 means we're printing results as we go along; output=2 means we're outputting results to "Detailed" csv file
+    output = 0 # output = 1 means we're printing results as we go along; output=2 means we're outputting results to "Detailed" csv file
     pruned = 0 # indicator of whether or not the number of sequences has gone below the minimum number
 
     stepthrough_logger.info('Now entering Genetic procedure')
@@ -53,6 +53,7 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, 
             Ac_Infoi = Ac_Info[AC]
             rel_time = Ac_Infoi.release_time
             cur_class = Ac_Infoi.ac_class
+            # ROB TO CHECK - should we use max(queue_complete, rel_time) in line below?
             weather_state = weather(rel_time, wlb_gen, wub_gen) # weather(queue_complete, wlb_gen, wub_gen)
             trav_time = Trav_Time[AC]
 
@@ -77,22 +78,19 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, 
 
 
     else:
-
         queue_complete=tm
         perm_prev_class=prev_class
 
     stored_prev_class = perm_prev_class
-    stored_queue_complete = queue_complete # JF Question: when flight at end of queue has been serviced?
 
     # Try all the sequences in the population
-
     for info in GA_Info:
 
         stepthrough_logger.info('Now trying sequence %s', info.sequence)
         stepthrough_logger.info('AC'+','+'Class'+','+'Time Sep'+','+'Arrives in pool'+','+'Release time'+','+'Travel time'+','+'Enters serv'+','+'Actual serv'+','+'Finish time'+','+'Pax weight'+','+'Cost'+'\n')
 
         permcost = basecost
-        latest_tm = tm 
+        latest_tm = tm
         perm_prev_class = stored_prev_class
         perm_queue_complete = queue_complete
 
@@ -100,78 +98,78 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, 
         info.n_traj += 1
         gam=1/info.n_traj #
 
-        no_ACs = min(Max_LookAhead, len(perm))
+        no_ACs = min(Max_LookAhead, len(perm)) # JF Question: can this not just be len(perm)?
         for index in range(no_ACs):
 
             AC = perm[index]
             Ac_Infoi = Ac_Info[AC]
             perm_class = Ac_Infoi.ac_class
             reltime = max(latest_tm, ArrTime[AC])
-            begin_serv = max(reltime,perm_queue_complete)
+            begin_serv = max(reltime, perm_queue_complete)
             weather_state = weather(reltime, wlb_gen, wub_gen)
 
 
-            stepthrough_logger.info(str(AC) + ',' + str(perm_class) + ',' + str(Time_Sep[perm_prev_class][perm_class]/60)+',' + str(ArrTime[AC]) + ',' + str(reltime) + ',' + str(Trav_Time[AC]) + ',' + str(perm_queue_complete)+',')
+            stepthrough_logger.info('%d, %s, %.2f, %.2f, %.2f, %.2f, %.2f,',
+                                    AC, perm_class, Time_Sep[perm_prev_class][perm_class]/60, ArrTime[AC], reltime, Trav_Time[AC], perm_queue_complete)
 
             AC_FinishTime, straight_into_service = Gamma_GetServ(k, Time_Sep, reltime, Trav_Time[AC], perm_prev_class, perm_class, 
                                                                 perm_queue_complete,weather_state, w_rho, serv_time = ServTime[AC])
 
             # Rob says queue_probs are sequence dependent - check this object is not shared
-            info.queue_probs[index] = (1 - gam) * info.queue_probs[index] + gam*straight_into_service # JF Question: could this be explained
+            info.queue_probs[index] = (1 - gam) * info.queue_probs[index] + gam*straight_into_service
 
             permcost += cost_fn(Ac_Infoi.orig_sched_time, ArrTime[AC], Trav_Time[AC], AC_FinishTime, Ac_Infoi.passenger_weight)
             latest_tm = reltime
 
-
+            # JF Question: cost_fn below not consistent with that above. Why?
             stepthrough_logger.info(str(AC_FinishTime)+','+str(Ac_Infoi.passenger_weight)+','+str(cost_fn(Ac_Infoi.ps_time,ArrTime[AC],Trav_Time[AC],AC_FinishTime,Ac_Infoi.passenger_weight))+'\n')
 
-            perm_queue_complete=AC_FinishTime
-            perm_prev_class=perm_class
+            perm_queue_complete = AC_FinishTime
+            perm_prev_class = perm_class
 
         stepthrough_logger.info('Final cost: '+','+str(permcost)+','+'Gamma: '+','+str(gam)+','+'Old cost: '+','+str(info.v)+',')
 
-        info.v=(1-gam)*info.v+gam*permcost
+        info.v = (1-gam)*info.v + gam*permcost
         info.w += permcost**2
         stepthrough_logger.info('Total cost: '+','+str(info.v)+','+'Queue probs: '+','+str(info.queue_probs)+'\n'+'\n')
 
     GA_Info.sort(key=lambda x: x.sequence)
-    for j in range(len(GA_Info)):
-        step_summ_logger.info(str(GA_Info[j].v)+',')
+    for info in GA_Info:
+        step_summ_logger.info('%.2f, ', info.v)
     step_summ_logger.info('\n')
 
     GA_Info.sort(key=lambda x: x.v)
 
-    GA_counter+=1
+    GA_counter += 1
 
     if GA_counter>=GA_CheckSize:
 
-        step_new_logger.info('GA_counter: '+','+str(GA_counter)+'\n')
-        step_new_logger.info('Arr_Pool: '+','+str(Arr_Pool)+'\n')
-        step_new_logger.info('Ac_queue: '+','+str(Ac_queue)+'\n'+'\n')
+        step_new_logger.info('GA_counter: %s, ', GA_counter)
+        step_new_logger.info('Arr_Pool: %s, ', Arr_Pool)
+        step_new_logger.info('Ac_queue: %s, ', Ac_queue)
         step_new_logger.info('GA_Info:'+'\n')
-        for i in range(len(GA_Info)):
-            step_new_logger.info(str(GA_Info[i])+'\n')
+        for info in GA_Info:
+            step_new_logger.info('%s', info)
 
         t_val=1.96 #97.5th percentile of normal dist
 
         # Ranking and selection
         for info in GA_Info:
-            info=GA_Info[j]
-            if info.v>0:
-                mn1=info.v
-                n1=info.n_traj
-                var1=(info.w-(n1*mn1**2))/(n1-1)
+            if info.v > 0:
+                mn1 = info.v
+                n1 = info.n_traj
+                var1 = (info.w-(n1*mn1**2)) / (n1 - 1)
 
-                # This is in Section 3.1 of the paper (equations 14-17)
+                # This is in Section 3.1 (2B of algorithm) of the paper (Equations 14-17)
                 for GA_Infom in GA_Info:
-                    if GA_Infom.v>0:
-                        mn2=GA_Infom.v
-                        n2=GA_Infom.n_traj
-                        var2=(GA_Infom.w-(n2*mn2**2))/(n2-1)
-                        w_val=math.sqrt(((t_val**2)*var1/n1)+((t_val**2)*var2/n2))
+                    if GA_Infom.v > 0:
+                        mn2 = GA_Infom.v
+                        n2 = GA_Infom.n_traj
+                        var2 = (GA_Infom.w-(n2*mn2**2)) / (n2-1)
+                        w_val = math.sqrt(((t_val**2)*var1/n1)+((t_val**2)*var2/n2))
 
                         if mn1 > mn2 + w_val:
-                            info.v=-1 # JF Question: is this in order mark flights for removal? Yes
+                            info.v=-1 # This marks flights for removal
                             break
 
                         elif mn2 > mn1 + w_val:
@@ -181,11 +179,11 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, 
         # JF Question: what is happening here? This looks like sequences are being remove from list if v is less than 0
         j=0
         while j<len(GA_Info): # JF Note: make more idiomatic
-            GA_Infoj=GA_Info[j]
+            GA_Infoj = GA_Info[j]
             if GA_Infoj.v < 0: # JF Question: how would this occur?
                 soln_evals_tot += GA_Infoj.n_traj
                 soln_evals_num += 1
-                GA_Info.remove(SequenceInfo(GA_Infoj.sequence,GA_Infoj.n_traj,GA_Infoj.v,GA_Infoj.queue_probs,GA_Infoj.w, GA_Infoj.age)) # JF Note - make this more idiomatic
+                GA_Info.remove(SequenceInfo(GA_Infoj.sequence, GA_Infoj.n_traj, GA_Infoj.v, GA_Infoj.queue_probs, GA_Infoj.w, GA_Infoj.age)) # JF Note - make this more idiomatic
             else:
                 step_new_logger.info('Retained sequence '+','+str(GA_Infoj)+','+' in GA_Info'+'\n')
                 j+=1
