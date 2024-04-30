@@ -72,7 +72,7 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, 
             # 	trav_time=wiener_cdf[sched][z]
 
             # JF: does tm need updating here for other flights
-            queue_complete, straight_into_service = Gamma_GetServ(k, Time_Sep, rel_time, trav_time, perm_prev_class, cur_class, tm, weather_state, w_rho)
+            queue_complete, straight_into_service = Gamma_GetServ(k, Time_Sep, rel_time, trav_time, perm_prev_class, cur_class, queue_complete, weather_state, w_rho)
             perm_prev_class = cur_class
             basecost += cost_fn(Ac_Infoi.orig_sched_time, Ac_Infoi.pool_time, trav_time, queue_complete, Ac_Infoi.passenger_weight)
 
