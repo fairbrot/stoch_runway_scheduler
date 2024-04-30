@@ -49,7 +49,6 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, 
 
         # Now consider the rest of the customers in the queue
         for j in range(1,len(Ac_queue)):
-
             AC = Ac_queue[j]
             Ac_Infoi = Ac_Info[AC]
             rel_time = Ac_Infoi.release_time
@@ -83,7 +82,7 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, 
         perm_prev_class=prev_class
 
     stored_prev_class = perm_prev_class
-    stored_queue_complete = queue_complete
+    stored_queue_complete = queue_complete # JF Question: when flight at end of queue has been serviced?
 
     # Try all the sequences in the population
 
@@ -93,7 +92,7 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, 
         stepthrough_logger.info('AC'+','+'Class'+','+'Time Sep'+','+'Arrives in pool'+','+'Release time'+','+'Travel time'+','+'Enters serv'+','+'Actual serv'+','+'Finish time'+','+'Pax weight'+','+'Cost'+'\n')
 
         permcost = basecost
-        latest_tm = tm
+        latest_tm = tm 
         perm_prev_class = stored_prev_class
         perm_queue_complete = queue_complete
 
@@ -107,16 +106,17 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, 
             AC = perm[index]
             Ac_Infoi = Ac_Info[AC]
             perm_class = Ac_Infoi.ac_class
-            reltime = max(latest_tm,ArrTime[AC])
+            reltime = max(latest_tm, ArrTime[AC])
             begin_serv = max(reltime,perm_queue_complete)
-            weather_state = weather(reltime,wlb_gen,wub_gen)
+            weather_state = weather(reltime, wlb_gen, wub_gen)
 
 
-            stepthrough_logger.info(str(AC) + ',' + str(perm_class) + ',' + str(Time_Sep[perm_prev_class][perm_class]/60)+','+str(ArrTime[AC]) + ',' + str(reltime) + ',' + str(Trav_Time[AC]) + ',' + str(perm_queue_complete)+',')
+            stepthrough_logger.info(str(AC) + ',' + str(perm_class) + ',' + str(Time_Sep[perm_prev_class][perm_class]/60)+',' + str(ArrTime[AC]) + ',' + str(reltime) + ',' + str(Trav_Time[AC]) + ',' + str(perm_queue_complete)+',')
 
             AC_FinishTime, straight_into_service = Gamma_GetServ_Future(k, Time_Sep, reltime, ServTime[AC], Trav_Time[AC], perm_prev_class, perm_class, perm_queue_complete,weather_state, w_rho)
 
-            info.queue_probs[index] = (1 - gam) * info.queue_probs[index] + gam*straight_into_service
+            # Rob says queue_probs are sequence dependent - check this object is not shared
+            info.queue_probs[index] = (1 - gam) * info.queue_probs[index] + gam*straight_into_service # JF Question: could this be explained
 
             permcost += cost_fn(Ac_Infoi.orig_sched_time, ArrTime[AC], Trav_Time[AC], AC_FinishTime, Ac_Infoi.passenger_weight)
             latest_tm = reltime
@@ -153,6 +153,7 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, 
 
         t_val=1.96 #97.5th percentile of normal dist
 
+        # Ranking and selection
         for info in GA_Info:
             info=GA_Info[j]
             if info.v>0:
@@ -160,6 +161,7 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, 
                 n1=info.n_traj
                 var1=(info.w-(n1*mn1**2))/(n1-1)
 
+                # This is in Section 3.1 of the paper (equations 14-17)
                 for GA_Infom in GA_Info:
                     if GA_Infom.v>0:
                         mn2=GA_Infom.v
@@ -167,57 +169,60 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, 
                         var2=(GA_Infom.w-(n2*mn2**2))/(n2-1)
                         w_val=math.sqrt(((t_val**2)*var1/n1)+((t_val**2)*var2/n2))
 
-                        if mn1>mn2+w_val:
-                            info.v=-1
+                        if mn1 > mn2 + w_val:
+                            info.v=-1 # JF Question: is this in order mark flights for removal? Yes
                             break
 
-                        elif mn2>mn1+w_val:
+                        elif mn2 > mn1 + w_val:
                             GA_Infom.v=-1
 
 
+        # JF Question: what is happening here? This looks like sequences are being remove from list if v is less than 0
         j=0
-        while j<len(GA_Info):
+        while j<len(GA_Info): # JF Note: make more idiomatic
             GA_Infoj=GA_Info[j]
-            if GA_Infoj.v<0: # JF Question: how would this occur?
-                soln_evals_tot+=GA_Infoj.n_traj
-                soln_evals_num+=1
-                GA_Info.remove(SequenceInfo(GA_Infoj.sequence,GA_Infoj.n_traj,GA_Infoj.v,GA_Infoj.queue_probs,GA_Infoj.w, GA_Infoj.age))
+            if GA_Infoj.v < 0: # JF Question: how would this occur?
+                soln_evals_tot += GA_Infoj.n_traj
+                soln_evals_num += 1
+                GA_Info.remove(SequenceInfo(GA_Infoj.sequence,GA_Infoj.n_traj,GA_Infoj.v,GA_Infoj.queue_probs,GA_Infoj.w, GA_Infoj.age)) # JF Note - make this more idiomatic
             else:
                 step_new_logger.info('Retained sequence '+','+str(GA_Infoj)+','+' in GA_Info'+'\n')
                 j+=1
 
         if len(GA_Info) <= S_min:
 
-            solns_left=len(GA_Info)
-
+            solns_left=len(GA_Info) # These calculated for output purposes
             soln_evals_tot+=(solns_left*GA_LoopSize)
             soln_evals_num+=solns_left
-            pruned=1
+            pruned=1 # JF Question: this enables Repopulate_VNS
 
-        if GA_counter>=GA_LoopSize:
-            GA_CheckSize=GA_Check_Increment
-            solns_left=len(GA_Info)
+        # When iterations reaches GA_LoopSize (500) we reset GA_CheckSize - otherwise
+        # we increase so ranking 
+        if GA_counter >= GA_LoopSize:
+            GA_CheckSize = GA_Check_Increment
+            solns_left = len(GA_Info)
             soln_evals_tot+=(solns_left*GA_LoopSize)
             soln_evals_num+=solns_left
         else:
-            GA_CheckSize+=GA_Check_Increment
+            GA_CheckSize += GA_Check_Increment
         step_new_logger.info('New GA_CheckSize: '+str(GA_CheckSize)+'\n'+'\n')
 
     Ac_added=[]
 
+    # JF Question: make some flights in best sequence for release? Yes
     if len(Arr_Pool)>0:
         assert len(GA_Info) > 0
-        perm = GA_Info[0] # JF Question: is this assuming the list is in a particular order?
+        perm = GA_Info[0] # JF Question: is this assuming the list is in a particular order? Yes
 
         if perm.sequence[0] in Arr_Pool:
 
-            counter=perm.n_traj
-            qp=perm.queue_probs[0]
+            counter = perm.n_traj
+            qp = perm.queue_probs[0]
 
             if counter >= GA_Check_Increment or pruned==1:
-                if qp>0: #0.05:
+                if qp > 0: #0.05:
                     j=0
-                    while perm.queue_probs[j] > 0: #0.05:
+                    while perm.queue_probs[j] > 0: #0.05: # JF Note: Make more idiomatic
                         AC = perm.sequence[j]
                         Ac_added.append(AC)
                         step_new_logger.info('Counter is '+','+str(counter)+', ss_prob is '+','+str(perm.queue_probs[j])+', Adding AC '+','+str(AC)+'\n')

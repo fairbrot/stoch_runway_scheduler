@@ -234,7 +234,7 @@ def Calculate_FCFS(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_mi
 
     return FCFS_cost
 
-
+# JF Question: what does this do?
 def Posthoc_Check(seq,Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm,output, NoA: int, w_rho: float, k: int, Time_Sep: List[List[int]], cost_fn: Cost):
 
     perm=seq
@@ -247,9 +247,9 @@ def Posthoc_Check(seq,Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm,outp
 
     while j<NoA:
 
-        AC=perm[j]
-        Ac_Infoi=Ac_Info[AC]
-        release_time=Ac_Infoi.release_time #max(latest_tm,ArrTime[AC][0])
+        AC = perm[j]
+        Ac_Infoi = Ac_Info[AC]
+        release_time = Ac_Infoi.release_time #max(latest_tm,ArrTime[AC][0])
         #print('j: '+str(j)+' AC: '+str(AC)+' release_time: '+str(release_time))
         trav_time=Ac_Infoi.travel_time
         perm_class=Ac_Infoi.ac_class

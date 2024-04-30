@@ -53,7 +53,7 @@ def Gamma_GetServ(k: int, Time_Sep: List[List[int]], rel_time: float, trav_time:
     cur_class: weight class of current flight
     tm: current time
     weather_state: code for current state of weather (0, 1 or 2)
-    w_rho: multiplie for service time in case of bad weather
+    w_rho: multiplier for service time in case of bad weather
 
     Returns:
     --------
@@ -62,10 +62,10 @@ def Gamma_GetServ(k: int, Time_Sep: List[List[int]], rel_time: float, trav_time:
     """
 
     # JF Question: I think I don't understand outputs here - check with Rob
-
+    # JF Question: shouldn't current time be updated here to time of previous service completion?
     # This is for ACs that are already in the queue but not yet in service
 
-    t1 = rel_time + trav_time # time at which flight reaches runway
+    t1 = rel_time + trav_time # time at which flight reaches runway - JF - ask Rob about this
 
     rate = k / (Time_Sep[prev_class][cur_class]/60)
     if weather_state == 1:
@@ -77,7 +77,7 @@ def Gamma_GetServ(k: int, Time_Sep: List[List[int]], rel_time: float, trav_time:
 
     # Case 1: time to arrive at runway before current time plus time to be serviced
     if t1 < t2:
-        straight_into_service = 0
+        straight_into_service = 0 # JF Question: is this the wrong way round? Rob says yes - if aircraft arrives at runway before previous service is finished it has to wait
         t_out = t2
     else:
         straight_into_service = 1
@@ -89,7 +89,7 @@ def Gamma_GetServ_Future(k: int, Time_Sep: List[List[int]], rel_time, serv_time,
 
     # This is for ACs that have not yet been added to the queue
 
-    t1=rel_time+trav_time
+    t1 = rel_time + trav_time
 
     rate=k/(Time_Sep[prev_class][cur_class]/60)
     if weather_state==1:
@@ -98,7 +98,7 @@ def Gamma_GetServ_Future(k: int, Time_Sep: List[List[int]], rel_time, serv_time,
     getserv = serv_time # Look up the stored Gamma(k,1) value, serv_time
     getserv *= 1/rate # Convert it to the correct scale
 
-    t2 = tm + getserv
+    t2 = tm + getserv # JF Question: how can this be
 
     if t1 < t2:
         straight_into_service = 0
@@ -111,7 +111,7 @@ def Gamma_GetServ_Future(k: int, Time_Sep: List[List[int]], rel_time, serv_time,
 
 def Gamma_Conditional_GetServ(k: int, Time_Sep: List[List[int]], trav_time, rel_time, sv_time, prev_class, cur_class, tm, weather_state, w_rho: float):
 
-    #This is for the AC currently in service
+    # This is for the AC currently in service
 
     t1=rel_time+trav_time
 

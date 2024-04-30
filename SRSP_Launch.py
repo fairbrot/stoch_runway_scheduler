@@ -433,7 +433,8 @@ while rep < no_reps:
 
         # JF Question: what is this condition? freq replaced 100 here
         if int(tm*freq) != int(old_tm*freq):
-            Update_ETAs(Ac_Info, Arr_NotReady, Dep_NotReady, Ac_queue, tm, Brown_Motion, Arr_Pool, tau, freq)
+            # JF Question: should this use latest_time rather than tm? Rob thinks it is fine, but will check if necessary
+            Update_ETAs(Ac_Info, Arr_NotReady, Dep_NotReady, Ac_queue, tm, Brown_Motion, Arr_Pool, tau, freq) 
 
         if len(Ac_queue) > 0 and tm >= next_completion_time: #len(Ac_queue)>0:
             arr_cost, dep_cost, totserv, prev_class, Ac_finished, next_completion_time = Serv_Completions(Ac_Info, Ac_queue, prev_class, totserv, Ac_finished, latest_time, next_completion_time, cost_fn, f, SubPolicy, rep, Time_Sep, Left_queue)
@@ -461,7 +462,7 @@ while rep < no_reps:
         ServTime[i] = Ac_Info[i].service_rns
 
     ArrTime_Sorted.sort(key=lambda x: x[0])
-
+    # Posthoc check validates that flight statistics are consistent with costs
     posthoc_cost = Posthoc_Check(Left_queue,Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm,0, NoA, w_rho, k, Time_Sep, cost_fn)
     gg.write('Posthoc Check'+','+str(posthoc_cost)+',')
 
@@ -470,6 +471,7 @@ while rep < no_reps:
 
     print('Done!')
 
+    # JF Question: What is happening here?
     policy_index += 1
     if policy_index == len(Policies):
         # Do Perm Heuristic

@@ -127,7 +127,6 @@ def Repopulate_VNS(GA_Info: List[SequenceInfo], GA_PopSize: int, S_min: int, VNS
         stepthrough_logger.info(seq_msg)
         step_summ_logger.info(seq_msg)
 
-    # JF Question: why is Opt_Seq returned but not Opt_Seqs?
     return VNS_counter, tot_mut
 
 # 
