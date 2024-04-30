@@ -1,6 +1,7 @@
 from typing import List
 import time
-from .utils import weather, FlightInfo, SequenceInfo, Cost
+from .utils import weather, FlightInfo, Cost
+from .sequence import SequenceInfo
 from .gamma import gamma_cond_exp
 
 # JF: This is the main deterministic heuristic

@@ -5,7 +5,8 @@ import math
 import time
 import numpy as np 
 
-from .utils import weather, SequenceInfo, FlightInfo, Cost
+from .utils import weather, FlightInfo, Cost
+from .sequence import SequenceInfo
 from .gamma import Gamma_GetServ, Gamma_Conditional_GetServ
 from .simulate import simulate_weather, simulate_flight_times
 

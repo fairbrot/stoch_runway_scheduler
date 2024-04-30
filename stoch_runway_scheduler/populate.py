@@ -6,7 +6,8 @@ import random
 import itertools
 import time
 import numpy as np
-from .utils import FlightInfo, SequenceInfo
+from .utils import FlightInfo
+from .sequence import SequenceInfo
 
 def Repopulate_VNS(GA_Info: List[SequenceInfo], GA_PopSize: int, S_min: int, VNS_counter: int, VNS_limit: int, tot_mut: int):
     """
