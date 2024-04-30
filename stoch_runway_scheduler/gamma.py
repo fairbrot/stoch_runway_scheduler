@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 import random
 import math
 import numpy as np
@@ -37,11 +37,11 @@ def sample_cond_gamma(t: float, k: int) -> float:
     return ss.gdtrix(1, k, z) # gdtrix is fast function for quantile
 
 
-def Gamma_GetServ(k: int, Time_Sep: List[List[int]], rel_time: float, trav_time: float, prev_class: int, cur_class: int, tm: float, weather_state: int, w_rho: float) -> Tuple[float, int]:
+def Gamma_GetServ(k: int, Time_Sep: List[List[int]], rel_time: float, trav_time: float, prev_class: int, cur_class: int, tm: float, weather_state: int, w_rho: float, serv_time: Optional[float] = None) -> Tuple[float, int]:
     """
     Simulate time that a flight finished its service.
 
-    This is used when flight is already in the queue.
+    This is used when flight is not already in service.
 
     Arguments:
     ---------
@@ -54,6 +54,8 @@ def Gamma_GetServ(k: int, Time_Sep: List[List[int]], rel_time: float, trav_time:
     tm: current time
     weather_state: code for current state of weather (0, 1 or 2)
     w_rho: multiplier for service time in case of bad weather
+    serv_time: if provided, this value is appropriately scaled and used as the service time for the flight.
+                If not provided, service time is sampled directly from Gamma distribution.
 
     Returns:
     --------
@@ -61,17 +63,15 @@ def Gamma_GetServ(k: int, Time_Sep: List[List[int]], rel_time: float, trav_time:
     straight_into_service: indicates whether flight enters service immediately on joining queue
     """
 
-    # JF Question: I think I don't understand outputs here - check with Rob
-    # JF Question: shouldn't current time be updated here to time of previous service completion?
-    # This is for ACs that are already in the queue but not yet in service
-
-    t1 = rel_time + trav_time # time at which flight reaches runway - JF - ask Rob about this
+    t1 = rel_time + trav_time # time at which flight reaches runway
 
     rate = k / (Time_Sep[prev_class][cur_class]/60)
     if weather_state == 1:
         rate *= 1/w_rho
 
-    getserv = np.random.gamma(k, 1/rate) # service time
+    # Rob To Check: Can you check this function is correct? It accounts for both cases where a normalised service is provided and isn't provided
+    # Note that serv_time when provided comes from a Gamma(k, 1) distribution. Is it right that we multiply the rate above by k?
+    getserv = np.random.gamma(k, 1/rate) if serv_time is None else serv_time/rate # service time
 
     t2 = tm + getserv
 
@@ -85,29 +85,6 @@ def Gamma_GetServ(k: int, Time_Sep: List[List[int]], rel_time: float, trav_time:
 
     return t_out, straight_into_service
 
-def Gamma_GetServ_Future(k: int, Time_Sep: List[List[int]], rel_time, serv_time, trav_time, prev_class, cur_class, tm, weather_state, w_rho: float):
-
-    # This is for ACs that have not yet been added to the queue
-
-    t1 = rel_time + trav_time
-
-    rate=k/(Time_Sep[prev_class][cur_class]/60)
-    if weather_state==1:
-        rate*=1/w_rho #=0.5
-
-    getserv = serv_time # Look up the stored Gamma(k,1) value, serv_time
-    getserv *= 1/rate # Convert it to the correct scale
-
-    t2 = tm + getserv # JF Question: how can this be
-
-    if t1 < t2:
-        straight_into_service = 0
-        t_out = t2
-    else:
-        straight_into_service = 1
-        t_out = t1
-
-    return t_out, straight_into_service
 
 def Gamma_Conditional_GetServ(k: int, Time_Sep: List[List[int]], trav_time, rel_time, sv_time, prev_class, cur_class, tm, weather_state, w_rho: float):
 

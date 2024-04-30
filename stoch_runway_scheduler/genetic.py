@@ -6,7 +6,7 @@ import time
 import numpy as np 
 
 from .utils import weather, SequenceInfo, FlightInfo, Cost
-from .gamma import Gamma_GetServ, Gamma_GetServ_Future, Gamma_Conditional_GetServ
+from .gamma import Gamma_GetServ, Gamma_Conditional_GetServ
 from .simulate import simulate_weather, simulate_flight_times
 
 # JF: this is the main sim heuristic
@@ -113,7 +113,8 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, 
 
             stepthrough_logger.info(str(AC) + ',' + str(perm_class) + ',' + str(Time_Sep[perm_prev_class][perm_class]/60)+',' + str(ArrTime[AC]) + ',' + str(reltime) + ',' + str(Trav_Time[AC]) + ',' + str(perm_queue_complete)+',')
 
-            AC_FinishTime, straight_into_service = Gamma_GetServ_Future(k, Time_Sep, reltime, ServTime[AC], Trav_Time[AC], perm_prev_class, perm_class, perm_queue_complete,weather_state, w_rho)
+            AC_FinishTime, straight_into_service = Gamma_GetServ(k, Time_Sep, reltime, Trav_Time[AC], perm_prev_class, perm_class, 
+                                                                perm_queue_complete,weather_state, w_rho, serv_time = ServTime[AC])
 
             # Rob says queue_probs are sequence dependent - check this object is not shared
             info.queue_probs[index] = (1 - gam) * info.queue_probs[index] + gam*straight_into_service # JF Question: could this be explained
