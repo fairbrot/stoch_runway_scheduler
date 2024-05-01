@@ -137,7 +137,7 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, 
 
     GA_counter += 1
 
-    if GA_counter>=GA_CheckSize:
+    if GA_counter >= GA_CheckSize:
 
         step_new_logger.info('GA_counter: %s, ', GA_counter)
         step_new_logger.info('Arr_Pool: %s, ', Arr_Pool)
@@ -146,48 +146,18 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, 
         for info in GA_Info:
             step_new_logger.info('%s', info)
 
-        t_val=1.96 #97.5th percentile of normal dist
-
-        # Ranking and selection
-        for info in GA_Info:
-            if info.v > 0:
-                mn1 = info.v
-                n1 = info.n_traj
-                var1 = (info.w-(n1*mn1**2)) / (n1 - 1)
-
-                # This is in Section 3.1 (2B of algorithm) of the paper (Equations 14-17)
-                for GA_Infom in GA_Info:
-                    if GA_Infom.v > 0:
-                        mn2 = GA_Infom.v
-                        n2 = GA_Infom.n_traj
-                        var2 = (GA_Infom.w-(n2*mn2**2)) / (n2-1)
-                        w_val = math.sqrt(((t_val**2)*var1/n1)+((t_val**2)*var2/n2))
-
-                        if mn1 > mn2 + w_val:
-                            info.v=-1 # This marks flights for removal
-                            break
-
-                        elif mn2 > mn1 + w_val:
-                            GA_Infom.v=-1
-
-
-        # JF Question: what is happening here? This looks like sequences are being remove from list if v is less than 0
-        j=0
-        while j<len(GA_Info): # JF Note: make more idiomatic
-            GA_Infoj = GA_Info[j]
-            if GA_Infoj.v < 0: # JF Question: how would this occur?
-                soln_evals_tot += GA_Infoj.n_traj
-                soln_evals_num += 1
-                GA_Info.remove(SequenceInfo(GA_Infoj.sequence, GA_Infoj.n_traj, GA_Infoj.v, GA_Infoj.queue_probs, GA_Infoj.w, GA_Infoj.age)) # JF Note - make this more idiomatic
-            else:
-                step_new_logger.info('Retained sequence '+','+str(GA_Infoj)+','+' in GA_Info'+'\n')
-                j+=1
+        to_remove = SequenceInfo.rank_and_select(GA_Info)
+        to_remove.sort(reverse=True)
+        
+        for i in to_remove:
+            info = GA_Info.pop(i)
+            soln_evals_tot += info.n_traj
+            soln_evals_num += 1
 
         if len(GA_Info) <= S_min:
-
-            solns_left=len(GA_Info) # These calculated for output purposes
-            soln_evals_tot+=(solns_left*GA_LoopSize)
-            soln_evals_num+=solns_left
+            solns_left = len(GA_Info) # These calculated for output purposes
+            soln_evals_tot += (solns_left*GA_LoopSize)
+            soln_evals_num += solns_left
             pruned=1 # JF Question: this enables Repopulate_VNS
 
         # When iterations reaches GA_LoopSize (500) we reset GA_CheckSize - otherwise
