@@ -96,10 +96,8 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, 
         perm_queue_complete = queue_complete
 
         perm = info.sequence
-        info.n_traj += 1
-        gam=1/info.n_traj #
-
         no_ACs = min(Max_LookAhead, len(perm)) # JF Question: can this not just be len(perm)?
+        xi_list = [] # for each flight indicates whether or not it goes straight to service - called xi in paper
         for index in range(no_ACs):
 
             AC = perm[index]
@@ -115,9 +113,7 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, 
 
             AC_FinishTime, straight_into_service = Gamma_GetServ(k, Time_Sep, reltime, Trav_Time[AC], perm_prev_class, perm_class, 
                                                                 perm_queue_complete,weather_state, w_rho, serv_time = ServTime[AC])
-
-            # Rob says queue_probs are sequence dependent - check this object is not shared
-            info.queue_probs[index] = (1 - gam) * info.queue_probs[index] + gam*straight_into_service
+            xi_list.append(straight_into_service)
 
             permcost += cost_fn(Ac_Infoi.orig_sched_time, ArrTime[AC], Trav_Time[AC], AC_FinishTime, Ac_Infoi.passenger_weight)
             latest_tm = reltime
@@ -128,10 +124,8 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, 
             perm_queue_complete = AC_FinishTime
             perm_prev_class = perm_class
 
-        stepthrough_logger.info('Final cost: '+','+str(permcost)+','+'Gamma: '+','+str(gam)+','+'Old cost: '+','+str(info.v)+',')
-
-        info.v = (1-gam)*info.v + gam*permcost
-        info.w += permcost**2
+        stepthrough_logger.info('Final cost: '+','+str(permcost)+','+'N traj: '+','+str(info.n_traj)+','+'Old cost: '+','+str(info.v)+',')
+        info.add_observation(permcost, xi_list)
         stepthrough_logger.info('Total cost: '+','+str(info.v)+','+'Queue probs: '+','+str(info.queue_probs)+'\n'+'\n')
 
     GA_Info.sort(key=lambda x: x.sequence)
@@ -227,7 +221,7 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, 
                         Ac_added.append(AC)
                         step_new_logger.info('Counter is '+','+str(counter)+', ss_prob is '+','+str(perm.queue_probs[j])+', Adding AC '+','+str(AC)+'\n')
                         j+=1
-                        if j==len(perm.sequence):
+                        if j == len(perm.sequence):
                             break
 
         else:
