@@ -45,16 +45,9 @@ def Repopulate_VNS(GA_Info: List[SequenceInfo], GA_PopSize: int, S_min: int, VNS
         stepthrough_logger.info(flight_msg)
         step_summ_logger.info(flight_msg)
     
-    # JF Note: previously used the line below
-    #          to get length of sequence, 
-    #          but we should just be able to extract this from
-    #          the current best sequence.
-    #          This does create a new error in genetic however.
     # no_ACs = min(Max_LookAhead, AC_remaining)
     assert len(GA_Info) != 0 # JF Question: can this not be the case?
     no_ACs = len(GA_Info[0].sequence)
-
-    queue_probs = [0] * no_ACs
 
     # Get best sequence according to average cost
     # This block is also used to increment VNS_counter
@@ -84,7 +77,7 @@ def Repopulate_VNS(GA_Info: List[SequenceInfo], GA_PopSize: int, S_min: int, VNS
     for info in GA_Info:
         info.n_traj = 0 # HMMM
         info.v = 0
-        info.queue_probs = queue_probs
+        info.queue_probs = [0] * no_ACs
         info.w = 0
 
     GA_PopList = [info.sequence for info in GA_Info]
@@ -111,7 +104,7 @@ def Repopulate_VNS(GA_Info: List[SequenceInfo], GA_PopSize: int, S_min: int, VNS
 
         if new_seq not in GA_PopList:
             GA_PopList.append(new_seq)
-            GA_Info.append(SequenceInfo(new_seq, 0, 0, queue_probs, 0, 0))
+            GA_Info.append(SequenceInfo(new_seq, 0, 0, [0] * no_ACs, 0, 0))
             c = 0
         else:
             c += 1
@@ -166,9 +159,6 @@ def Populate(Ac_Info: List[FlightInfo], base_seq: List[int],
     if len(base_seq) < no_ACs:
         base_seq = extend_sequence(base_seq, eta_list, Arr_Pool, Arr_NotReady, no_ACs)
 
-    # Used in SimHeur as criterion for when flight is released from pool
-    queue_probs = [0] * AC_remaining # redefined below
-
     # number of all possible sequences of remaining flights
     # only needed when there are only a small number of possible sequences left
     max_size = math.factorial(AC_remaining)
@@ -178,7 +168,7 @@ def Populate(Ac_Info: List[FlightInfo], base_seq: List[int],
         remaining_seq = Arr_Pool + Arr_NotReady
         GA_PopList = [list(seq) for seq in itertools.permutations(remaining_seq)]
         # JF Question: Not clear why these all share same queue_probs list - this is not the case below where a new prob list is created for each sequence
-        GA_Info = [SequenceInfo(poplist[:], 0, 0, queue_probs, 0, 0) for poplist in GA_PopList]
+        GA_Info = [SequenceInfo(poplist[:], 0, 0, [0] * no_ACs, 0, 0) for poplist in GA_PopList]
 
     else:
         GA_PopList = []
@@ -194,8 +184,7 @@ def Populate(Ac_Info: List[FlightInfo], base_seq: List[int],
             # Would need some refactoring
             if new_seq not in GA_PopList:
                 GA_PopList.append(new_seq)
-                queue_probs = [0] * AC_remaining
-                GA_Info.append(SequenceInfo(new_seq[:], 0, 0, queue_probs, 0, 0))
+                GA_Info.append(SequenceInfo(new_seq[:], 0, 0, [0] * no_ACs, 0, 0))
                 no_seqs += 1
             else:
                 # If already in population of sequences,
@@ -205,8 +194,7 @@ def Populate(Ac_Info: List[FlightInfo], base_seq: List[int],
                     new_seq = random.sample(base_seq, k=len(base_seq)) # Create random permutation of sequence
                     if new_seq not in GA_PopList:
                         GA_PopList.append(new_seq)
-                        queue_probs = [0] * AC_remaining
-                        GA_Info.append(SequenceInfo(new_seq[:], 0, 0, queue_probs, 0, 0))
+                        GA_Info.append(SequenceInfo(new_seq[:], 0, 0, [0] * no_ACs, 0, 0))
                         no_seqs += 1
 
     return GA_Info
