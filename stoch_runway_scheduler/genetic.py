@@ -10,8 +10,8 @@ from .sequence import SequenceInfo
 from .gamma import Gamma_GetServ, Gamma_Conditional_GetServ
 from .simulate import simulate_weather, simulate_flight_times
 
-# JF: this is the main sim heuristic
-def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, prev_class, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, basecost, wlb, wub, soln_evals_tot, soln_evals_num, tau: int, Max_LookAhead: int, Time_Sep: List[List[int]], cost_fn: Cost, GA_Check_Increment: int, S_min: int, w_rho: float, wiener_sig: float, weather_sig: float):
+# JF: this is the main sim heuristic - it is doing too much
+def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Ac_queue, tm, k, prev_class, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, basecost, wlb, wub, soln_evals_tot, soln_evals_num, tau: int, Max_LookAhead: int, Time_Sep: List[List[int]], cost_fn: Cost, GA_Check_Increment: int, S_min: int, w_rho: float, wiener_sig: float, weather_sig: float):
     # JF Note: could maybe remove argument Max_LookAhead if no_ACs can be inferred from other arguments
     stepthrough_logger = logging.getLogger("stepthrough")
     step_summ_logger = logging.getLogger("step_summ")
@@ -173,7 +173,7 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Arr_NotReady, Ac_queue, tm, k, 
 
     Ac_added=[]
 
-    # JF Question: make some flights in best sequence for release? Yes
+    # Mark some flights in best sequence for release? Yes
     if len(Arr_Pool)>0:
         assert len(GA_Info) > 0
         perm = GA_Info[0] # JF Question: is this assuming the list is in a particular order? Yes

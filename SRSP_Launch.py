@@ -417,7 +417,7 @@ while rep < no_reps:
         if len(Arr_Pool) + len(Arr_NotReady) > 0:
             if SubPolicy == 'VNS':
                 # JF Question: should we be inputting wlb_tm and wub_tm rather than wlb and wub here?
-                Ac_added, counter, qp, pruned, GA_CheckSize, GA_counter, soln_evals_tot, soln_evals_num = Genetic(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, max(tm,0), k, prev_class, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, tot_arr_cost + tot_dep_cost, wlb, wub, soln_evals_tot, soln_evals_num, tau, Max_LookAhead, Time_Sep, cost_fn, GA_Check_Increment, S_min, w_rho, wiener_sig, weather_sig)
+                Ac_added, counter, qp, pruned, GA_CheckSize, GA_counter, soln_evals_tot, soln_evals_num = Genetic(Ac_Info, Arr_Pool, Ac_queue, max(tm,0), k, prev_class, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, tot_arr_cost + tot_dep_cost, wlb, wub, soln_evals_tot, soln_evals_num, tau, Max_LookAhead, Time_Sep, cost_fn, GA_Check_Increment, S_min, w_rho, wiener_sig, weather_sig)
                 Ov_GA_counter+=1
                 stepthrough_logger.info('GA_counter is %d', GA_counter)
             elif SubPolicy=='VNSD':
@@ -463,7 +463,7 @@ while rep < no_reps:
 
     ArrTime_Sorted.sort(key=lambda x: x[0])
     # Posthoc check validates that flight statistics are consistent with costs
-    posthoc_cost = Posthoc_Check(Left_queue,Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm,0, NoA, w_rho, k, Time_Sep, cost_fn)
+    posthoc_cost = Posthoc_Check(Left_queue, Ac_Info, ArrTime, ServTime, ArrTime_Sorted, wlb_tm, wub_tm, 0, NoA, w_rho, k, Time_Sep, cost_fn)
     gg.write('Posthoc Check'+','+str(posthoc_cost)+',')
 
     for i in range(NoA):
