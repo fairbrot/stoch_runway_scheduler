@@ -421,7 +421,7 @@ while rep < no_reps:
                 Ov_GA_counter+=1
                 stepthrough_logger.info('GA_counter is %d', GA_counter)
             elif SubPolicy=='VNSD':
-                Ac_added, counter, qp, stored_queue_complete = Genetic_determ(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, Left_queue, max(tm,0), NoA, k, prev_class, GA_Info, wlb, wub, tau, Max_LookAhead, Time_Sep, cost_fn, tot_arr_cost, tot_dep_cost, w_rho, stepthrough, step_summ, step_new)
+                Ac_added, counter, qp, stored_queue_complete = Genetic_determ(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, max(tm,0), NoA, k, prev_class, GA_Info, wlb, wub, tau, Max_LookAhead, Time_Sep, cost_fn, tot_arr_cost, tot_dep_cost, w_rho)
                 Ov_GA_counter += 1
                 GA_counter += 1
                 stepthrough_logger.info('GA_counter is %d', GA_counter)
