@@ -75,10 +75,7 @@ def Repopulate_VNS(GA_Info: List[SequenceInfo], GA_PopSize: int, S_min: int, VNS
 
     # Reset all sequence information in GA_Info apart from age
     for info in GA_Info:
-        info.n_traj = 0 # HMMM
-        info.v = 0
-        info.queue_probs = [0] * no_ACs
-        info.w = 0
+        info.reset()
 
     GA_PopList = [info.sequence for info in GA_Info]
 

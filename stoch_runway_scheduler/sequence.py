@@ -39,6 +39,14 @@ class SequenceInfo:
         mn = self.mean_cost()
         return (self.w-(n*mn**2)) / (n - 1)
 
+    def reset(self):
+        "Re-initialise all data on sequence except for age."
+        self.n_traj = 0
+        self.v = 0
+        self.w = 0
+        for (i, qp) in enumerate(self.queue_probs):
+            self.queue_probs[i] = 0
+
     @staticmethod
     def rank_and_select(info_list: List[SequenceInfo]) -> List[int]:
         """Uses rank and select procedure to identify sequences which should be removed.
