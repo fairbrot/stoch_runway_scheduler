@@ -101,7 +101,7 @@ def Repopulate_VNS(GA_Info: List[SequenceInfo], GA_PopSize: int, S_min: int, VNS
 
         if new_seq not in GA_PopList:
             GA_PopList.append(new_seq)
-            GA_Info.append(SequenceInfo(new_seq, 0, 0, [0] * no_ACs, 0, 0))
+            GA_Info.append(SequenceInfo(new_seq))
             c = 0
         else:
             c += 1
@@ -165,7 +165,7 @@ def Populate(Ac_Info: List[FlightInfo], base_seq: List[int],
         remaining_seq = Arr_Pool + Arr_NotReady
         GA_PopList = [list(seq) for seq in itertools.permutations(remaining_seq)]
         # JF Question: Not clear why these all share same queue_probs list - this is not the case below where a new prob list is created for each sequence
-        GA_Info = [SequenceInfo(poplist[:], 0, 0, [0] * no_ACs, 0, 0) for poplist in GA_PopList]
+        GA_Info = [SequenceInfo(poplist[:]) for poplist in GA_PopList]
 
     else:
         GA_PopList = []
@@ -181,7 +181,7 @@ def Populate(Ac_Info: List[FlightInfo], base_seq: List[int],
             # Would need some refactoring
             if new_seq not in GA_PopList:
                 GA_PopList.append(new_seq)
-                GA_Info.append(SequenceInfo(new_seq[:], 0, 0, [0] * no_ACs, 0, 0))
+                GA_Info.append(SequenceInfo(new_seq[:]))
                 no_seqs += 1
             else:
                 # If already in population of sequences,
@@ -191,7 +191,7 @@ def Populate(Ac_Info: List[FlightInfo], base_seq: List[int],
                     new_seq = random.sample(base_seq, k=len(base_seq)) # Create random permutation of sequence
                     if new_seq not in GA_PopList:
                         GA_PopList.append(new_seq)
-                        GA_Info.append(SequenceInfo(new_seq[:], 0, 0, [0] * no_ACs, 0, 0))
+                        GA_Info.append(SequenceInfo(new_seq[:]))
                         no_seqs += 1
 
     return GA_Info

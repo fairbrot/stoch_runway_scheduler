@@ -1,18 +1,23 @@
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import math
 from typing import List
 
 @dataclass
 class SequenceInfo:
     sequence: List[int]
-    n_traj: int # number of trajectories sampled so far
-    v: float # V_s^n in paper  (eqn 14) (performance measure)
-    queue_probs: List[float] # stores "probability" that aircraft will immediately go into service at end of remaining travel time - upsilon in paper (page 18)
-    # Rob thinks this upsilon is redundant as Rob set lambda to zero in paper which means that if one random trajectory where aircraft enters
-    # service immediately, this triggers release from pool.
-    w: float # W_s^n in paper (eqn 15)
-    age: int # number of times sequence has been passed to Repopulate
+    n_traj: int = field(init=False) # number of trajectories sampled so far
+    v: float = field(init=False) # V_s^n in paper  (eqn 14) (performance measure)
+    queue_probs: List[float] = field(init=False) # stores "probability" that aircraft will immediately go into service at end of remaining travel time - upsilon in paper (page 18)
+    w: float = field(init=False) # W_s^n in paper (eqn 15)
+    age: int = field(init=False) # number of times sequence has been passed to Repopulate
+
+    def __post_init__(self):
+        self.n_traj = 0
+        self.v = 0
+        self.w = 0
+        self.age = 0
+        self.queue_probs = len(self.sequence)*[0.0]
 
     def add_observation(self, cost: float, xi_list: List[bool]):
         """Uses latest (possibly sampled) observation update state of information on sequence
