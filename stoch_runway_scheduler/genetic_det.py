@@ -1,7 +1,8 @@
 from typing import List
 import logging
 import time
-from .utils import weather, FlightInfo, Cost
+from .utils import FlightInfo, Cost
+from .weather import WeatherProcess, WeatherStatus
 from .sequence import SequenceInfo
 from .gamma import gamma_cond_exp
 
@@ -9,7 +10,7 @@ from .gamma import gamma_cond_exp
 # Name may not be best choice
 def Genetic_determ(Ac_Info: List[FlightInfo], Arr_Pool: List[int], Arr_NotReady: List[int], 
                     Ac_queue: List[int], tm: float, NoA: int, k:int, 
-                    prev_class: int, GA_Info: List[SequenceInfo], wlb, wub, tau: int, Max_LookAhead: int, Time_Sep: List[List[int]], cost_fn: Cost, 
+                    prev_class: int, GA_Info: List[SequenceInfo], weather: WeatherProcess, tau: int, Max_LookAhead: int, Time_Sep: List[List[int]], cost_fn: Cost, 
                     tot_arr_cost: float, tot_dep_cost: float, w_rho: float):
 
     stepthrough_logger = logging.getLogger("stepthrough")
@@ -47,7 +48,7 @@ def Genetic_determ(Ac_Info: List[FlightInfo], Arr_Pool: List[int], Arr_NotReady:
 
         t1=Ac_Infoi.eta
 
-        #Get the conditional expectation of service time based on service time elapsed so far
+        # Get the conditional expectation of service time based on service time elapsed so far
 
         if Ac_Infoi.weather_state==1:
             beta = k/(w_rho*Time_Sep[prev_class][cur_class]/60)
@@ -74,13 +75,12 @@ def Genetic_determ(Ac_Info: List[FlightInfo], Arr_Pool: List[int], Arr_NotReady:
             rel_time=Ac_Infoi.release_time
             cur_class=Ac_Infoi.ac_class
 
-
             stepthrough_logger.info(str(AC)+','+str(Ac_Infoi.ac_class)+','+str(Time_Sep[perm_prev_class][cur_class]/60)+','+str(Ac_Infoi.release_time)+','+str(Ac_Infoi.travel_time)+','+str(Ac_Infoi.enters_service)+',')
 
             t1 = Ac_Infoi.eta
-            weather_state = weather(rel_time, wlb, wub) # weather(queue_complete,wlb,wub)
-            if weather_state==1: #Ac_Infoi.weather_state==1:
-                t2 = queue_complete + (w_rho*Time_Sep[perm_prev_class][cur_class]/60)
+            weather_state = weather(rel_time) # weather(queue_complete)
+            if weather_state == 1:
+                t2 = queue_complete + (w_rho * Time_Sep[perm_prev_class][cur_class]/60)
                 stepthrough_logger.info(str(w_rho*Time_Sep[perm_prev_class][cur_class]/60)+',')
             else:
                 t2=queue_complete+(Time_Sep[perm_prev_class][cur_class]/60)
@@ -125,16 +125,16 @@ def Genetic_determ(Ac_Info: List[FlightInfo], Arr_Pool: List[int], Arr_NotReady:
             Ac_Infoi = Ac_Info[AC]
             perm_class = Ac_Infoi.ac_class
             reltime = max(latest_tm,ArrTime[AC])
-
-
             stepthrough_logger.info(str(AC)+','+str(Ac_Infoi.ac_class)+','+str(Time_Sep[perm_prev_class][perm_class]/60)+','+str(ArrTime[AC])+','+str(reltime)+','+str(tau)+','+str(perm_queue_complete)+',')
 
             t1=reltime+tau
-            if reltime>=wlb and reltime<=wub:
-                exp_serv=w_rho*Time_Sep[perm_prev_class][perm_class]/60
+            # JF Question - should we use time start servicing here?
+            # Like begin_serv in Genetic?
+            if weather(rel_time) == WeatherStatus.BAD:
+                exp_serv = w_rho*Time_Sep[perm_prev_class][perm_class]/60
             else:
-                exp_serv=Time_Sep[perm_prev_class][perm_class]/60
-            t2=perm_queue_complete+exp_serv
+                exp_serv = Time_Sep[perm_prev_class][perm_class]/60
+            t2 = perm_queue_complete + exp_serv
 
             stepthrough_logger.info(str(exp_serv)+',')
 

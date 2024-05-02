@@ -3,105 +3,10 @@ import logging
 import math
 import random
 import numpy as np
-from .utils import weather, FlightStatus, FlightInfo, Cost
-from .gamma import sample_cond_gamma
+from .utils import FlightStatus, FlightInfo, Cost
+from .weather import WeatherProcess
 from .annealing_cost import Annealing_Cost
 
-def generate_weather(wlb: int, wub: int, T: int, weather_sig: float, freq: int):
-    """
-    Generates brownian motion for bad weather forecasts, as well as actual times of bad weather.
-
-    Parameters
-    ----------
-    wlb: prediction at time 0 for start of bad weather
-    wub: prediction at time 0 for end of bad weather
-    T: length of time horizon in minutes (used to pre-allocate output arrays)
-    weather_sig: standard deviation of Brownian motion
-    freq: number of updates for each minute
-
-    Returns
-    -------
-    wlb_tm: int
-        actual start time of bad weather
-    wub_tm:
-        actual end time of bad weather
-    weather_lb: List[float]
-        forecast for start of bad weather over time. Each element i corresponds to forecast at time j*freq.
-    weather_ub: List[float]
-        forecast for end of bad weather over time.
-    """
-    N = T*freq # Size of weather array
-    weather_lb = [0]*N # Dynamically forcast for start of bad weather T_0(t)
-    weather_ub = [0]*N # Dynamically forcast for end of bad weather T_1(t)
-
-    # called U_0 and U_1 in the paper
-    wlb_tm = 0 # Actual (randomly generated) time at which bad weather starts; leave this as zero
-    wub_tm = 0 # Actual (randomly generated) time at which bad weather ends; leave this as zero
-
-    weather_lb[0] = wlb # Set initial forecasted values
-    weather_ub[0] = wub
-    old_lb = wlb
-    old_ub = wub
-
-    j = 0
-    # Brownian motion again used to get dynamic forecast prediction
-    for j in range(N):
-        new_lb = random.gauss(old_lb,0.1*weather_sig) # random.gauss(old_lb,0.01) JF Question: why is 0.1 inside here - shouldn't this be incorporated into weather_sig
-        new_ub = random.gauss(old_ub,0.1*weather_sig)
-        if new_lb > new_ub: # JF Question: Why is this needed?
-            new_ub = new_lb
-        if j/freq >= new_lb and wlb_tm == 0:
-            wlb_tm = j/freq
-        if j/freq >= new_ub and wub_tm == 0:
-            wub_tm = j/freq
-        weather_lb[j] = new_lb
-        weather_ub[j] = new_ub
-        old_lb = new_lb
-        old_ub = new_ub
-    return wlb_tm, wub_tm, weather_lb, weather_ub
-
-# JF Question: is my interpretation of this code correct? Currently code is used with predicted wlb and wub (which doesn't make sense to me) rather than forecasts
-def simulate_weather(tm: float, wlb: float, wub: float, weather_sig: float) -> Tuple[float, float]:
-    """
-    Simulate times of weather given current time tm, and current weather forecast times of wlb and wub.
-
-    Arguments:
-    ---------
-    tm: current time
-    wlb: current forecast of time for beginning of bad weather
-    wub: current forecast of time for end of bad weather
-    weather_sig: standard deviation of Brownian motion
-
-    Returns:
-    -------
-    wlb_gen: simulated time for beginning of bad weather
-    wub_gen: simulated time for end of bad weather
-    """
-    chk=0
-    while chk==0:
-        if tm >= wlb:
-            wlb_gen = wlb
-        else:
-            # Do wlb_gen
-            sched = int(round(wlb - tm, 1))
-            if sched<=0:
-                wlb_gen=tm
-            else:
-                wlb_gen=np.random.wald(sched, (sched/weather_sig)**2) + tm
-        if tm >= wub:
-            wub_gen = wub
-        else:
-            # Do wub_gen
-            sched = int(round(wub-tm,1))
-            if sched <= 0:
-                wub_gen = tm
-            else:
-                wub_gen = np.random.wald(sched,(sched / weather_sig)**2) + tm
-        if wlb_gen <= wub_gen:
-            chk = 1
-        else:
-            chk = 1
-    return wlb_gen, wub_gen
 
 def simulate_flight_times(tm: float, Ac_Info: List[FlightInfo], tau: float, k: int, wiener_sig: float) -> Tuple[List[float], List[float], List[float]]:
     """
@@ -216,7 +121,7 @@ def generate_trajectory(Dep_time: float, Ps_time: float, tau: int, wiener_sig: f
 
     return pool_arr_time, travel_time, brown_motion
 
-def Calculate_FCFS(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, wlb_tm, wub_tm, NoA: int, w_rho: float, k: int, Time_Sep: List[List[int]], cost_fn: Cost):
+def Calculate_FCFS(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, weather_process: WeatherProcess, NoA: int, w_rho: float, k: int, Time_Sep: List[List[int]], cost_fn: Cost):
 
     tm=0
 
@@ -230,12 +135,12 @@ def Calculate_FCFS(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_mi
     for i in range(NoA):
         FCFS_Seq[i]=ArrTime_Sorted[i][1]
 
-    FCFS_cost = Annealing_Cost(FCFS_Seq, Ac_Info, ArrTime, ServTime, ArrTime_Sorted, wlb_tm, wub_tm, 0, NoA, w_rho, k, Time_Sep, cost_fn)
+    FCFS_cost = Annealing_Cost(FCFS_Seq, Ac_Info, ArrTime, ServTime, ArrTime_Sorted, weather_process, 0, NoA, w_rho, k, Time_Sep, cost_fn)
 
     return FCFS_cost
 
 # JF Question: what does this do?
-def Posthoc_Check(seq,Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm,output, NoA: int, w_rho: float, k: int, Time_Sep: List[List[int]], cost_fn: Cost):
+def Posthoc_Check(seq, Ac_Info, ArrTime, ServTime, ArrTime_Sorted, weather_process: WeatherProcess, output, NoA: int, w_rho: float, k: int, Time_Sep: List[List[int]], cost_fn: Cost):
 
     perm=seq
     perm_cost=0
@@ -249,12 +154,12 @@ def Posthoc_Check(seq,Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm,outp
 
         AC = perm[j]
         Ac_Infoi = Ac_Info[AC]
-        release_time = Ac_Infoi.release_time #max(latest_tm,ArrTime[AC][0])
+        release_time = Ac_Infoi.release_time # max(latest_tm, ArrTime[AC][0])
         #print('j: '+str(j)+' AC: '+str(AC)+' release_time: '+str(release_time))
         trav_time=Ac_Infoi.travel_time
         perm_class=Ac_Infoi.ac_class
         begin_serv=max(release_time,perm_queue_complete)
-        perm_weather_state=weather(release_time,wlb_tm,wub_tm) #weather(begin_serv,wlb_tm,wub_tm)
+        perm_weather_state=weather_process(release_time) # JF Question: why not weather_process(begin_serv)?
 
         if perm_weather_state==1:
             ws=1/w_rho
@@ -377,15 +282,14 @@ def Update_ETAs(Ac_Info: List[FlightInfo], Arr_NotReady: List[int], Dep_NotReady
             else:
                 Ac_Infoi.eta = Brown_Motion[AC][int((Ac_Infoi.pool_time + rounded_trav_so_far) * freq)]
 
-def Update_Stats(tm: float, AC: int, Ac_Info: List[FlightInfo], Ac_queue: List[int], real_queue_complete: float, wlb_tm: int, wub_tm: int, latest_class, Ov_GA_counter, next_completion_time, k: int, Time_Sep: List[List[int]], w_rho: float, SubPolicy: str, counter: int, qp: float):
+def Update_Stats(tm: float, AC: int, Ac_Info: List[FlightInfo], Ac_queue: List[int], real_queue_complete: float, weather_process: WeatherProcess, latest_class, Ov_GA_counter, next_completion_time, k: int, Time_Sep: List[List[int]], w_rho: float, SubPolicy: str, counter: int, qp: float):
     """
     Updates various states when after flight is released into queue.
 
     Arguments
     ---------
     real_queue_complete: time last aircraft to join queue was or will be serviced
-    wlb_tm: actual start time of bad weather
-    wub_tm: actual end time of bad weather
+    weather_process: object which can be queried for weather state at given time
     latest_class: class of previous aircraft to join queue
     Ov_GA_counter:
     next_completion_time: time of next service in queue
@@ -414,7 +318,7 @@ def Update_Stats(tm: float, AC: int, Ac_Info: List[FlightInfo], Ac_queue: List[i
     cur_class = Ac_Infoi.ac_class
 
     # Weather state at time flight joins queue
-    get_weather_state = weather(release_time, wlb_tm, wub_tm)
+    get_weather_state = weather_process(release_time) # JF Question: why not begin_serv here?
 
     # Service time for flight to land (once it is being processed)
     # JF Question: weather state might be wrong here - should this be weather at time flight begins service?

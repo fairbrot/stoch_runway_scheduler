@@ -2,7 +2,6 @@
 # -generated values of k, thres1, pax weights, start & end times for bad weather (& need to also include random lam1 & lam2)
 
 from __future__ import print_function, division
-import math
 import logging
 import random
 import time
@@ -10,7 +9,7 @@ import os
 
 import numpy as np
 
-from stoch_runway_scheduler import generate_weather, generate_trajectory, read_flight_data, sample_pretac_delay, weather, Genetic, Genetic_determ, Populate, Repopulate_VNS, sample_cond_gamma, Annealing_Cost, Perm_Heur, Perm_Heur_New, Calculate_FCFS, Posthoc_Check, Update_Stats, Update_ETAs, Serv_Completions, FlightInfo, FlightStatus, SequenceInfo, Cost
+from stoch_runway_scheduler import BrownianWeatherProcess, generate_trajectory, read_flight_data, sample_pretac_delay, Genetic, Genetic_determ, Populate, Repopulate_VNS, sample_cond_gamma, Annealing_Cost, Perm_Heur, Perm_Heur_New, Calculate_FCFS, Posthoc_Check, Update_Stats, Update_ETAs, Serv_Completions, FlightInfo, FlightStatus, SequenceInfo, Cost
 
 #################
 # CONIFIGUATION #
@@ -253,9 +252,9 @@ while rep < no_reps:
     # Long time period over which to generate weather predictions
     # We make longer in case bad weather finish time falls outside of time horizon
     T = (max_ps_time - min_ps_time) * 2 # The factor 2 here is probably a bit over cautious
-    wlb_tm, wub_tm, weather_lb, weather_ub = generate_weather(wlb, wub, T, weather_sig, freq=freq)
+    weather_process = BrownianWeatherProcess(wlb, wub, T, weather_sig, freq=freq)
 
-    stepthrough_logger.info('wlb_tm: %d wub_tm: %d', wlb_tm, wub_tm)
+    stepthrough_logger.info('wlb_tm: %d wub_tm: %d', weather_process.wlb, weather_process.wub)
 
     # Generate the initial population of sequences
     print('Generating initial population of sequences...')
@@ -340,7 +339,7 @@ while rep < no_reps:
     begin_time = time.time()
     mv_time = 0 # some sort of indicator
     if policy_index == 0:
-        gg.write(str(rep)+','+str(conv_factor)+','+str(wiener_sig)+','+str(k)+','+str(lam1)+','+str(lam2)+','+str(wlb)+','+str(wub)+','+str(wlb_tm)+','+str(wub_tm)+','+str(thres1)+','+str(thres2)+',')
+        gg.write(str(rep)+','+str(conv_factor)+','+str(wiener_sig)+','+str(k)+','+str(lam1)+','+str(lam2)+','+str(wlb)+','+str(wub)+','+str(weather_process.wlb)+','+str(weather_process.wub)+','+str(thres1)+','+str(thres2)+',')
 
     initial_time = time.time()
 
@@ -375,7 +374,7 @@ while rep < no_reps:
                     base_seq.remove(AC)
                     # Gets important statistics about aircraft being released and serviced
                     # some of these outputs are used for simulation itself
-                    real_queue_complete, next_completion_time, latest_class, Ov_GA_counter = Update_Stats(tm,AC,Ac_Info,Ac_queue,real_queue_complete, wlb_tm, wub_tm,latest_class,Ov_GA_counter,next_completion_time, k, Time_Sep, w_rho, SubPolicy, counter, qp)
+                    real_queue_complete, next_completion_time, latest_class, Ov_GA_counter = Update_Stats(tm, AC, Ac_Info, Ac_queue, real_queue_complete, weather_process, latest_class, Ov_GA_counter, next_completion_time, k, Time_Sep, w_rho, SubPolicy, counter, qp)
 
                 else:
                     # Important: if aircraft not in the pool then don't consider any others (order in Ac_Added comes from a sequence and is important)
@@ -409,19 +408,20 @@ while rep < no_reps:
         # First, get the AC List
 
         # JF Question: what is the condition?
-        if tm >= 0 and tm <= wub_tm and int(tm*freq) != int(old_tm*freq):
-            # Permute and update the weather
-            wlb = weather_lb[int(tm*freq)] # random.gauss(wlb, 0.05)
-            wub = weather_ub[int(tm*freq)]
+        # if tm >= 0 and tm <= wub_tm and int(tm*freq) != int(old_tm*freq):
+        #     # Permute and update the weather forecast
+        #     wlb = weather_lb[int(tm*freq)] # random.gauss(wlb, 0.05)
+        #     wub = weather_ub[int(tm*freq)]
 
         if len(Arr_Pool) + len(Arr_NotReady) > 0:
             if SubPolicy == 'VNS':
                 # JF Question: should we be inputting wlb_tm and wub_tm rather than wlb and wub here?
-                Ac_added, counter, qp, pruned, GA_CheckSize, GA_counter, soln_evals_tot, soln_evals_num = Genetic(Ac_Info, Arr_Pool, Ac_queue, max(tm,0), k, prev_class, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, tot_arr_cost + tot_dep_cost, wlb, wub, soln_evals_tot, soln_evals_num, tau, Max_LookAhead, Time_Sep, cost_fn, GA_Check_Increment, S_min, w_rho, wiener_sig, weather_sig)
+                Ac_added, counter, qp, pruned, GA_CheckSize, GA_counter, soln_evals_tot, soln_evals_num = Genetic(Ac_Info, Arr_Pool, Ac_queue, max(tm,0), k, prev_class, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, tot_arr_cost + tot_dep_cost, weather_process, soln_evals_tot, soln_evals_num, tau, Max_LookAhead, Time_Sep, cost_fn, GA_Check_Increment, S_min, w_rho, wiener_sig)
                 Ov_GA_counter+=1
                 stepthrough_logger.info('GA_counter is %d', GA_counter)
             elif SubPolicy=='VNSD':
-                Ac_added, counter, qp, stored_queue_complete = Genetic_determ(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, max(tm,0), NoA, k, prev_class, GA_Info, wlb, wub, tau, Max_LookAhead, Time_Sep, cost_fn, tot_arr_cost, tot_dep_cost, w_rho)
+                exp_weather = weather_process.expected_process(tm)
+                Ac_added, counter, qp, stored_queue_complete = Genetic_determ(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, max(tm,0), NoA, k, prev_class, GA_Info, exp_weather, tau, Max_LookAhead, Time_Sep, cost_fn, tot_arr_cost, tot_dep_cost, w_rho)
                 Ov_GA_counter += 1
                 GA_counter += 1
                 stepthrough_logger.info('GA_counter is %d', GA_counter)
@@ -446,8 +446,6 @@ while rep < no_reps:
 
     print('Final cost is '+str(tot_arr_cost+tot_dep_cost))
     gg.write(str(SubPolicy)+','+str(tot_arr_cost+tot_dep_cost)+',')
-    if Policy != 'Alternate':
-        gg.write('Weather transitions'+','+str(wlb_tm)+','+str(wub_tm)+',')
     gg.write(str(time.time()-begin_time)+',')
     gg.write(str(Loop_Nums)+','+str(tot_mut)+',')
     if SubPolicy == 'VNS':
@@ -463,7 +461,7 @@ while rep < no_reps:
 
     ArrTime_Sorted.sort(key=lambda x: x[0])
     # Posthoc check validates that flight statistics are consistent with costs
-    posthoc_cost = Posthoc_Check(Left_queue, Ac_Info, ArrTime, ServTime, ArrTime_Sorted, wlb_tm, wub_tm, 0, NoA, w_rho, k, Time_Sep, cost_fn)
+    posthoc_cost = Posthoc_Check(Left_queue, Ac_Info, ArrTime, ServTime, ArrTime_Sorted, weather_process, 0, NoA, w_rho, k, Time_Sep, cost_fn)
     gg.write('Posthoc Check'+','+str(posthoc_cost)+',')
 
     for i in range(NoA):
@@ -485,13 +483,13 @@ while rep < no_reps:
 
         ArrTime_Sorted.sort(key=lambda x: x[0])
 
-        FCFS_cost = Calculate_FCFS(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, wlb_tm, wub_tm, NoA, w_rho, k, Time_Sep, cost_fn)
+        FCFS_cost = Calculate_FCFS(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, weather_process, NoA, w_rho, k, Time_Sep, cost_fn)
         gg.write('FCFS'+','+str(FCFS_cost)+',')
 
-        perm_heur_cost, AC_Used = Perm_Heur(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, wlb_tm, wub_tm, NoA, w_rho, k, Time_Sep, cost_fn, f1)
+        perm_heur_cost, AC_Used = Perm_Heur(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, weather_process, NoA, w_rho, k, Time_Sep, cost_fn, f1)
         gg.write('Perm Heuristic'+','+str(perm_heur_cost)+',')
 
-        perm_heur_cost, AC_Used = Perm_Heur_New(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, wlb_tm, wub_tm, NoA, w_rho, k, Time_Sep, cost_fn)
+        perm_heur_cost, AC_Used = Perm_Heur_New(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, weather_process, NoA, w_rho, k, Time_Sep, cost_fn)
         gg.write('New Perm Heuristic'+','+str(perm_heur_cost)+',')
 
         gg.write('\n')

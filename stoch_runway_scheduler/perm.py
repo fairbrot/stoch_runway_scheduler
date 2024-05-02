@@ -2,10 +2,11 @@ from typing import List, TextIO
 import random
 import math
 import itertools
-from .utils import weather, Cost
+from .utils import Cost
+from .weather import WeatherProcess
 from .annealing_cost import Annealing_Cost
 
-def Perm_Heur_New(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, wlb_tm,wub_tm, NoA: int, w_rho: float, k: int, Time_Sep: List[List[int]], cost_fn: Cost):
+def Perm_Heur_New(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, weather_process: WeatherProcess, NoA: int, w_rho: float, k: int, Time_Sep: List[List[int]], cost_fn: Cost):
 
     #start_time=time.time()
 
@@ -21,7 +22,7 @@ def Perm_Heur_New(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min
     for i in range(NoA):
         Anneal_Seq[i] = ArrTime_Sorted[i][1]
 
-    NewCost = Annealing_Cost(Anneal_Seq,Ac_Info,ArrTime,ServTime,ArrTime_Sorted,wlb_tm,wub_tm,0, NoA, w_rho, k, Time_Sep, cost_fn)
+    NewCost = Annealing_Cost(Anneal_Seq,Ac_Info,ArrTime,ServTime,ArrTime_Sorted, weather_process,0, NoA, w_rho, k, Time_Sep, cost_fn)
     OptCost = NewCost
     Opt_Seq = Anneal_Seq[:]
 
@@ -46,7 +47,7 @@ def Perm_Heur_New(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min
         for j in range(perm_size):
             Anneal_Seq[start_pos+j]=perm[j]
 
-        NewCost = Annealing_Cost(Anneal_Seq, Ac_Info, ArrTime, ServTime, ArrTime_Sorted, wlb_tm, wub_tm, 0, NoA, w_rho, k, Time_Sep, cost_fn)
+        NewCost = Annealing_Cost(Anneal_Seq, Ac_Info, ArrTime, ServTime, ArrTime_Sorted, weather_process, 0, NoA, w_rho, k, Time_Sep, cost_fn)
 
         #print('Opt_Seq: '+str(Opt_Seq)+' Cost: '+str(OptCost))
         #print('New Seq: '+str(Anneal_Seq)+' Cost: '+str(NewCost))
@@ -66,7 +67,7 @@ def Perm_Heur_New(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min
 
     return OptCost,c
 
-def Perm_Heur(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,pool_max,list_min,wlb_tm,wub_tm, NoA: int, w_rho: float, k: int, Time_Sep: List[List[int]], cost_fn: Cost, f1: TextIO):
+def Perm_Heur(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, weather_process: WeatherProcess, NoA: int, w_rho: float, k: int, Time_Sep: List[List[int]], cost_fn: Cost, f1: TextIO):
 
     tm=0
 
@@ -129,7 +130,7 @@ def Perm_Heur(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,pool_max,list_min,wlb_tm,w
                 trav_time=Ac_Info[AC].travel_time
                 perm_class=Ac_Info[AC].ac_class
                 begin_serv=max(release_time,perm_queue_complete)
-                perm_weather_state=weather(release_time,wlb_tm,wub_tm) #weather(begin_serv,wlb_tm,wub_tm)
+                perm_weather_state=weather_process(release_time)  #JF Question: why not begin_serv?
 
 
                 if perm_weather_state==1:
@@ -161,7 +162,7 @@ def Perm_Heur(Ac_Info,ArrTime,ServTime,ArrTime_Sorted,pool_max,list_min,wlb_tm,w
         trav_time=Ac_Info[AC].travel_time
         cur_class=Ac_Info[AC].ac_class
         begin_serv=max(release_time,queue_complete)
-        weather_state=weather(release_time,wlb_tm,wub_tm) #weather(begin_serv,wlb_tm,wub_tm)
+        weather_state = weather_process(release_time) # JF Question: why not begin_serv?
 
         #print('AC: '+str(AC)+' pool arrival: '+str(ArrTime[AC][0])+' release_time: '+str(release_time))
 

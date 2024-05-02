@@ -5,14 +5,17 @@ import math
 import time
 import numpy as np 
 
-from .utils import weather, FlightInfo, Cost
+from .utils import FlightInfo, Cost
+from .weather import StochasticWeatherProcess
 from .sequence import SequenceInfo
 from .gamma import Gamma_GetServ, Gamma_Conditional_GetServ
-from .simulate import simulate_weather, simulate_flight_times
+from .simulate import simulate_flight_times
 
 # JF: this is the main sim heuristic - it is doing too much
-def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Ac_queue, tm, k, prev_class, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, basecost, wlb, wub, soln_evals_tot, soln_evals_num, tau: int, Max_LookAhead: int, Time_Sep: List[List[int]], cost_fn: Cost, GA_Check_Increment: int, S_min: int, w_rho: float, wiener_sig: float, weather_sig: float):
+def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Ac_queue, tm, k, prev_class, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, basecost, weather: StochasticWeatherProcess, soln_evals_tot, soln_evals_num, tau: int, Max_LookAhead: int, Time_Sep: List[List[int]], cost_fn: Cost, GA_Check_Increment: int, S_min: int, w_rho: float, wiener_sig: float):
     # JF Note: could maybe remove argument Max_LookAhead if no_ACs can be inferred from other arguments
+    
+    # JF Question: is it an issue that Arr_NotReady is not an argument here? Sequences could possibly contain flights in this set
     stepthrough_logger = logging.getLogger("stepthrough")
     step_summ_logger = logging.getLogger("step_summ")
     step_new_logger = logging.getLogger("step_new")
@@ -27,7 +30,7 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Ac_queue, tm, k, prev_class, GA
     ArrTime, Trav_Time, ServTime = simulate_flight_times(tm, Ac_Info, tau, k, wiener_sig)
     
     # Before proceeding, randomly generate wlb_gen and wub_gen
-    wlb_gen, wub_gen = simulate_weather(tm, wlb, wub, weather_sig)
+    weather_sample = weather.sample_process(tm)
 
     stepthrough_logger.info("basecost is %s\n", basecost)
     stepthrough_logger.info('Generated results for ACs already in the queue are as follows:')
@@ -55,7 +58,7 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Ac_queue, tm, k, prev_class, GA
             rel_time = Ac_Infoi.release_time
             cur_class = Ac_Infoi.ac_class
             # ROB TO CHECK - should we use max(queue_complete, rel_time) in line below?
-            weather_state = weather(rel_time, wlb_gen, wub_gen) # weather(queue_complete, wlb_gen, wub_gen)
+            weather_state = weather_sample(rel_time)
             trav_time = Trav_Time[AC]
 
             # JF Question: Not sure how this first case arises - perhaps it is a mistake? trav_time isn't even defined for flight j
@@ -105,7 +108,7 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Ac_queue, tm, k, prev_class, GA
             perm_class = Ac_Infoi.ac_class
             reltime = max(latest_tm, ArrTime[AC])
             begin_serv = max(reltime, perm_queue_complete)
-            weather_state = weather(reltime, wlb_gen, wub_gen)
+            weather_state = weather_sample(reltime)
 
 
             stepthrough_logger.info('%d, %s, %.2f, %.2f, %.2f, %.2f, %.2f,',
@@ -185,7 +188,7 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Ac_queue, tm, k, prev_class, GA
 
             if counter >= GA_Check_Increment or pruned==1:
                 if qp > 0: #0.05:
-                    j=0
+                    j=0 
                     while perm.queue_probs[j] > 0: #0.05: # JF Note: Make more idiomatic
                         AC = perm.sequence[j]
                         Ac_added.append(AC)

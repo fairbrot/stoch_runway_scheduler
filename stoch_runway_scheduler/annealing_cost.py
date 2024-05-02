@@ -1,8 +1,9 @@
 from typing import List
 import math
-from .utils import weather, Cost
+from .utils import Cost
+from .weather import WeatherProcess
 
-def Annealing_Cost(seq, Ac_Info, ArrTime, ServTime, ArrTime_Sorted, wlb_tm, wub_tm, output, NoA: int, w_rho: float, k: int, Time_Sep: List[List[int]], cost_fn: Cost):
+def Annealing_Cost(seq, Ac_Info, ArrTime, ServTime, ArrTime_Sorted, weather_process: WeatherProcess, output, NoA: int, w_rho: float, k: int, Time_Sep: List[List[int]], cost_fn: Cost):
 
     perm=seq
     perm_cost=0
@@ -14,13 +15,13 @@ def Annealing_Cost(seq, Ac_Info, ArrTime, ServTime, ArrTime_Sorted, wlb_tm, wub_
 
     while j < NoA:
 
-        AC=perm[j]
-        Ac_Infoi=Ac_Info[AC]
+        AC = perm[j]
+        Ac_Infoi = Ac_Info[AC]
         release_time = max(latest_tm, ArrTime[AC][0])
         trav_time=Ac_Infoi.travel_time
         perm_class=Ac_Infoi.ac_class
-        begin_serv=max(release_time,perm_queue_complete)
-        perm_weather_state=weather(release_time,wlb_tm,wub_tm) #weather(begin_serv,wlb_tm,wub_tm)
+        begin_serv=max(release_time, perm_queue_complete)
+        perm_weather_state = weather_process(release_time) # weather(begin_serv) # JF Question - why not the latter?
 
         if perm_weather_state==1:
             ws=1/w_rho
