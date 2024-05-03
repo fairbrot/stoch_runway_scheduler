@@ -308,8 +308,6 @@ while rep < no_reps:
     next_completion_time = 0
     Pop_elap = 0 # Used to track time spent in certain functions - used to update simulation clock
     pruned = 0 # indicator of whether or not number of sequences has gone below minimum
-    soln_evals_tot = 0
-    soln_evals_num = 0
     tot_mut = 0 # number of times we have done mutation step
 
     tot_arr_cost = 0
@@ -416,7 +414,7 @@ while rep < no_reps:
         if len(Arr_Pool) + len(Arr_NotReady) > 0:
             if SubPolicy == 'VNS':
                 # JF Question: should we be inputting wlb_tm and wub_tm rather than wlb and wub here?
-                Ac_added, counter, qp, pruned, GA_CheckSize, GA_counter, soln_evals_tot, soln_evals_num = Genetic(Ac_Info, Arr_Pool, Ac_queue, max(tm,0), k, prev_class, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, tot_arr_cost + tot_dep_cost, weather_process, soln_evals_tot, soln_evals_num, tau, Max_LookAhead, Time_Sep, cost_fn, GA_Check_Increment, S_min, w_rho, wiener_sig)
+                Ac_added, counter, qp, pruned, GA_CheckSize, GA_counter = Genetic(Ac_Info, Arr_Pool, Ac_queue, max(tm,0), k, prev_class, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, tot_arr_cost + tot_dep_cost, weather_process, tau, Max_LookAhead, Time_Sep, cost_fn, GA_Check_Increment, S_min, w_rho, wiener_sig)
                 Ov_GA_counter+=1
                 stepthrough_logger.info('GA_counter is %d', GA_counter)
             elif SubPolicy=='VNSD':
@@ -448,8 +446,6 @@ while rep < no_reps:
     gg.write(str(SubPolicy)+','+str(tot_arr_cost+tot_dep_cost)+',')
     gg.write(str(time.time()-begin_time)+',')
     gg.write(str(Loop_Nums)+','+str(tot_mut)+',')
-    if SubPolicy == 'VNS':
-        gg.write(str(soln_evals_tot/soln_evals_num)+',')
 
     ArrTime = [0]*NoA
     ArrTime_Sorted = [0]*NoA

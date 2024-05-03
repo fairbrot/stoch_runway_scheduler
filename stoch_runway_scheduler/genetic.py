@@ -12,7 +12,7 @@ from .gamma import Gamma_GetServ, Gamma_Conditional_GetServ
 from .simulate import simulate_flight_times
 
 # JF: this is the main sim heuristic - it is doing too much
-def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Ac_queue, tm, k, prev_class, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, basecost, weather: StochasticWeatherProcess, soln_evals_tot, soln_evals_num, tau: int, Max_LookAhead: int, Time_Sep: List[List[int]], cost_fn: Cost, GA_Check_Increment: int, S_min: int, w_rho: float, wiener_sig: float):
+def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Ac_queue, tm, k, prev_class, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, basecost, weather: StochasticWeatherProcess, tau: int, Max_LookAhead: int, Time_Sep: List[List[int]], cost_fn: Cost, GA_Check_Increment: int, S_min: int, w_rho: float, wiener_sig: float):
     # JF Note: could maybe remove argument Max_LookAhead if no_ACs can be inferred from other arguments
     
     # JF Question: is it an issue that Arr_NotReady is not an argument here? Sequences could possibly contain flights in this set
@@ -154,22 +154,14 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Ac_queue, tm, k, prev_class, GA
         
         for i in to_remove:
             info = GA_Info.pop(i)
-            soln_evals_tot += info.n_traj
-            soln_evals_num += 1
 
         if len(GA_Info) <= S_min:
-            solns_left = len(GA_Info) # These calculated for output purposes
-            soln_evals_tot += (solns_left*GA_LoopSize)
-            soln_evals_num += solns_left
-            pruned=1 # JF Question: this enables Repopulate_VNS
+            pruned = 1 # JF Question: this enables Repopulate_VNS
 
         # When iterations reaches GA_LoopSize (500) we reset GA_CheckSize - otherwise
         # we increase so ranking 
         if GA_counter >= GA_LoopSize:
             GA_CheckSize = GA_Check_Increment
-            solns_left = len(GA_Info)
-            soln_evals_tot+=(solns_left*GA_LoopSize)
-            soln_evals_num+=solns_left
         else:
             GA_CheckSize += GA_Check_Increment
         step_new_logger.info('New GA_CheckSize: '+str(GA_CheckSize)+'\n'+'\n')
@@ -206,4 +198,4 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Ac_queue, tm, k, prev_class, GA
         qp=0
 
 
-    return Ac_added, counter, qp, pruned, GA_CheckSize, GA_counter, soln_evals_tot, soln_evals_num
+    return Ac_added, counter, qp, pruned, GA_CheckSize, GA_counter
