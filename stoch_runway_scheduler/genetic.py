@@ -21,7 +21,6 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Ac_queue, tm, k, prev_class, GA
     step_new_logger = logging.getLogger("step_new")
 
     output = 0 # output = 1 means we're printing results as we go along; output=2 means we're outputting results to "Detailed" csv file
-    pruned = 0 # indicator of whether or not the number of sequences has gone below the minimum number
 
     stepthrough_logger.info('Now entering Genetic procedure')
 
@@ -80,7 +79,6 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Ac_queue, tm, k, prev_class, GA
             perm_prev_class = cur_class
             basecost += cost_fn(Ac_Infoi.orig_sched_time, Ac_Infoi.pool_time, trav_time, queue_complete, Ac_Infoi.passenger_weight)
 
-
     else:
         queue_complete=tm
         perm_prev_class=prev_class
@@ -89,7 +87,6 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Ac_queue, tm, k, prev_class, GA
 
     # Try all the sequences in the population
     for info in GA_Info:
-
         stepthrough_logger.info('Now trying sequence %s', info.sequence)
         stepthrough_logger.info('AC'+','+'Class'+','+'Time Sep'+','+'Arrives in pool'+','+'Release time'+','+'Travel time'+','+'Enters serv'+','+'Actual serv'+','+'Finish time'+','+'Pax weight'+','+'Cost'+'\n')
 
@@ -102,14 +99,12 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Ac_queue, tm, k, prev_class, GA
         no_ACs = min(Max_LookAhead, len(perm)) # JF Question: can this not just be len(perm)?
         xi_list = [] # for each flight indicates whether or not it goes straight to service - called xi in paper
         for index in range(no_ACs):
-
             AC = perm[index]
             Ac_Infoi = Ac_Info[AC]
             perm_class = Ac_Infoi.ac_class
             reltime = max(latest_tm, ArrTime[AC])
             begin_serv = max(reltime, perm_queue_complete)
             weather_state = weather_sample(reltime)
-
 
             stepthrough_logger.info('%d, %s, %.2f, %.2f, %.2f, %.2f, %.2f,',
                                     AC, perm_class, Time_Sep[perm_prev_class][perm_class]/60, ArrTime[AC], reltime, Trav_Time[AC], perm_queue_complete)
@@ -155,9 +150,6 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Ac_queue, tm, k, prev_class, GA
         for i in to_remove:
             info = GA_Info.pop(i)
 
-        if len(GA_Info) <= S_min:
-            pruned = 1 # JF Question: this enables Repopulate_VNS
-
         # When iterations reaches GA_LoopSize (500) we reset GA_CheckSize - otherwise
         # we increase so ranking 
         if GA_counter >= GA_LoopSize:
@@ -178,7 +170,7 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Ac_queue, tm, k, prev_class, GA
             counter = perm.n_traj
             qp = perm.queue_probs[0]
 
-            if counter >= GA_Check_Increment or pruned==1:
+            if counter >= GA_Check_Increment or (len(GA_Info) <= S_min):
                 if qp > 0: #0.05:
                     j=0 
                     while perm.queue_probs[j] > 0: #0.05: # JF Note: Make more idiomatic
@@ -198,4 +190,4 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Ac_queue, tm, k, prev_class, GA
         qp=0
 
 
-    return Ac_added, counter, qp, pruned, GA_CheckSize, GA_counter
+    return Ac_added, counter, qp, GA_CheckSize, GA_counter
