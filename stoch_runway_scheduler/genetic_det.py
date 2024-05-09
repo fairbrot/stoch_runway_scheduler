@@ -1,6 +1,5 @@
 from typing import List
 import logging
-import time
 from .utils import FlightInfo, Cost
 from .weather import WeatherProcess, WeatherStatus
 from .sequence import SequenceInfo
@@ -162,7 +161,7 @@ def Genetic_determ(Ac_Info: List[FlightInfo], Arr_Pool: List[int], Arr_NotReady:
         stepthrough_logger.info('Total cost: '+','+str(info.v)+','+'Queue probs: '+','+str(info.queue_probs)+'\n'+'\n')
 
     GA_Info.sort(key=lambda x: x.sequence)
-    for j in range(len(GA_Info)):
+    for info in GA_Info:
         step_summ_logger.info(str(info.v)+',')
 
     GA_Info.sort(key=lambda x: x.v)
@@ -186,10 +185,5 @@ def Genetic_determ(Ac_Info: List[FlightInfo], Arr_Pool: List[int], Arr_NotReady:
                     if j==len(perm.sequence):
                         break
 
-    # end_time=time.time()
-    # elap=(end_time-start_time)/conv_factor
-    # #elap=0.01
-
-    #elap=fixed_elap_vnsd/conv_factor
 
     return Ac_added, counter, stored_queue_complete
