@@ -1,8 +1,5 @@
-from typing import List, Tuple
+from typing import List
 import logging
-import random
-import math
-import time
 import numpy as np 
 
 from .utils import FlightInfo, Cost
@@ -20,11 +17,7 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Ac_queue, tm, k, prev_class, GA
     step_summ_logger = logging.getLogger("step_summ")
     step_new_logger = logging.getLogger("step_new")
 
-    output = 0 # output = 1 means we're printing results as we go along; output=2 means we're outputting results to "Detailed" csv file
-
     stepthrough_logger.info('Now entering Genetic procedure')
-
-    NoA = len(Ac_Info)
 
     ArrTime, Trav_Time, ServTime = simulate_flight_times(tm, Ac_Info, tau, k, wiener_sig)
     
@@ -103,7 +96,8 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Ac_queue, tm, k, prev_class, GA
             Ac_Infoi = Ac_Info[AC]
             perm_class = Ac_Infoi.ac_class
             reltime = max(latest_tm, ArrTime[AC])
-            begin_serv = max(reltime, perm_queue_complete)
+            # JF Question: should we use begin_serv rather than reltime below?
+            # begin_serv = max(reltime, perm_queue_complete)
             weather_state = weather_sample(reltime)
 
             stepthrough_logger.info('%d, %s, %.2f, %.2f, %.2f, %.2f, %.2f,',
