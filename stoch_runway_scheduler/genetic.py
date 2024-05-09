@@ -158,22 +158,15 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Ac_queue, tm, k, prev_class, GA
     if len(Arr_Pool)>0:
         assert len(GA_Info) > 0
         perm = GA_Info[0] # JF Question: is this assuming the list is in a particular order? Yes
-
         if perm.sequence[0] in Arr_Pool:
-
             counter = perm.n_traj
             qp = perm.queue_probs[0]
-
             if counter >= GA_Check_Increment or (len(GA_Info) <= S_min):
-                if qp > 0: #0.05:
-                    j=0 
-                    while perm.queue_probs[j] > 0: #0.05: # JF Note: Make more idiomatic
-                        AC = perm.sequence[j]
-                        Ac_added.append(AC)
-                        step_new_logger.info('Counter is '+','+str(counter)+', ss_prob is '+','+str(perm.queue_probs[j])+', Adding AC '+','+str(AC)+'\n')
-                        j+=1
-                        if j == len(perm.sequence):
-                            break
+                for j, AC in enumerate(perm.sequence):
+                    if perm.queue_probs[j] <= 0:
+                        break
+                    Ac_added.append(AC)
+                    step_new_logger.info('Counter is '+','+str(counter)+', ss_prob is '+','+str(perm.queue_probs[j])+', Adding AC '+','+str(AC)+'\n')
 
         else:
             counter=0
@@ -182,6 +175,5 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Ac_queue, tm, k, prev_class, GA
     else:
         counter=0
         qp=0
-
 
     return Ac_added, counter, qp, GA_CheckSize, GA_counter
