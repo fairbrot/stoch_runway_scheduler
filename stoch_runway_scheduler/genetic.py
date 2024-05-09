@@ -160,7 +160,6 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Ac_queue, tm, k, prev_class, GA
         perm = GA_Info[0] # JF Question: is this assuming the list is in a particular order? Yes
         if perm.sequence[0] in Arr_Pool:
             counter = perm.n_traj
-            qp = perm.queue_probs[0]
             if counter >= GA_Check_Increment or (len(GA_Info) <= S_min):
                 for j, AC in enumerate(perm.sequence):
                     if perm.queue_probs[j] <= 0:
@@ -170,10 +169,8 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Ac_queue, tm, k, prev_class, GA
 
         else:
             counter=0
-            qp=0
 
     else:
         counter=0
-        qp=0
 
-    return Ac_added, counter, qp, GA_CheckSize, GA_counter
+    return Ac_added, counter, GA_CheckSize, GA_counter

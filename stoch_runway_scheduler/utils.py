@@ -28,7 +28,6 @@ class FlightInfo:
     travel_time_indicator: bool # 11 indicator to show whether or not the AC's travel time has already been completed - used in Update_ETAs
     weather_state: int # 12 weather state at the time of release # JF Note - could possibly be removed with refactoring
     counter: int # counter
-    qp: float # Perm only
     pred_cost: float # 15 predicted total cost at time of release
     service_completion_time: float # actual service completion time
     sched_dep_time: float # scheduled departure time - used?

@@ -121,7 +121,7 @@ gg = open("SRSP_rep_results_%s_%s.csv" % (Policy, conv_factor), "w") # summaries
 
 f1 = open("Perm_Heur_out_%s_%s.csv" % (Policy, conv_factor), "w") # output from a particular heuristic - may not be needed (can remove if you like)
 
-f.write('Policy'+',''Rep'+','+'AC'+','+'Flight Num'+','+'Prev Class'+','+'Cur Class'+','+'Time Sep'+','+'Orig PS time'+','+'PS time'+','+'Pool Arrival'+','+'Release Time'+','+'Travel Time'+','+'Weather Coeff'+','+'Enters Serv'+','+'Actual Serv'+','+'Ends Serv'+','+'Lateness'+','+'Queue Delay'+','+'Pax Weight'+','+'Cost'+','+'counter'+','+'qp'+','+'Predicted total'+'\n')
+f.write('Policy'+',''Rep'+','+'AC'+','+'Flight Num'+','+'Prev Class'+','+'Cur Class'+','+'Time Sep'+','+'Orig PS time'+','+'PS time'+','+'Pool Arrival'+','+'Release Time'+','+'Travel Time'+','+'Weather Coeff'+','+'Enters Serv'+','+'Actual Serv'+','+'Ends Serv'+','+'Lateness'+','+'Queue Delay'+','+'Pax Weight'+','+'Cost'+','+'counter'+','+'Predicted total'+'\n')
 
 ##################
 # INITIALISATION #
@@ -217,7 +217,7 @@ while rep < no_reps:
         Ac_Info[i] = FlightInfo(FlightStatus.NOT_READY, Ac_class[i], Arr_Ps[i], Arr_Ps[i],
                       0, 0, 0, ServPercs,
                       0, 0, pax_weight[i], False,
-                      1, 0, 0, 0,
+                      1, 0, 0,
                       0, Dep_Ps[i], Orig_Ps[i], flight_id[i])
 
     Ac_Info.sort(key=lambda x: x.ps_time)
@@ -302,7 +302,6 @@ while rep < no_reps:
     prev_class = 4 # class of previous aircraft to be served, initially set to 4 (dummy value)
     Ac_added = [] # aircraft to be added to the queue
     counter = 0
-    qp = 0 # Possibly related to an old permutation based heuristic - may be redundant now
     weather_state = 0 # 0 means it's good weather, 1 means bad weather, 2 means good weather again
     real_queue_complete = 0 # stores time last place was serviced
     next_completion_time = 0
@@ -363,15 +362,14 @@ while rep < no_reps:
                 if AC in Arr_Pool:
                     Arr_Pool.remove(AC)
                     Ac_queue.append(AC)
-                    #print('Added AC '+str(AC)+' to the queue, counter is '+str(Ov_GA_counter)+', qp is '+str(qp))
                     Ac_Info[AC].pred_cost = pred_cost
-                    stepthrough_logger.info('Added AC %d to the queue, counter is %d, qp is %.2f\n', AC, Ov_GA_counter, qp)
-                    step_summ_logger.info('Added AC %d to the queue, counter is %d, qp is %s', AC, Ov_GA_counter, qp)
-                    step_new_logger.info('Added AC %d to the queue, counter is %d, qp is %s', AC, Ov_GA_counter, qp)
+                    stepthrough_logger.info('Added AC %d to the queue, counter is %d\n', AC, Ov_GA_counter)
+                    step_summ_logger.info('Added AC %d to the queue, counter is %d', AC, Ov_GA_counter)
+                    step_new_logger.info('Added AC %d to the queue, counter is %d', AC, Ov_GA_counter)
                     base_seq.remove(AC)
                     # Gets important statistics about aircraft being released and serviced
                     # some of these outputs are used for simulation itself
-                    real_queue_complete, next_completion_time, latest_class, Ov_GA_counter = Update_Stats(tm, AC, Ac_Info, Ac_queue, real_queue_complete, weather_process, latest_class, Ov_GA_counter, next_completion_time, k, Time_Sep, w_rho, SubPolicy, counter, qp)
+                    real_queue_complete, next_completion_time, latest_class, Ov_GA_counter = Update_Stats(tm, AC, Ac_Info, Ac_queue, real_queue_complete, weather_process, latest_class, Ov_GA_counter, next_completion_time, k, Time_Sep, w_rho, SubPolicy, counter)
 
                 else:
                     # Important: if aircraft not in the pool then don't consider any others (order in Ac_Added comes from a sequence and is important)
@@ -413,18 +411,18 @@ while rep < no_reps:
         if len(Arr_Pool) + len(Arr_NotReady) > 0:
             if SubPolicy == 'VNS':
                 # JF Question: should we be inputting wlb_tm and wub_tm rather than wlb and wub here?
-                Ac_added, counter, qp, GA_CheckSize, GA_counter = Genetic(Ac_Info, Arr_Pool, Ac_queue, max(tm,0), k, prev_class, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, tot_arr_cost + tot_dep_cost, weather_process, tau, Max_LookAhead, Time_Sep, cost_fn, GA_Check_Increment, S_min, w_rho, wiener_sig)
+                Ac_added, counter, GA_CheckSize, GA_counter = Genetic(Ac_Info, Arr_Pool, Ac_queue, max(tm,0), k, prev_class, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, tot_arr_cost + tot_dep_cost, weather_process, tau, Max_LookAhead, Time_Sep, cost_fn, GA_Check_Increment, S_min, w_rho, wiener_sig)
                 Ov_GA_counter+=1
                 stepthrough_logger.info('GA_counter is %d', GA_counter)
             elif SubPolicy=='VNSD':
                 exp_weather = weather_process.expected_process(tm)
-                Ac_added, counter, qp, stored_queue_complete = Genetic_determ(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, max(tm,0), NoA, k, prev_class, GA_Info, exp_weather, tau, Max_LookAhead, Time_Sep, cost_fn, tot_arr_cost, tot_dep_cost, w_rho)
+                Ac_added, counter, stored_queue_complete = Genetic_determ(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, max(tm,0), NoA, k, prev_class, GA_Info, exp_weather, tau, Max_LookAhead, Time_Sep, cost_fn, tot_arr_cost, tot_dep_cost, w_rho)
                 Ov_GA_counter += 1
                 GA_counter += 1
                 stepthrough_logger.info('GA_counter is %d', GA_counter)
 
         else:
-            Ac_added, elap, counter, qp = [], 0.1, 0, 0 # JF Question: is this a syntax error?
+            Ac_added, elap, counter = [], 0.1, 0
 
         latest_time = (time.time() - initial_time)/conv_factor
 

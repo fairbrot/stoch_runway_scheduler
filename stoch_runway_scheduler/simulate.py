@@ -282,7 +282,7 @@ def Update_ETAs(Ac_Info: List[FlightInfo], Arr_NotReady: List[int], Dep_NotReady
             else:
                 Ac_Infoi.eta = Brown_Motion[AC][int((Ac_Infoi.pool_time + rounded_trav_so_far) * freq)]
 
-def Update_Stats(tm: float, AC: int, Ac_Info: List[FlightInfo], Ac_queue: List[int], real_queue_complete: float, weather_process: WeatherProcess, latest_class, Ov_GA_counter, next_completion_time, k: int, Time_Sep: List[List[int]], w_rho: float, SubPolicy: str, counter: int, qp: float):
+def Update_Stats(tm: float, AC: int, Ac_Info: List[FlightInfo], Ac_queue: List[int], real_queue_complete: float, weather_process: WeatherProcess, latest_class, Ov_GA_counter, next_completion_time, k: int, Time_Sep: List[List[int]], w_rho: float, SubPolicy: str, counter: int):
     """
     Updates various states when after flight is released into queue.
 
@@ -298,7 +298,6 @@ def Update_Stats(tm: float, AC: int, Ac_Info: List[FlightInfo], Ac_queue: List[i
     w_rho: bad weather multiplier
     Subpolicy:
     counter:
-    qp: 
 
     Returns
     -------
@@ -341,8 +340,6 @@ def Update_Stats(tm: float, AC: int, Ac_Info: List[FlightInfo], Ac_queue: List[i
 
     Ac_Infoi.counter = Ov_GA_counter
     Ov_GA_counter = 0
-
-    Ac_Infoi.qp = qp
 
     latest_class = cur_class
 
@@ -389,7 +386,7 @@ def Serv_Completions(Ac_Info, Ac_queue, prev_class, totserv, Ac_finished, tm, ne
                 arr_cost += cost_fn(Ac_Infoi.orig_sched_time, Ac_Infoi.pool_time, Ac_Infoi.travel_time, finish_time, Ac_Infoi.passenger_weight)
 
             f.write(str(SubPolicy)+','+str(rep)+','+str(AC)+','+str(Ac_Infoi.flight_id)+','+str(prev_class)+','+str(current_class)+','+str(Time_Sep[prev_class][current_class]/60)+','+str(Ac_Infoi.orig_sched_time)+','+str(Ac_Infoi.ps_time)+','+str(Ac_Infoi.pool_time)+','+str(Ac_Infoi.release_time)+','+str(Ac_Infoi.travel_time)+','+str(Ac_Infoi.weather_state)+','+str(Ac_Infoi.enters_service)+','+str(Ac_Infoi.service_time)+','+str(Ac_Infoi.service_completion_time)+','+str(max(0,finish_time-(Ac_Infoi.ps_time+cost_fn.thres1)))+','+str(finish_time-(Ac_Infoi.pool_time+Ac_Infoi.travel_time))+','+str(Ac_Infoi.passenger_weight)+','+str(cost_fn(Ac_Infoi.ps_time, Ac_Infoi.pool_time, Ac_Infoi.travel_time, finish_time, Ac_Infoi.passenger_weight))+',')
-            f.write(str(Ac_Infoi.counter)+','+str(Ac_Infoi.qp)+',')
+            f.write(str(Ac_Infoi.counter)+',')
 
             f.write(str(Ac_Infoi.pred_cost)+',')
             f.write('\n')
