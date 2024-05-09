@@ -35,16 +35,6 @@ class FlightInfo:
     orig_sched_time: float # original pre-scheduled arrival time before adding pre-tactical delay
     flight_id: int
 
-@dataclass
-class SequenceInfo:
-    sequence: List[int]
-    n_traj: int # number of trajectories sampled so far
-    v: float # V_s^n in paper  (eqn 14) (performance measure)
-    queue_probs: List[float] # stores "probability" that aircraft will immediately go into service at end of remaining travel time - upsilon in paper (page 18)
-    # Rob thinks this upsilon is redundant as Rob set lambda to zero in paper which means that if one random trajectory where aircraft enters
-    # service immediately, this triggers release from pool.
-    w: float # W_s^n in paper (eqn 15)
-    age: int # number of times sequence has been passed to Repopulate
 
 def read_flight_data(data_fn: str, min_time: int, max_time: int, wiener_sig: float) -> Tuple[List[str], List[int], List[int], List[int], List[float], List[float], List[float]]:
     """
@@ -148,20 +138,6 @@ def read_flight_data(data_fn: str, min_time: int, max_time: int, wiener_sig: flo
                 break
     return flight_id, Ac_class, Orig_Ps, Dep_Ps, Alpha_Ps, Beta_Ps, late_means
 
-
-def weather(tm, wlb, wub): # wlb is starting time for bad weather period, wub is ending time
-
-    if wlb < wub:
-        if tm < wlb:
-            get_weather_state=0
-        elif tm < wub:
-            get_weather_state=1
-        else:
-            get_weather_state=2
-    else:
-        get_weather_state=0
-
-    return get_weather_state
 
 
 @dataclass
