@@ -130,7 +130,7 @@ def Genetic_determ(Ac_Info: List[FlightInfo], Arr_Pool: List[int], Arr_NotReady:
             t1=reltime+tau
             # JF Question - should we use time start servicing here?
             # Like begin_serv in Genetic?
-            if weather(rel_time) == WeatherStatus.BAD:
+            if weather(reltime) == WeatherStatus.BAD:
                 exp_serv = w_rho*Time_Sep[perm_prev_class][perm_class]/60
             else:
                 exp_serv = Time_Sep[perm_prev_class][perm_class]/60
@@ -169,23 +169,21 @@ def Genetic_determ(Ac_Info: List[FlightInfo], Arr_Pool: List[int], Arr_NotReady:
 
     Ac_added=[]
     counter=0
-    qp=0
 
     if len(Arr_Pool)>0:
         assert len(GA_Info) > 0
         perm = GA_Info[0]
 
-        if perm[0][0] in Arr_Pool:
+        if perm.sequence[0] in Arr_Pool:
 
-            if 1==1: #perm[1]>=100 and 1==1: #perm[3][0]>0: #0.05:
+            if 1==1: #perm.n_traj>=100 and 1==1: #perm.queue_probs[0]>0: #0.05:
                 j=0
-                counter=perm[1]
-                qp=perm[3][0]
+                counter=perm.n_traj
                 while 1==1: #perm[3][j]>0: #0.05:
-                    AC=perm[0][j]
+                    AC=perm.sequence[j]
                     Ac_added.append(AC)
                     j+=1
-                    if j==len(perm[0]):
+                    if j==len(perm.sequence):
                         break
 
     # end_time=time.time()
@@ -194,4 +192,4 @@ def Genetic_determ(Ac_Info: List[FlightInfo], Arr_Pool: List[int], Arr_NotReady:
 
     #elap=fixed_elap_vnsd/conv_factor
 
-    return Ac_added, counter, qp, stored_queue_complete
+    return Ac_added, counter, stored_queue_complete
