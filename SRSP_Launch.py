@@ -294,7 +294,6 @@ while rep < no_reps:
     Left_queue = [] # Aircraft which have landed
     Arr_Pool = [] # Aircraft in Pool
     Arr_NotReady = [] # Aircraft that haven't joined pool yet
-    Dep_NotReady = [] # Is this needed? It is used once below - Possibly not - check how it is used
 
     tm = 0  # tm is current time (in minutes)
     old_tm = tm # previous time
@@ -430,7 +429,7 @@ while rep < no_reps:
         # JF Question: what is this condition? freq replaced 100 here
         if int(tm*freq) != int(old_tm*freq):
             # JF Question: should this use latest_time rather than tm? Rob thinks it is fine, but will check if necessary
-            Update_ETAs(Ac_Info, Arr_NotReady, Dep_NotReady, Ac_queue, tm, Brown_Motion, Arr_Pool, tau, freq) 
+            Update_ETAs(Ac_Info, Arr_NotReady, Ac_queue, tm, Brown_Motion, Arr_Pool, tau, freq) 
 
         if len(Ac_queue) > 0 and tm >= next_completion_time: #len(Ac_queue)>0:
             arr_cost, dep_cost, totserv, prev_class, Ac_finished, next_completion_time = Serv_Completions(Ac_Info, Ac_queue, prev_class, totserv, Ac_finished, latest_time, next_completion_time, cost_fn, f, SubPolicy, rep, Time_Sep, Left_queue)

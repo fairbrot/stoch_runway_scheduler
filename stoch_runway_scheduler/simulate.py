@@ -234,8 +234,8 @@ def round_down(tm: float, freq: int) -> float:
     return i*int_size
 
 
-def Update_ETAs(Ac_Info: List[FlightInfo], Arr_NotReady: List[int], Dep_NotReady: List[int], 
-                Ac_queue: List[int], tm: float, Brown_Motion: List[List[float]], Arr_Pool: List[int], tau: float,
+def Update_ETAs(Ac_Info: List[FlightInfo], Arr_NotReady: List[int], Ac_queue: List[int], 
+                tm: float, Brown_Motion: List[List[float]], Arr_Pool: List[int], tau: float,
                 freq: int):
     
     # JF Question: this only updates ETAs for aircraft not ready, which join the pool, or are in the queue.
