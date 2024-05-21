@@ -63,14 +63,14 @@ def Genetic_determ(Ac_Info: List[FlightInfo], Arr_Pool: List[int], Arr_NotReady:
         stepthrough_logger.info('%.2f, %.2f, %.2f', queue_complete, Ac_Infoi.passenger_weight, 
                                 cost_fn(Ac_Infoi.ps_time, Ac_Infoi.pool_time, tau, queue_complete, Ac_Infoi.passenger_weight))
 
-        perm_prev_class=cur_class
+        perm_prev_class = cur_class
 
 
         # Now consider the rest of the customers in the queue
         for AC in Ac_queue:
-            Ac_Infoi=Ac_Info[AC]
-            rel_time=Ac_Infoi.release_time
-            cur_class=Ac_Infoi.ac_class
+            Ac_Infoi = Ac_Info[AC]
+            rel_time = Ac_Infoi.release_time
+            cur_class = Ac_Infoi.ac_class
 
             stepthrough_logger.info(str(AC)+','+str(Ac_Infoi.ac_class)+','+str(Time_Sep[perm_prev_class][cur_class]/60)+','+str(Ac_Infoi.release_time)+','+str(Ac_Infoi.travel_time)+','+str(Ac_Infoi.enters_service)+',')
 
@@ -82,20 +82,20 @@ def Genetic_determ(Ac_Info: List[FlightInfo], Arr_Pool: List[int], Arr_NotReady:
             else:
                 t2=queue_complete+(Time_Sep[perm_prev_class][cur_class]/60)
                 stepthrough_logger.info(str(Time_Sep[perm_prev_class][cur_class]/60)+',')
-            queue_complete=max(t1,t2)
+            queue_complete = max(t1, t2)
 
-            perm_prev_class=cur_class
-            basecost+=cost_fn(Ac_Infoi.orig_sched_time,Ac_Infoi.pool_time,tau,queue_complete,Ac_Infoi.passenger_weight)
+            perm_prev_class = cur_class
+            basecost += cost_fn(Ac_Infoi.orig_sched_time,Ac_Infoi.pool_time,tau,queue_complete,Ac_Infoi.passenger_weight)
 
             stepthrough_logger.info(str(queue_complete)+','+str(Ac_Infoi.passenger_weight)+','+str(cost_fn(Ac_Infoi.ps_time,Ac_Infoi.pool_time,tau,queue_complete,Ac_Infoi.passenger_weight))+'\n')
 
     else:
 
-        queue_complete=tm
-        perm_prev_class=prev_class
+        queue_complete = tm
+        perm_prev_class = prev_class
 
-    stored_prev_class=perm_prev_class
-    stored_queue_complete=queue_complete
+    stored_prev_class = perm_prev_class
+    stored_queue_complete = queue_complete
 
     #Try all the sequences in the population
 
@@ -137,9 +137,9 @@ def Genetic_determ(Ac_Info: List[FlightInfo], Arr_Pool: List[int], Arr_NotReady:
 
             AC_FinishTime = max(t1,t2)
             if t1>=t2:
-                straight_into_service=1
+                straight_into_service = 1
             else:
-                straight_into_service=0
+                straight_into_service = 0
 
             info.queue_probs[index] = (1-gam)*info.queue_probs[index] + gam*straight_into_service
 
@@ -164,8 +164,8 @@ def Genetic_determ(Ac_Info: List[FlightInfo], Arr_Pool: List[int], Arr_NotReady:
 
     GA_Info.sort(key=lambda x: x.v)
 
-    Ac_added=[]
-    counter=0
+    Ac_added = []
+    counter = 0
 
     if len(Arr_Pool)>0:
         assert len(GA_Info) > 0
@@ -173,14 +173,14 @@ def Genetic_determ(Ac_Info: List[FlightInfo], Arr_Pool: List[int], Arr_NotReady:
 
         if perm.sequence[0] in Arr_Pool:
 
-            if 1==1: #perm.n_traj>=100 and 1==1: #perm.queue_probs[0]>0: #0.05:
-                j=0
-                counter=perm.n_traj
-                while 1==1: #perm[3][j]>0: #0.05:
-                    AC=perm.sequence[j]
+            if 1 == 1: #perm.n_traj>=100 and 1==1: #perm.queue_probs[0]>0: #0.05:
+                j = 0
+                counter = perm.n_traj
+                while 1 == 1: #perm[3][j]>0: #0.05:
+                    AC = perm.sequence[j]
                     Ac_added.append(AC)
-                    j+=1
-                    if j==len(perm.sequence):
+                    j += 1
+                    if j == len(perm.sequence):
                         break
 
 
