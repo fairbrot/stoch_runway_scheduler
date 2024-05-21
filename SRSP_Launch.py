@@ -220,6 +220,7 @@ while rep < no_reps:
                       1, 0, 0,
                       0, Dep_Ps[i], Orig_Ps[i], flight_id[i])
 
+
     Ac_Info.sort(key=lambda x: x.ps_time)
 
     print('*** Generating the ETA trajectory array...')
