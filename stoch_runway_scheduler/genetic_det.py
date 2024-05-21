@@ -10,7 +10,7 @@ from .gamma import gamma_cond_exp
 def Genetic_determ(Ac_Info: List[FlightInfo], Arr_Pool: List[int], Arr_NotReady: List[int], 
                     Ac_queue: List[int], tm: float, NoA: int, k:int, 
                     prev_class: int, GA_Info: List[SequenceInfo], weather: WeatherProcess, tau: int, Max_LookAhead: int, Time_Sep: List[List[int]], cost_fn: Cost, 
-                    tot_arr_cost: float, tot_dep_cost: float, w_rho: float):
+                    basecost: float, w_rho: float):
 
     stepthrough_logger = logging.getLogger("stepthrough")
     step_summ_logger = logging.getLogger("step_summ")
@@ -29,8 +29,6 @@ def Genetic_determ(Ac_Info: List[FlightInfo], Arr_Pool: List[int], Arr_NotReady:
         ArrTime_Sorted.append([ArrTime[AC], AC])
 
     ArrTime_Sorted.sort(key=lambda x: x[0])
-
-    basecost = tot_arr_cost + tot_dep_cost
 
     stepthrough_logger.info('basecost is %.2f', basecost)
     stepthrough_logger.info('Generated results for ACs already in the queue are as follows:')

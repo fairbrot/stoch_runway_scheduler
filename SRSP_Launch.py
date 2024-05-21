@@ -416,7 +416,7 @@ while rep < no_reps:
                 stepthrough_logger.info('GA_counter is %d', GA_counter)
             elif SubPolicy=='VNSD':
                 exp_weather = weather_process.expected_process(tm)
-                Ac_added, counter, stored_queue_complete = Genetic_determ(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, max(tm,0), NoA, k, prev_class, GA_Info, exp_weather, tau, Max_LookAhead, Time_Sep, cost_fn, tot_arr_cost, tot_dep_cost, w_rho)
+                Ac_added, counter, stored_queue_complete = Genetic_determ(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, max(tm,0), NoA, k, prev_class, GA_Info, exp_weather, tau, Max_LookAhead, Time_Sep, cost_fn, tot_arr_cost + tot_dep_cost, w_rho)
                 Ov_GA_counter += 1
                 GA_counter += 1
                 stepthrough_logger.info('GA_counter is %d', GA_counter)
