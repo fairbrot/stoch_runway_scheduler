@@ -205,33 +205,29 @@ while rep < no_reps:
 
     cost_fn = Cost(thres1, thres2, lam1, lam2)
 
-    print('*** Generating initial aircraft info...')
+    print('*** Generating initial aircraft and trajectory arrays..')
     # this will be a multi-dimensional list storing lots of information about each aircraft; see later
     Ac_Info = [0]*NoA
 
+    Brown_Motion = []
     for i in range(NoA):
         # Generating service times for arrivals - these are scheduled to have the right mean later
-        # JF Question: What is ServPercs? Below RS says this is RNs used for service time
+        # Below RS says this is RNs used for service time
         ServPercs=np.random.gamma(k,1)
+        Ps_time, Dep_time,  = Arr_Ps[i], Dep_Ps[i]
+
+        # Trajectories are generated for whole 8 hour period for each flight
+        pool_arr_time, travel_time, brown_motion = generate_trajectory(Dep_time, Ps_time, tau, wiener_sig, freq=freq)
+        Brown_Motion.append(brown_motion)
 
         Ac_Info[i] = FlightInfo(FlightStatus.NOT_READY, Ac_class[i], Arr_Ps[i], Arr_Ps[i],
-                      0, 0, 0, ServPercs,
-                      0, 0, pax_weight[i], False,
+                      0, 0, travel_time, ServPercs,
+                      0, pool_arr_time, pax_weight[i], False,
                       1, 0, 0,
                       0, Dep_Ps[i], Orig_Ps[i], flight_id[i])
 
     Ac_Info.sort(key=lambda x: x.ps_time)
 
-    print('*** Generating the ETA trajectory array...')
-    # Trajectories are generated for whole 8 hour period for each flight
-
-    Brown_Motion = []
-    for i in range(NoA):
-        Ps_time, Dep_time,  = Ac_Info[i].ps_time, Ac_Info[i].sched_dep_time
-        pool_arr_time, travel_time, brown_motion = generate_trajectory(Dep_time, Ps_time, tau, wiener_sig, freq=freq)
-        Ac_Info[i].travel_time = travel_time
-        Ac_Info[i].pool_time = pool_arr_time
-        Brown_Motion.append(brown_motion)
 
     header = ['AC', 'Class', 'PS time', 'Pool arrival', 'Travel time', 'Runway time']
     stepthrough_logger.info(', '.join(header))
