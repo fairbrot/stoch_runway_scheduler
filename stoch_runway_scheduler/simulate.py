@@ -5,10 +5,12 @@ import random
 import numpy as np
 from .utils import FlightStatus, FlightInfo, Cost
 from .weather import WeatherProcess
+from .separation import StochasticSeparation
 from .annealing_cost import Annealing_Cost
 
 
-def simulate_flight_times(tm: float, Ac_Info: List[FlightInfo], tau: float, k: int, wiener_sig: float) -> Tuple[List[float], List[float], List[float]]:
+def simulate_flight_times(tm: float, Ac_Info: List[FlightInfo], tau: float, sep: StochasticSeparation,
+                          wiener_sig: float) -> Tuple[List[float], List[float], List[float]]:
     """
     Simulates arrival in pool times and travel times conditional on situation at time tm.
 
@@ -17,7 +19,7 @@ def simulate_flight_times(tm: float, Ac_Info: List[FlightInfo], tau: float, k: i
     tm: current time
     Ac_Info: information for all flights at current time
     tau: threshold for reaching pool (flight in pool when ETA - tm <= tau)
-    k: Erlang shape parameter for service times
+    sep: object for sampling normalized separation times
     wiener_sig: standard deviation of Brownian motion
 
     Returns:
@@ -41,12 +43,12 @@ def simulate_flight_times(tm: float, Ac_Info: List[FlightInfo], tau: float, k: i
                 else:
                     ArrTime[AC]=np.random.wald(sched,(sched/wiener_sig)**2) + tm
                 Trav_Time[AC]=np.random.wald(tau,(tau/wiener_sig)**2)
-                ServTime[AC]=np.random.gamma(k,1)
+                ServTime[AC]=sep.sample_normalized_separation()
 
             case FlightStatus.IN_POOL:
                 ArrTime[AC] = max(0, Ac_Info[AC].eta - tau) # JF Question: Time aircraft arrives in Pool - could this not be replaced with Ac_Info[AC].pool_time?
                 Trav_Time[AC] = np.random.wald(tau, (tau / wiener_sig)**2)
-                ServTime[AC] = np.random.gamma(k, 1)
+                ServTime[AC] = sep.sample_normalized_separation()
 
             case FlightStatus.IN_QUEUE:
                 # RS: this block of code is probably needed but wasn't included in the 5000 experiments for the paper

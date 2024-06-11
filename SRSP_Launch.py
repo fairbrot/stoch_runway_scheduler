@@ -9,10 +9,10 @@ import os
 
 import numpy as np
 
-from stoch_runway_scheduler import BrownianWeatherProcess, generate_trajectory, read_flight_data, sample_pretac_delay, Genetic, Genetic_determ, Populate, Repopulate_VNS, sample_cond_gamma, Annealing_Cost, Perm_Heur, Perm_Heur_New, Calculate_FCFS, Posthoc_Check, Update_Stats, Update_ETAs, Serv_Completions, FlightInfo, FlightStatus, SequenceInfo, Cost
+from stoch_runway_scheduler import BrownianWeatherProcess, generate_trajectory, read_flight_data, sample_pretac_delay, Genetic, Genetic_determ, Populate, Repopulate_VNS, Perm_Heur, Perm_Heur_New, Calculate_FCFS, Posthoc_Check, Update_Stats, Update_ETAs, Serv_Completions, FlightInfo, FlightStatus, Cost, ErlangSeparation
 
 #################
-# CONIFIGUATION #
+# CONIFIGUATION # 
 #################
 
 no_reps = 10000 # total number of random scenarios that we will simulate; in each scenario we evaluate the performances of different algorithms such as SimHeur, DetHeur, FCFS
@@ -192,6 +192,8 @@ while rep < no_reps:
     # Results can be stratified by k (roughlt 1 fifth of runs for each value of k)
     k = random.choice(pot_k)
     print('k: '+str(k))
+
+    sep = ErlangSeparation(Time_Sep, k, w_rho)
 
     # These are random for similar reasons pax_weight (g_i in paper) - results may be stratified by this as well
     # lam1 and lam2 are the weights of scheduling delay and airborne holding delays - these are called theta^S and theta^W in the paper
@@ -411,7 +413,7 @@ while rep < no_reps:
         if len(Arr_Pool) + len(Arr_NotReady) > 0:
             if SubPolicy == 'VNS':
                 # JF Question: should we be inputting wlb_tm and wub_tm rather than wlb and wub here?
-                Ac_added, counter, GA_CheckSize, GA_counter = Genetic(Ac_Info, Arr_Pool, Ac_queue, max(tm,0), k, prev_class, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, tot_arr_cost + tot_dep_cost, weather_process, tau, Max_LookAhead, Time_Sep, cost_fn, GA_Check_Increment, S_min, w_rho, wiener_sig)
+                Ac_added, counter, GA_CheckSize, GA_counter = Genetic(Ac_Info, Arr_Pool, Ac_queue, max(tm,0), sep, prev_class, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, tot_arr_cost + tot_dep_cost, weather_process, tau, Max_LookAhead, cost_fn, GA_Check_Increment, S_min, wiener_sig)
                 Ov_GA_counter+=1
                 stepthrough_logger.info('GA_counter is %d', GA_counter)
             elif SubPolicy=='VNSD':

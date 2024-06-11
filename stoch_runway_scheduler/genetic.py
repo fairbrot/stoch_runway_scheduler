@@ -5,11 +5,11 @@ import numpy as np
 from .utils import FlightInfo, Cost
 from .weather import StochasticWeatherProcess
 from .sequence import SequenceInfo
-from .separation import Gamma_GetServ, Gamma_Conditional_GetServ, landing_time
+from .separation import StochasticSeparation, landing_time
 from .simulate import simulate_flight_times
 
 # JF: this is the main sim heuristic - it is doing too much
-def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Ac_queue, tm, k, prev_class, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, basecost, weather: StochasticWeatherProcess, tau: int, Max_LookAhead: int, Time_Sep: List[List[int]], cost_fn: Cost, GA_Check_Increment: int, S_min: int, w_rho: float, wiener_sig: float):
+def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Ac_queue, tm, sep: StochasticSeparation, prev_class, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, basecost, weather: StochasticWeatherProcess, tau: int, Max_LookAhead: int, cost_fn: Cost, GA_Check_Increment: int, S_min: int, wiener_sig: float):
     # JF Note: could maybe remove argument Max_LookAhead if no_ACs can be inferred from other arguments
     
     # JF Question: is it an issue that Arr_NotReady is not an argument here? Sequences could possibly contain flights in this set
@@ -19,7 +19,7 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Ac_queue, tm, k, prev_class, GA
 
     stepthrough_logger.info('Now entering Genetic procedure')
 
-    ArrTime, Trav_Time, ServTime = simulate_flight_times(tm, Ac_Info, tau, k, wiener_sig)
+    ArrTime, Trav_Time, ServTime = simulate_flight_times(tm, Ac_Info, tau, sep, wiener_sig)
     
     # Before proceeding, randomly generate wlb_gen and wub_gen
     weather_sample = weather.sample_process(tm)
@@ -38,7 +38,7 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Ac_queue, tm, k, prev_class, GA
         cur_class = Ac_Infoi.ac_class
         weather_state = Ac_Infoi.weather_state
 
-        min_sep = Gamma_Conditional_GetServ(k, Time_Sep, tm - sv_time, prev_class, cur_class, weather_state, w_rho)
+        min_sep = sep.sample_conditional_separation(tm - sv_time, prev_class, cur_class, weather_state)
         queue_complete, straight_into_service = landing_time(sv_time, min_sep, rel_time, Trav_Time[AC])
         basecost += cost_fn(Ac_Infoi.orig_sched_time, ArrTime[AC], Trav_Time[AC], queue_complete, Ac_Infoi.passenger_weight)
         perm_prev_class = cur_class
@@ -69,7 +69,7 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Ac_queue, tm, k, prev_class, GA
             # 	sched=int(10*round(Ac_Infoi.eta-tm,1))
             # 	trav_time=wiener_cdf[sched][z]
 
-            min_sep = Gamma_GetServ(k, Time_Sep, perm_prev_class, cur_class, weather_state, w_rho)
+            min_sep = sep.sample_separation(perm_prev_class, cur_class, weather_state)
             queue_complete, straight_into_service = landing_time(queue_complete, min_sep, rel_time, trav_time)
             
             perm_prev_class = cur_class
@@ -103,12 +103,11 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Ac_queue, tm, k, prev_class, GA
             # begin_serv = max(reltime, perm_queue_complete)
             weather_state = weather_sample(reltime)
 
-            stepthrough_logger.info('%d, %s, %.2f, %.2f, %.2f, %.2f, %.2f,',
-                                    AC, perm_class, Time_Sep[perm_prev_class][perm_class]/60, ArrTime[AC], reltime, Trav_Time[AC], perm_queue_complete)
+            # stepthrough_logger.info('%d, %s, %.2f, %.2f, %.2f, %.2f, %.2f,',
+            #                         AC, perm_class, Time_Sep[perm_prev_class][perm_class]/60, ArrTime[AC], reltime, Trav_Time[AC], perm_queue_complete)
 
             
-            min_sep = Gamma_GetServ(k, Time_Sep, perm_prev_class, perm_class, weather_state, w_rho,
-                                    serv_time = ServTime[AC])
+            min_sep = sep.sample_separation(perm_prev_class, perm_class, weather_state, norm_service_time = ServTime[AC])
             AC_FinishTime, straight_into_service = landing_time(perm_queue_complete, min_sep, reltime, Trav_Time[AC])
             xi_list.append(straight_into_service)
 
