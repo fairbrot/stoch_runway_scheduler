@@ -1,9 +1,7 @@
-from typing import List, Tuple, Optional
 import random
 import math
 import numpy as np
 import scipy.special as ss
-#from scipy.special import gdtr, gdtrix
 
 def sample_pretac_delay(alpha: float, beta: float, a: float, h: float, x_bar: float) -> float:
     """
@@ -27,91 +25,15 @@ def sample_pretac_delay(alpha: float, beta: float, a: float, h: float, x_bar: fl
         pretac_delay = x_bar
     return pretac_delay
 
-def sample_cond_gamma(t: float, k: int) -> float:
+def sample_cond_gamma(t: float, alpha: float, beta: float) -> float:
     """
-    Sample from a Gamma distribution with shape k and rate 1, conditional on being
+    Sample from a Gamma distribution with shape `alpha` and rate `beta`, conditional on being
     above the value t.
     """
-    q = ss.gdtr(1, k, t) # gdtr is a fast function in scipy for evaluating cdf of gamma dist
+    q = ss.gdtr(1/beta, alpha, t) # gdtr is a fast function in scipy for evaluating cdf of gamma dist
     z = q + (1-q) * random.random() # Unform RN between q and 1
-    return ss.gdtrix(1, k, z) # gdtrix is fast function for quantile
+    return ss.gdtrix(1/beta, alpha, z) # gdtrix is fast function for quantile
 
-
-def Gamma_GetServ(k: int, Time_Sep: List[List[int]], rel_time: float, trav_time: float, prev_class: int, cur_class: int, tm: float, weather_state: int, w_rho: float, serv_time: Optional[float] = None) -> Tuple[float, int]:
-    """
-    Simulate time that a flight finished its service.
-
-    This is used when flight is not already in service.
-
-    Arguments:
-    ---------
-    k: Erlang shape parameter for service time
-    Time_Sep: separation times between different classes
-    rel_time: time flight was released to queue
-    trav_time: travel time between entering pool to runway
-    prev_class: weight class of previous flight
-    cur_class: weight class of current flight
-    tm: current time
-    weather_state: code for current state of weather (0, 1 or 2)
-    w_rho: multiplier for service time in case of bad weather
-    serv_time: if provided, this value is appropriately scaled and used as the service time for the flight.
-                If not provided, service time is sampled directly from Gamma distribution.
-
-    Returns:
-    --------
-    t_out: time flight is finished being served
-    straight_into_service: indicates whether flight enters service immediately on joining queue
-    """
-
-    t1 = rel_time + trav_time # time at which flight reaches runway
-
-    rate = k / (Time_Sep[prev_class][cur_class]/60)
-    if weather_state == 1:
-        rate *= 1/w_rho
-
-    # Rob To Check: Can you check this function is correct? It accounts for both cases where a normalised service is provided and isn't provided
-    # Note that serv_time when provided comes from a Gamma(k, 1) distribution. Is it right that we multiply the rate above by k?
-    getserv = np.random.gamma(k, 1/rate) if serv_time is None else serv_time/rate # service time
-
-    t2 = tm + getserv
-
-    # Case 1: time to arrive at runway before current time plus time to be serviced
-    if t1 < t2:
-        straight_into_service = 0 # JF Question: is this the wrong way round? Rob says yes - if aircraft arrives at runway before previous service is finished it has to wait
-        t_out = t2
-    else:
-        straight_into_service = 1
-        t_out = t1
-
-    return t_out, straight_into_service
-
-
-def Gamma_Conditional_GetServ(k: int, Time_Sep: List[List[int]], trav_time, rel_time, sv_time, prev_class, cur_class, tm, weather_state, w_rho: float):
-
-    # This is for the AC currently in service
-
-    t1=rel_time+trav_time
-
-    rate=k/(Time_Sep[prev_class][cur_class]/60)
-    if weather_state==1:
-        rate*=1/w_rho #=0.5
-
-    cond_serv = sample_cond_gamma(rate*(tm-sv_time), k)
-    #cond_serv = sample_cond_gamma(rate*(tm-sv_time), gamma_cdf) # old code
-    cond_serv *= 1/rate #Convert back to the correct scale
-
-    t2=sv_time+cond_serv
-
-    #max_t=max(t1,t2)
-
-    if t1<t2:
-        straight_into_service=0
-        t_out=t2
-    else:
-        straight_into_service=1
-        t_out=t1
-
-    return t_out,straight_into_service
 
 def gamma_cond_exp(t, alpha, beta):
 

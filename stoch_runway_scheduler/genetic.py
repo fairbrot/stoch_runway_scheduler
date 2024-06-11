@@ -5,7 +5,7 @@ import numpy as np
 from .utils import FlightInfo, Cost
 from .weather import StochasticWeatherProcess
 from .sequence import SequenceInfo
-from .gamma import Gamma_GetServ, Gamma_Conditional_GetServ
+from .separation import Gamma_GetServ, Gamma_Conditional_GetServ, landing_time
 from .simulate import simulate_flight_times
 
 # JF: this is the main sim heuristic - it is doing too much
@@ -38,7 +38,8 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Ac_queue, tm, k, prev_class, GA
         cur_class = Ac_Infoi.ac_class
         weather_state = Ac_Infoi.weather_state
 
-        queue_complete, straight_into_service = Gamma_Conditional_GetServ(k, Time_Sep, Trav_Time[AC], rel_time, sv_time, prev_class, cur_class, tm, weather_state, w_rho)
+        min_sep = Gamma_Conditional_GetServ(k, Time_Sep, tm - sv_time, prev_class, cur_class, weather_state, w_rho)
+        queue_complete, straight_into_service = landing_time(sv_time, min_sep, rel_time, Trav_Time[AC])
         basecost += cost_fn(Ac_Infoi.orig_sched_time, ArrTime[AC], Trav_Time[AC], queue_complete, Ac_Infoi.passenger_weight)
         perm_prev_class = cur_class
 
@@ -57,6 +58,7 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Ac_queue, tm, k, prev_class, GA
             if trav_time <= 0:
                 trav_time=0
             else:
+                # JF Question: Shouldn't this take into account progress made since put in queue? We are just sampling time from arriving in pool to runway threshold - this is below perhaps?
                 # Why is this sampled again? Don't we already have travel time for flights in queue?
                 trav_time = np.random.wald(tau, (tau/wiener_sig)**2)
 
@@ -67,8 +69,9 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Ac_queue, tm, k, prev_class, GA
             # 	sched=int(10*round(Ac_Infoi.eta-tm,1))
             # 	trav_time=wiener_cdf[sched][z]
 
-            # JF: does tm need updating here for other flights
-            queue_complete, straight_into_service = Gamma_GetServ(k, Time_Sep, rel_time, trav_time, perm_prev_class, cur_class, queue_complete, weather_state, w_rho)
+            min_sep = Gamma_GetServ(k, Time_Sep, perm_prev_class, cur_class, weather_state, w_rho)
+            queue_complete, straight_into_service = landing_time(queue_complete, min_sep, rel_time, trav_time)
+            
             perm_prev_class = cur_class
             basecost += cost_fn(Ac_Infoi.orig_sched_time, Ac_Infoi.pool_time, trav_time, queue_complete, Ac_Infoi.passenger_weight)
 
@@ -103,8 +106,10 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Ac_queue, tm, k, prev_class, GA
             stepthrough_logger.info('%d, %s, %.2f, %.2f, %.2f, %.2f, %.2f,',
                                     AC, perm_class, Time_Sep[perm_prev_class][perm_class]/60, ArrTime[AC], reltime, Trav_Time[AC], perm_queue_complete)
 
-            AC_FinishTime, straight_into_service = Gamma_GetServ(k, Time_Sep, reltime, Trav_Time[AC], perm_prev_class, perm_class, 
-                                                                perm_queue_complete,weather_state, w_rho, serv_time = ServTime[AC])
+            
+            min_sep = Gamma_GetServ(k, Time_Sep, perm_prev_class, perm_class, weather_state, w_rho,
+                                    serv_time = ServTime[AC])
+            AC_FinishTime, straight_into_service = landing_time(perm_queue_complete, min_sep, reltime, Trav_Time[AC])
             xi_list.append(straight_into_service)
 
             permcost += cost_fn(Ac_Infoi.orig_sched_time, ArrTime[AC], Trav_Time[AC], AC_FinishTime, Ac_Infoi.passenger_weight)

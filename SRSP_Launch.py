@@ -212,7 +212,7 @@ while rep < no_reps:
     for i in range(NoA):
         # Generating service times for arrivals - these are scheduled to have the right mean later
         # JF Question: What is ServPercs? Below RS says this is RNs used for service time
-        ServPercs=np.random.gamma(k,1)
+        ServPercs = np.random.gamma(k,1)
 
         Ac_Info[i] = FlightInfo(FlightStatus.NOT_READY, Ac_class[i], Arr_Ps[i], Arr_Ps[i],
                       0, 0, 0, ServPercs,
