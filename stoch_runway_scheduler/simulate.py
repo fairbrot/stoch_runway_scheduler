@@ -5,7 +5,7 @@ import random
 import numpy as np
 from .utils import FlightStatus, FlightInfo, Cost
 from .weather import WeatherProcess
-from .separation import StochasticSeparation
+from .separation import StochasticSeparation, landing_time
 from .annealing_cost import Annealing_Cost
 
 
@@ -187,43 +187,6 @@ def Posthoc_Check(seq, Ac_Info, ArrTime, ServTime, ArrTime_Sorted, weather_proce
 
     return perm_cost
 
-def Get_Actual_Serv(AC: int, prev_class: int, cur_class: int, weather_state: int, k: int, Time_Sep: List[List[int]], Ac_Info: List[FlightInfo], w_rho: float) -> float:
-    """
-    Calculates service time of landing aircraft given aircraft's class and that of previous aircraft, and state of weather.
-    
-    Arguments
-    ---------
-    AC: aircraft index
-    prev_class: class of previous aircraft to be added to the queue
-    cur_class: class of aircraft currently joining the queue
-    weather_state: type of weather (1 bad)
-    k: Erlang service parameterr
-    Time_Sep: time separation array
-    Ac_Info: list of flight information
-    w_rho: bad weather multiplier
-
-    Returns:
-    --------
-    servtime: random service time for aircraft which is joining queue
-    """
-    # Samping queue service time
-    # Service time also depends on state of weather
-    # Ac_Info[AC].service_rns is pre-generated random number which is then scaled appropriately
-
-    serv_percs=Ac_Info[AC].service_rns
-    if weather_state==1:
-        ws = 1/w_rho
-    else:
-        ws = 1
-
-    # JF Question: does this depend on freq or conv_factor?
-    rate = ws*k/(Time_Sep[prev_class][cur_class]/60)
-
-    # Transformation causes serv_percs to go from [mean k, var k] to [mean e_{ij}, var e_{ij}^2/k]
-    # See page 8 of paper (Section 3.1)
-    servtime = serv_percs/rate
-
-    return servtime
 
 def round_down(tm: float, freq: int) -> float:
     """Rounds tm down to beginning of interval defined by freq.
@@ -284,7 +247,7 @@ def Update_ETAs(Ac_Info: List[FlightInfo], Arr_NotReady: List[int], Ac_queue: Li
             else:
                 Ac_Infoi.eta = Brown_Motion[AC][int((Ac_Infoi.pool_time + rounded_trav_so_far) * freq)]
 
-def Update_Stats(tm: float, AC: int, Ac_Info: List[FlightInfo], Ac_queue: List[int], real_queue_complete: float, weather_process: WeatherProcess, latest_class, Ov_GA_counter, next_completion_time, k: int, Time_Sep: List[List[int]], w_rho: float, SubPolicy: str, counter: int):
+def Update_Stats(tm: float, AC: int, Ac_Info: List[FlightInfo], Ac_queue: List[int], real_queue_complete: float, weather_process: WeatherProcess, latest_class, Ov_GA_counter, next_completion_time, sep: StochasticSeparation, SubPolicy: str, counter: int):
     """
     Updates various states when after flight is released into queue.
 
@@ -315,28 +278,24 @@ def Update_Stats(tm: float, AC: int, Ac_Info: List[FlightInfo], Ac_queue: List[i
 
     Ac_Infoi.status = FlightStatus.IN_QUEUE
     release_time = tm # release time
-    begin_serv = max(release_time, real_queue_complete) # time that service begins
+    #begin_serv = max(release_time, real_queue_complete) # JF Question: is this a mistake - I think we should use below
+    begin_serv = real_queue_complete # JF: i.e. time previous aircraft lands
     cur_class = Ac_Infoi.ac_class
 
     # Weather state at time flight joins queue
-    get_weather_state = weather_process(release_time) # JF Question: why not begin_serv here?
+    weather_state = weather_process(release_time)
 
-    # Service time for flight to land (once it is being processed)
-    # JF Question: weather state might be wrong here - should this be weather at time flight begins service?
-    actual_serv = Get_Actual_Serv(AC, latest_class, cur_class, get_weather_state, k, Time_Sep, Ac_Info, w_rho)
+    # Separation/Service time for flight to land (once it is being processed)
+    actual_serv = sep.sample_separation(latest_class, cur_class, weather_state, norm_service_time=Ac_Infoi.service_rns)
+
     trav_time = Ac_Infoi.travel_time
+    finish_time, straight_into_service = landing_time(begin_serv, actual_serv, release_time, trav_time)
 
-    t1 = release_time + trav_time
-    t2 = begin_serv + actual_serv
-
-    # time service finishes
-    # JF Question: why is max needed here?
-    finish_time = max(t1, t2)
     real_queue_complete = finish_time
 
     Ac_Infoi.release_time = release_time
     Ac_Infoi.enters_service = begin_serv
-    Ac_Infoi.weather_state = get_weather_state
+    Ac_Infoi.weather_state = weather_state
     Ac_Infoi.service_time = actual_serv
     Ac_Infoi.service_completion_time = finish_time
 
@@ -351,7 +310,7 @@ def Update_Stats(tm: float, AC: int, Ac_Info: List[FlightInfo], Ac_queue: List[i
 
     return real_queue_complete, next_completion_time, latest_class, Ov_GA_counter
 
-def Serv_Completions(Ac_Info, Ac_queue, prev_class, totserv, Ac_finished, tm, next_completion_time, cost_fn: Cost, f: TextIO, SubPolicy, rep, Time_Sep: List[List[int]], Left_queue):
+def Serv_Completions(Ac_Info, Ac_queue, prev_class, totserv, Ac_finished, tm, next_completion_time, cost_fn: Cost, f: TextIO, SubPolicy, rep, Left_queue):
 
     stepthrough_logger = logging.getLogger('stepthrough')
     step_summ_logger = logging.getLogger('step_summ')
@@ -363,7 +322,7 @@ def Serv_Completions(Ac_Info, Ac_queue, prev_class, totserv, Ac_finished, tm, ne
 
     j=0
 
-    while len(Ac_queue)>0:
+    while len(Ac_queue) > 0:
 
         AC = Ac_queue[0]
         Ac_Infoi = Ac_Info[AC]
@@ -387,7 +346,7 @@ def Serv_Completions(Ac_Info, Ac_queue, prev_class, totserv, Ac_finished, tm, ne
                 Ac_Infoi.status = FlightStatus.FINISHED
                 arr_cost += cost_fn(Ac_Infoi.orig_sched_time, Ac_Infoi.pool_time, Ac_Infoi.travel_time, finish_time, Ac_Infoi.passenger_weight)
 
-            f.write(str(SubPolicy)+','+str(rep)+','+str(AC)+','+str(Ac_Infoi.flight_id)+','+str(prev_class)+','+str(current_class)+','+str(Time_Sep[prev_class][current_class]/60)+','+str(Ac_Infoi.orig_sched_time)+','+str(Ac_Infoi.ps_time)+','+str(Ac_Infoi.pool_time)+','+str(Ac_Infoi.release_time)+','+str(Ac_Infoi.travel_time)+','+str(Ac_Infoi.weather_state)+','+str(Ac_Infoi.enters_service)+','+str(Ac_Infoi.service_time)+','+str(Ac_Infoi.service_completion_time)+','+str(max(0,finish_time-(Ac_Infoi.ps_time+cost_fn.thres1)))+','+str(finish_time-(Ac_Infoi.pool_time+Ac_Infoi.travel_time))+','+str(Ac_Infoi.passenger_weight)+','+str(cost_fn(Ac_Infoi.ps_time, Ac_Infoi.pool_time, Ac_Infoi.travel_time, finish_time, Ac_Infoi.passenger_weight))+',')
+            #f.write(str(SubPolicy)+','+str(rep)+','+str(AC)+','+str(Ac_Infoi.flight_id)+','+str(prev_class)+','+str(current_class)+','+str(Time_Sep[prev_class][current_class]/60)+','+str(Ac_Infoi.orig_sched_time)+','+str(Ac_Infoi.ps_time)+','+str(Ac_Infoi.pool_time)+','+str(Ac_Infoi.release_time)+','+str(Ac_Infoi.travel_time)+','+str(Ac_Infoi.weather_state)+','+str(Ac_Infoi.enters_service)+','+str(Ac_Infoi.service_time)+','+str(Ac_Infoi.service_completion_time)+','+str(max(0,finish_time-(Ac_Infoi.ps_time+cost_fn.thres1)))+','+str(finish_time-(Ac_Infoi.pool_time+Ac_Infoi.travel_time))+','+str(Ac_Infoi.passenger_weight)+','+str(cost_fn(Ac_Infoi.ps_time, Ac_Infoi.pool_time, Ac_Infoi.travel_time, finish_time, Ac_Infoi.passenger_weight))+',')
             f.write(str(Ac_Infoi.counter)+',')
 
             f.write(str(Ac_Infoi.pred_cost)+',')

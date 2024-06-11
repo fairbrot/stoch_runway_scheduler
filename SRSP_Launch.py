@@ -371,7 +371,7 @@ while rep < no_reps:
                     base_seq.remove(AC)
                     # Gets important statistics about aircraft being released and serviced
                     # some of these outputs are used for simulation itself
-                    real_queue_complete, next_completion_time, latest_class, Ov_GA_counter = Update_Stats(tm, AC, Ac_Info, Ac_queue, real_queue_complete, weather_process, latest_class, Ov_GA_counter, next_completion_time, k, Time_Sep, w_rho, SubPolicy, counter)
+                    real_queue_complete, next_completion_time, latest_class, Ov_GA_counter = Update_Stats(tm, AC, Ac_Info, Ac_queue, real_queue_complete, weather_process, latest_class, Ov_GA_counter, next_completion_time, sep, SubPolicy, counter)
 
                 else:
                     # Important: if aircraft not in the pool then don't consider any others (order in Ac_Added comes from a sequence and is important)
@@ -431,10 +431,10 @@ while rep < no_reps:
         # JF Question: what is this condition? freq replaced 100 here
         if int(tm*freq) != int(old_tm*freq):
             # JF Question: should this use latest_time rather than tm? Rob thinks it is fine, but will check if necessary
-            Update_ETAs(Ac_Info, Arr_NotReady, Ac_queue, tm, Brown_Motion, Arr_Pool, tau, freq) 
+            Update_ETAs(Ac_Info, Arr_NotReady, Ac_queue, tm, Brown_Motion, Arr_Pool, tau, freq)
 
         if len(Ac_queue) > 0 and tm >= next_completion_time: #len(Ac_queue)>0:
-            arr_cost, dep_cost, totserv, prev_class, Ac_finished, next_completion_time = Serv_Completions(Ac_Info, Ac_queue, prev_class, totserv, Ac_finished, latest_time, next_completion_time, cost_fn, f, SubPolicy, rep, Time_Sep, Left_queue)
+            arr_cost, dep_cost, totserv, prev_class, Ac_finished, next_completion_time = Serv_Completions(Ac_Info, Ac_queue, prev_class, totserv, Ac_finished, latest_time, next_completion_time, cost_fn, f, SubPolicy, rep, Left_queue)
             tot_arr_cost += arr_cost
             tot_dep_cost += dep_cost
 
