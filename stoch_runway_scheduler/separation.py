@@ -79,9 +79,9 @@ class ErlangSeparation(StochasticSeparation):
         rate = self.k / (self.Time_Sep[prev_class][cur_class]/60)
         if weather_state == WeatherStatus.BAD:
             rate *= 1/self.w_rho
-
-        # Rob To Check: Can you check this function is correct? It accounts for both cases where a normalised service is provided and isn't provided
-        # Note that serv_time when provided comes from a Gamma(k, 1) distribution. Is it right that we multiply the rate above by k?
+   
+        # Transformation causes norm_service_time to go from [mean k, var k] to [mean e_{ij}, var e_{ij}^2/k]
+        # See page 8 of paper (Section 3.1)
         return np.random.gamma(self.k, 1/rate) if norm_service_time is None else norm_service_time/rate # service time
 
     def sample_conditional_separation(self, t_elapsed: float, 
