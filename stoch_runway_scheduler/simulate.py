@@ -4,67 +4,123 @@ import math
 import random
 import numpy as np
 from .utils import FlightStatus, FlightInfo, Cost
-from .weather import WeatherProcess
+from .sequence import SequenceInfo
+from .weather import WeatherProcess, StochasticWeatherProcess
 from .separation import StochasticSeparation, landing_time
 from .annealing_cost import Annealing_Cost
 
 
-def simulate_flight_times(tm: float, Ac_Info: List[FlightInfo], tau: float, sep: StochasticSeparation,
-                          wiener_sig: float) -> Tuple[List[float], List[float], List[float]]:
+def simulate_sequences(GA_Info: List[SequenceInfo], tm: float, Ac_Info: List[FlightInfo], Ac_queue: List[int], tau: float, sep: StochasticSeparation,
+                        weather: StochasticWeatherProcess, wiener_sig: float, prev_class: int, cost_fn: Cost) -> Tuple[List[float], List[List[int]]]:
     """
-    Simulates arrival in pool times and travel times conditional on situation at time tm.
+    Simulates landing times and associated costs of a set of sequences using common random numbers.
 
     Arguments:
     ----------
+    GA_Info: list of current sequences
     tm: current time
     Ac_Info: information for all flights at current time
+    Ac_queue: list of aircraft currently in the queue
     tau: threshold for reaching pool (flight in pool when ETA - tm <= tau)
     sep: object for sampling normalized separation times
+    weather: object for generating random weather process conditional on state at current time
     wiener_sig: standard deviation of Brownian motion
+    prev_class: class of previous aircraft to land
+    cost_fn: function for calculating costs of flight
 
     Returns:
     -------
-    ArrTime: List of arrival times in Pool (0 for any flights already served)
-    Trav_Time: List of travel times between entering pool and reaching runway (0 for any flights already served)
-    ServTimes: List of standardized service times (0 for any flights in queue or already served)
+    costs: costs of each sequence
+    xi_lists: for each sequence, indicators of whether each flight went straight into service
     """
-    NoA = len(Ac_Info)
+    weather_sample = weather.sample_process(tm)
+    new_cost = 0
+    perm_prev_class = prev_class
 
-    ArrTime = [0]*NoA # pool time
-    Trav_Time = [0]*NoA # travel time between pool and runway
-    ServTime = [0]*NoA # standardized service time
+     # The case where queue is empty needs fixing - the same issue existed before refactoring Genetic
+     # This function needs to know time of last landing in order to set prev_landing here
+    prev_ld = tm if not Ac_queue else Ac_Info[Ac_queue[0]].enters_service
 
-    for AC, info in enumerate(Ac_Info):
+    # Simulate current queue
+    for i, AC in enumerate(Ac_queue):
+        # Need to generate service times for AC already in the queue; first consider the customer in position 0
+        AC = Ac_queue[0]
+        Ac_Infoi = Ac_Info[AC]
+        # JF: this code was used previously for case where tm < eta
+        # z=int(random.randrange(1,999))
+        # sched=int(10*round(Ac_Infoi.eta-tm,1))
+        # trav_time=wiener_cdf[sched][z]
+        # sched = int(round(info.eta - tm, 1)) # similar to NOT_READY case
+        trav_time = Ac_Infoi.travel_time if tm >= Ac_Infoi.eta else np.random.wald(tau, (tau/wiener_sig)**2)
+        if i == 0:
+            min_sep = sep.sample_conditional_separation(tm - prev_ld, prev_class, Ac_Infoi.ac_class, Ac_Infoi.weather_state)
+        else:
+            # JF Question: previous code was sampling whether at release (which is in past) which didn't seem right
+            min_sep = sep.sample_separation(perm_prev_class, Ac_Infoi.ac_class, Ac_Infoi.weather_state)
+
+        landing_complete, straight_into_service = landing_time(prev_ld, min_sep, Ac_Infoi.release_time, trav_time)
+        new_cost += cost_fn(Ac_Infoi.orig_sched_time, Ac_Infoi.pool_time, trav_time, landing_complete, Ac_Infoi.passenger_weight)
+
+        prev_ld = landing_complete
+        perm_prev_class = Ac_Infoi.ac_class
+
+    stored_prev_class = perm_prev_class
+    stored_prev_ld = prev_ld
+
+    seq_ACs = set(ac for seq in GA_Info for ac in seq.sequence)
+    ac_attrs = dict()
+
+    # Generate arrival, travel and normalized service times for flights in sequences
+    for AC in seq_ACs:
+        info = Ac_Info[AC]
         match info.status:
             case FlightStatus.NOT_READY:
                 sched = int(round(Ac_Info[AC].eta-(tm+tau),1)) # JF Question: what is this?
                 if sched<=0:
-                    ArrTime[AC]=tm
+                    arr_time = tm
                 else:
-                    ArrTime[AC]=np.random.wald(sched,(sched/wiener_sig)**2) + tm
-                Trav_Time[AC]=np.random.wald(tau,(tau/wiener_sig)**2)
-                ServTime[AC]=sep.sample_normalized_separation()
-
+                    arr_time = np.random.wald(sched,(sched/wiener_sig)**2) + tm
             case FlightStatus.IN_POOL:
-                ArrTime[AC] = max(0, Ac_Info[AC].eta - tau) # JF Question: Time aircraft arrives in Pool - could this not be replaced with Ac_Info[AC].pool_time?
-                Trav_Time[AC] = np.random.wald(tau, (tau / wiener_sig)**2)
-                ServTime[AC] = sep.sample_normalized_separation()
+                arr_time = max(0, Ac_Info[AC].eta - tau) # JF Question: Time aircraft arrives in Pool - could this not be replaced with Ac_Info[AC].pool_time?
+            case _:
+                raise RuntimeError(f'Aircraft {AC} is in a sequence but has status {info.status}')
+        trav_time = np.random.wald(tau, (tau / wiener_sig)**2)
+        serv_time=sep.sample_normalized_separation()
+        ac_attrs[AC] = (arr_time, trav_time, serv_time)
 
-            case FlightStatus.IN_QUEUE:
-                # RS: this block of code is probably needed but wasn't included in the 5000 experiments for the paper
-                # JF Question : current code seemed incorrect - I've tried to adapt below to use np.wald. Please check this.
-                if tm >= info.eta:
-                	Trav_Time[AC] = info.travel_time # travel time has already finished
-                else:
-                	# z=int(random.randrange(1,999))
-                	# sched=int(10*round(Ac_Infoi.eta-tm,1))
-                	# trav_time=wiener_cdf[sched][z]
-                    # sched = int(round(info.eta - tm, 1)) # similar to NOT_READY case
-                    # trav_time = np.random.wald(sched,(sched/wiener_sig)**2) # JF Question: is this right?
-                    Trav_Time[AC] = np.random.wald(tau, (tau/wiener_sig)**2) # JF: this was previously used
-                    ArrTime[AC] = info.pool_time
-                
-    return ArrTime, Trav_Time, ServTime
+    costs = []
+    xi_lists = []
+    for info in GA_Info:
+        # stepthrough_logger.info('Now trying sequence %s', info.sequence)
+        # stepthrough_logger.info('AC'+','+'Class'+','+'Time Sep'+','+'Arrives in pool'+','+'Release time'+','+'Travel time'+','+'Enters serv'+','+'Actual serv'+','+'Finish time'+','+'Pax weight'+','+'Cost'+'\n')
+
+        permcost = new_cost
+        latest_tm = tm
+        perm_prev_class = stored_prev_class
+        prev_ld = stored_prev_ld
+
+        perm = info.sequence
+        # no_ACs = min(Max_LookAhead, len(perm)) # JF Question: can this not just be len(perm)? Also, don't we want to evaluate full length of sequence?
+        xi_list = [] # for each flight indicates whether or not it goes straight to service - called xi in paper
+        for AC in perm:
+            arr_time, trav_time, serv_time = ac_attrs[AC]
+            Ac_Infoi = Ac_Info[AC]
+            perm_class = Ac_Infoi.ac_class
+            reltime = max(latest_tm, arr_time)
+            weather_state = weather_sample(reltime)
+            
+            min_sep = sep.sample_separation(perm_prev_class, perm_class, weather_state, norm_service_time = serv_time)
+            AC_FinishTime, straight_into_service = landing_time(prev_ld, min_sep, reltime, trav_time)
+            xi_list.append(straight_into_service)
+            permcost += cost_fn(Ac_Infoi.orig_sched_time, arr_time, trav_time, AC_FinishTime, Ac_Infoi.passenger_weight)
+            #latest_tm = reltime # JF Question - I don't think this needs updating - all flights should join queue now or when they enter pool
+
+            prev_ld = AC_FinishTime
+            perm_prev_class = perm_class
+        costs.append(permcost)
+        xi_lists.append(xi_list)
+
+    return costs, xi_lists
 
 def generate_trajectory(Dep_time: float, Ps_time: float, tau: int, wiener_sig: float, freq: int):
     """
