@@ -303,7 +303,7 @@ def Update_ETAs(Ac_Info: List[FlightInfo], Arr_NotReady: List[int], Ac_queue: Li
             else:
                 Ac_Infoi.eta = Brown_Motion[AC][int((Ac_Infoi.pool_time + rounded_trav_so_far) * freq)]
 
-def Update_Stats(tm: float, AC: int, Ac_Info: List[FlightInfo], Ac_queue: List[int], real_queue_complete: float, weather_process: WeatherProcess, latest_class, Ov_GA_counter, next_completion_time, sep: StochasticSeparation, SubPolicy: str, counter: int):
+def Update_Stats(tm: float, AC: int, Ac_Info: List[FlightInfo], Ac_queue: List[int], real_queue_complete: float, weather_process: WeatherProcess, latest_class, next_completion_time, sep: StochasticSeparation, SubPolicy: str, counter: int):
     """
     Updates various states when after flight is released into queue.
 
@@ -312,7 +312,6 @@ def Update_Stats(tm: float, AC: int, Ac_Info: List[FlightInfo], Ac_queue: List[i
     real_queue_complete: time last aircraft to join queue was or will be serviced
     weather_process: object which can be queried for weather state at given time
     latest_class: class of previous aircraft to join queue
-    Ov_GA_counter:
     next_completion_time: time of next service in queue
     k: Erlang service parameter
     Time_Sep: time separation array
@@ -325,7 +324,6 @@ def Update_Stats(tm: float, AC: int, Ac_Info: List[FlightInfo], Ac_queue: List[i
     real_queue_complete: time aircraft currently joining queue will be finished being served (function argument is updated)
     next_completion_time: time of next service in queue (function argument is updated)
     latest_class: class of flight just added (function argument is updated)
-    Ov_GA_counter:
     """
     # Function which produces statistics about a flight which has just been released - also calculates
     # when this flight will be finished being serviced
@@ -355,16 +353,13 @@ def Update_Stats(tm: float, AC: int, Ac_Info: List[FlightInfo], Ac_queue: List[i
     Ac_Infoi.service_time = actual_serv
     Ac_Infoi.service_completion_time = finish_time
 
-    Ac_Infoi.counter = Ov_GA_counter
-    Ov_GA_counter = 0
-
     latest_class = cur_class
 
     # I.e. if flight just added to the queue is only flight in queue
     if len(Ac_queue) == 1:
         next_completion_time = finish_time
 
-    return real_queue_complete, next_completion_time, latest_class, Ov_GA_counter
+    return real_queue_complete, next_completion_time, latest_class
 
 def Serv_Completions(Ac_Info, Ac_queue, prev_class, totserv, Ac_finished, tm, next_completion_time, cost_fn: Cost, f: TextIO, SubPolicy, rep, Left_queue):
 
@@ -395,7 +390,7 @@ def Serv_Completions(Ac_Info, Ac_queue, prev_class, totserv, Ac_finished, tm, ne
             stepthrough_logger.info('* Service completion finished for aircraft '+str(AC)+'\n'+'\n')
             step_summ_logger.info('* Service completion finished for aircraft '+str(AC)+'\n'+'\n')
             if Ac_Infoi.status == FlightStatus.IN_QUEUE:
-                Ac_Infoi.status = FlightStatus.FINISHED # JF Note: check with Rob
+                Ac_Infoi.status = FlightStatus.FINISHED
                 arr_cost += cost_fn(Ac_Infoi.orig_sched_time, Ac_Infoi.pool_time, Ac_Infoi.travel_time, finish_time, Ac_Infoi.passenger_weight)
                 totserv+=1
             else: # JF Question: is this clause needed?
@@ -403,7 +398,6 @@ def Serv_Completions(Ac_Info, Ac_queue, prev_class, totserv, Ac_finished, tm, ne
                 arr_cost += cost_fn(Ac_Infoi.orig_sched_time, Ac_Infoi.pool_time, Ac_Infoi.travel_time, finish_time, Ac_Infoi.passenger_weight)
 
             #f.write(str(SubPolicy)+','+str(rep)+','+str(AC)+','+str(Ac_Infoi.flight_id)+','+str(prev_class)+','+str(current_class)+','+str(Time_Sep[prev_class][current_class]/60)+','+str(Ac_Infoi.orig_sched_time)+','+str(Ac_Infoi.ps_time)+','+str(Ac_Infoi.pool_time)+','+str(Ac_Infoi.release_time)+','+str(Ac_Infoi.travel_time)+','+str(Ac_Infoi.weather_state)+','+str(Ac_Infoi.enters_service)+','+str(Ac_Infoi.service_time)+','+str(Ac_Infoi.service_completion_time)+','+str(max(0,finish_time-(Ac_Infoi.ps_time+cost_fn.thres1)))+','+str(finish_time-(Ac_Infoi.pool_time+Ac_Infoi.travel_time))+','+str(Ac_Infoi.passenger_weight)+','+str(cost_fn(Ac_Infoi.ps_time, Ac_Infoi.pool_time, Ac_Infoi.travel_time, finish_time, Ac_Infoi.passenger_weight))+',')
-            f.write(str(Ac_Infoi.counter)+',')
 
             f.write(str(Ac_Infoi.pred_cost)+',')
             f.write('\n')
@@ -422,4 +416,4 @@ def Serv_Completions(Ac_Info, Ac_queue, prev_class, totserv, Ac_finished, tm, ne
         else:
             break
 
-    return arr_cost,dep_cost,totserv,prev_class,Ac_finished,next_completion_time
+    return arr_cost, dep_cost, totserv, prev_class, Ac_finished, next_completion_time

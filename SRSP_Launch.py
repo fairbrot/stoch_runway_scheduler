@@ -127,7 +127,6 @@ f.write('Policy'+',''Rep'+','+'AC'+','+'Flight Num'+','+'Prev Class'+','+'Cur Cl
 # INITIALISATION #
 ##################
 
-Ov_GA_counter = 0 # only used for stepthrough purposes; to do with counting how many times the 'Genetic' function has been called
 VNS_counter = 0 # this counts how many non-improving heuristic moves we've made since the last reset
 tot_mut = 0 # counts how many total mutations we've made; really just for output purposes
 
@@ -217,10 +216,9 @@ while rep < no_reps:
         ServPercs = np.random.gamma(k,1)
 
         Ac_Info[i] = FlightInfo(FlightStatus.NOT_READY, Ac_class[i], Arr_Ps[i], Arr_Ps[i],
-                      0, 0, 0, ServPercs,
-                      0, 0, pax_weight[i], False,
-                      1, 0, 0,
-                      0, Dep_Ps[i], Orig_Ps[i], flight_id[i])
+                        0, 0, 0, ServPercs,
+                        0, 0, pax_weight[i], False,
+                        1, 0, 0, Dep_Ps[i], Orig_Ps[i], flight_id[i])
 
 
     Ac_Info.sort(key=lambda x: x.ps_time)
@@ -281,13 +279,10 @@ while rep < no_reps:
     GA_counter = 0 # called n in paper (number of trajectories sampled so far)
     GA_CheckSize = GA_Check_Increment
     print(f'GA_CheckSize: {GA_CheckSize}')
-    Ov_GA_counter = 0 # Rob thinks for logging purposes
 
     stepthrough_logger.info('Initial population of sequences:')
     for (j, info) in enumerate(GA_Info):
         stepthrough_logger.info("%d, %s\n", j, info.sequence)
-
-    print(f'Ov_GA_counter: {Ov_GA_counter}')
 
     for AC in range(NoA):
         print(f'AC: {AC} Class: {Ac_Info[AC].ac_class} Orig Ps time: {Ac_Info[AC].orig_sched_time} Ps time: {Ac_Info[AC].ps_time} Arrives in pool: {Ac_Info[AC].pool_time} Travel time: {Ac_Info[AC].travel_time}')
@@ -365,13 +360,10 @@ while rep < no_reps:
                     Arr_Pool.remove(AC)
                     Ac_queue.append(AC)
                     Ac_Info[AC].pred_cost = pred_cost
-                    stepthrough_logger.info('Added AC %d to the queue, counter is %d\n', AC, Ov_GA_counter)
-                    step_summ_logger.info('Added AC %d to the queue, counter is %d', AC, Ov_GA_counter)
-                    step_new_logger.info('Added AC %d to the queue, counter is %d', AC, Ov_GA_counter)
                     base_seq.remove(AC)
                     # Gets important statistics about aircraft being released and serviced
                     # some of these outputs are used for simulation itself
-                    real_queue_complete, next_completion_time, latest_class, Ov_GA_counter = Update_Stats(tm, AC, Ac_Info, Ac_queue, real_queue_complete, weather_process, latest_class, Ov_GA_counter, next_completion_time, sep, SubPolicy, counter)
+                    real_queue_complete, next_completion_time, latest_class = Update_Stats(tm, AC, Ac_Info, Ac_queue, real_queue_complete, weather_process, latest_class, next_completion_time, sep, SubPolicy, counter)
 
                 else:
                     # Important: if aircraft not in the pool then don't consider any others (order in Ac_Added comes from a sequence and is important)
@@ -414,12 +406,10 @@ while rep < no_reps:
             if SubPolicy == 'VNS':
                 # JF Question: should we be inputting wlb_tm and wub_tm rather than wlb and wub here?
                 Ac_added, counter, GA_CheckSize, GA_counter = Genetic(Ac_Info, Arr_Pool, Ac_queue, max(tm,0), sep, prev_class, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, tot_arr_cost + tot_dep_cost, weather_process, tau, Max_LookAhead, cost_fn, GA_Check_Increment, S_min, wiener_sig)
-                Ov_GA_counter+=1
                 stepthrough_logger.info('GA_counter is %d', GA_counter)
             elif SubPolicy=='VNSD':
                 exp_weather = weather_process.expected_process(tm)
                 Ac_added, counter, stored_queue_complete = Genetic_determ(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, max(tm,0), NoA, k, prev_class, GA_Info, exp_weather, tau, Max_LookAhead, Time_Sep, cost_fn, tot_arr_cost + tot_dep_cost, w_rho)
-                Ov_GA_counter += 1
                 GA_counter += 1
                 stepthrough_logger.info('GA_counter is %d', GA_counter)
 
