@@ -277,8 +277,6 @@ while rep < no_reps:
     # Is done for every iteration for VNSD
 
     GA_counter = 0 # called n in paper (number of trajectories sampled so far)
-    GA_CheckSize = GA_Check_Increment
-    print(f'GA_CheckSize: {GA_CheckSize}')
 
     stepthrough_logger.info('Initial population of sequences:')
     for (j, info) in enumerate(GA_Info):
@@ -374,7 +372,6 @@ while rep < no_reps:
             queue_probs = [0]*(len(Arr_Pool)+len(Arr_NotReady))
 
             GA_counter = 0 # reset counter
-            GA_CheckSize = GA_Check_Increment # next point to check
 
 
         # JF Question: what does this part do?
@@ -388,7 +385,6 @@ while rep < no_reps:
                 VNS_counter, tot_mut = Repopulate_VNS(GA_Info, GA_PopSize, S_min,
                                                         VNS_counter, VNS_limit, tot_mut)
                 GA_counter = 0
-                GA_CheckSize = GA_Check_Increment
                 mv_time = 1
         else:
             mv_time = 1 # May be redundant
@@ -405,7 +401,7 @@ while rep < no_reps:
         if len(Arr_Pool) + len(Arr_NotReady) > 0:
             if SubPolicy == 'VNS':
                 # JF Question: should we be inputting wlb_tm and wub_tm rather than wlb and wub here?
-                Ac_added, GA_CheckSize, GA_counter = Genetic(Ac_Info, Arr_Pool, Ac_queue, max(tm,0), sep, prev_class, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, tot_arr_cost + tot_dep_cost, weather_process, tau, Max_LookAhead, cost_fn, GA_Check_Increment, S_min, wiener_sig)
+                Ac_added, GA_counter = Genetic(Ac_Info, Ac_queue, max(tm,0), sep, prev_class, GA_Info, GA_counter, tot_arr_cost + tot_dep_cost, weather_process, tau, cost_fn, GA_Check_Increment, S_min, wiener_sig)
                 stepthrough_logger.info('GA_counter is %d', GA_counter)
             elif SubPolicy=='VNSD':
                 exp_weather = weather_process.expected_process(tm)

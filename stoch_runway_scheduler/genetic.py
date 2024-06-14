@@ -44,7 +44,7 @@ from .simulate import simulate_sequences
 
 
 # JF: this is the main sim heuristic
-def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Ac_queue, tm, sep: StochasticSeparation, prev_class, GA_Info, GA_LoopSize, GA_CheckSize, GA_counter, basecost, weather: StochasticWeatherProcess, tau: int, Max_LookAhead: int, cost_fn: Cost, GA_Check_Increment: int, S_min: int, wiener_sig: float):
+def Genetic(Ac_Info: List[FlightInfo], Ac_queue, tm, sep: StochasticSeparation, prev_class, GA_Info, GA_counter, basecost, weather: StochasticWeatherProcess, tau: int, cost_fn: Cost, GA_Check_Increment: int, S_min: int, wiener_sig: float):
 
     # Simulate costs of sequences in GA_Info
     costs, xi_lists = simulate_sequences(GA_Info, tm, Ac_Info, Ac_queue, tau, sep, weather, wiener_sig, prev_class, cost_fn)
@@ -55,19 +55,11 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Ac_queue, tm, sep: StochasticSe
     GA_counter += 1
 
     # Run rank and select if sufficient number of iterations have passed
-    if GA_counter >= GA_CheckSize:
+    if GA_counter % GA_Check_Increment == 0:
         to_remove = SequenceInfo.rank_and_select(GA_Info)
         to_remove.sort(reverse=True)
-        
         for i in to_remove:
             info = GA_Info.pop(i)
-
-        # When iterations reaches GA_LoopSize (500) we reset GA_CheckSize - otherwise
-        # we increase so ranking 
-        if GA_counter >= GA_LoopSize:
-            GA_CheckSize = GA_Check_Increment
-        else:
-            GA_CheckSize += GA_Check_Increment
 
     # Mark some flights in best sequence for release
     Ac_added = []
@@ -81,4 +73,4 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Ac_queue, tm, sep: StochasticSe
                 break
             Ac_added.append(AC)
 
-    return Ac_added, GA_CheckSize, GA_counter
+    return Ac_added, GA_counter
