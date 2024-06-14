@@ -38,7 +38,9 @@ from .simulate import simulate_sequences
 # Outputs
 
 # Ac_added is list of flights to be released to queue
-# 
+# counter is number of trajectories sampled for a sequence
+# from which flights are released. 0 if no flights are released.
+# It doesn't seem to be used anywhere
 
 
 # JF: this is the main sim heuristic
@@ -69,20 +71,14 @@ def Genetic(Ac_Info: List[FlightInfo], Arr_Pool, Ac_queue, tm, sep: StochasticSe
 
     # Mark some flights in best sequence for release
     Ac_added = []
-    if len(Arr_Pool)>0:
-        assert len(GA_Info) > 0
-        perm = GA_Info[0] # This assumes list is ordered by v attribute of SequenceInfo
-        if perm.sequence[0] in Arr_Pool:
-            counter = perm.n_traj
-            if counter >= GA_Check_Increment or (len(GA_Info) <= S_min):
-                for j, AC in enumerate(perm.sequence):
-                    if perm.queue_probs[j] <= 0:
-                        break
-                    Ac_added.append(AC)
-        else:
-            counter=0
 
-    else:
-        counter=0
+    n_rel = GA_Check_Increment
+    assert len(GA_Info) > 0
+    if GA_counter > n_rel or (len(GA_Info) <= S_min):
+        perm = GA_Info[0]
+        for (j, AC) in enumerate(perm.sequence):
+            if perm.queue_probs[j] <= 0: # JF Question: in paper this check is only done on first element - modifying this to be the case could allow for simplifications
+                break
+            Ac_added.append(AC)
 
-    return Ac_added, counter, GA_CheckSize, GA_counter
+    return Ac_added, GA_CheckSize, GA_counter
