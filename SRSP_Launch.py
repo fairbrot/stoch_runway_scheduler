@@ -363,7 +363,7 @@ while rep < no_reps:
                     base_seq.remove(AC)
                     # Gets important statistics about aircraft being released and serviced
                     # some of these outputs are used for simulation itself
-                    real_queue_complete, next_completion_time, latest_class = Update_Stats(tm, AC, Ac_Info, Ac_queue, real_queue_complete, weather_process, latest_class, next_completion_time, sep, SubPolicy, counter)
+                    real_queue_complete, next_completion_time, latest_class = Update_Stats(tm, AC, Ac_Info, Ac_queue, real_queue_complete, weather_process, latest_class, next_completion_time, sep, SubPolicy)
 
                 else:
                     # Important: if aircraft not in the pool then don't consider any others (order in Ac_Added comes from a sequence and is important)

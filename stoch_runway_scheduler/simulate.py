@@ -303,7 +303,7 @@ def Update_ETAs(Ac_Info: List[FlightInfo], Arr_NotReady: List[int], Ac_queue: Li
             else:
                 Ac_Infoi.eta = Brown_Motion[AC][int((Ac_Infoi.pool_time + rounded_trav_so_far) * freq)]
 
-def Update_Stats(tm: float, AC: int, Ac_Info: List[FlightInfo], Ac_queue: List[int], real_queue_complete: float, weather_process: WeatherProcess, latest_class, next_completion_time, sep: StochasticSeparation, SubPolicy: str, counter: int):
+def Update_Stats(tm: float, AC: int, Ac_Info: List[FlightInfo], Ac_queue: List[int], real_queue_complete: float, weather_process: WeatherProcess, latest_class, next_completion_time, sep: StochasticSeparation, SubPolicy: str):
     """
     Updates various states when after flight is released into queue.
 
@@ -317,7 +317,6 @@ def Update_Stats(tm: float, AC: int, Ac_Info: List[FlightInfo], Ac_queue: List[i
     Time_Sep: time separation array
     w_rho: bad weather multiplier
     Subpolicy:
-    counter:
 
     Returns
     -------
