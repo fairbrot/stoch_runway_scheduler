@@ -44,7 +44,7 @@ from .simulate import simulate_sequences
 
 
 # JF: this is the main sim heuristic
-def Genetic(Ac_Info: List[FlightInfo], Ac_queue, tm, sep: StochasticSeparation, prev_class, GA_Info, GA_counter, basecost, weather: StochasticWeatherProcess, tau: int, cost_fn: Cost, GA_Check_Increment: int, S_min: int, wiener_sig: float):
+def Genetic(Ac_Info: list[FlightInfo], Ac_queue: list[int], tm, sep: StochasticSeparation, prev_class, GA_Info: list[SequenceInfo], GA_counter, basecost, weather: StochasticWeatherProcess, tau: int, cost_fn: Cost, GA_Check_Increment: int, S_min: int, wiener_sig: float):
 
     # Simulate costs of sequences in GA_Info
     costs, xi_lists = simulate_sequences(GA_Info, tm, Ac_Info, Ac_queue, tau, sep, weather, wiener_sig, prev_class, cost_fn)
