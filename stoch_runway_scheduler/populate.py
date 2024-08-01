@@ -123,7 +123,7 @@ def Repopulate_VNS(GA_Info: List[SequenceInfo], GA_PopSize: int, S_min: int, VNS
 # 
 def Populate(Ac_Info: List[FlightInfo], base_seq: List[int], 
             Arr_Pool: List[int], Arr_NotReady: List[int], 
-            GA_PopSize: int, Max_SeqLength: int) -> Tuple[List[List[int]], List[SequenceInfo]]:
+            GA_PopSize: int, Max_SeqLength: int) -> List[SequenceInfo]:
     """
     Creates a new population of sequences - used at beginning of algorithm and step 4A
 

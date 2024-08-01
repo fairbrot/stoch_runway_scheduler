@@ -1,17 +1,15 @@
 from typing import List, TextIO, Tuple
 import logging
-import math
-import random
-import numpy as np
 from .utils import FlightStatus, FlightInfo, Cost
 from .sequence import SequenceInfo
 from .weather import WeatherProcess, StochasticWeatherProcess
+from .trajectory import StochasticTrajectory
 from .separation import StochasticSeparation, landing_time
 from .annealing_cost import Annealing_Cost
 
 
-def simulate_sequences(GA_Info: List[SequenceInfo], tm: float, Ac_Info: List[FlightInfo], Ac_queue: List[int], tau: float, sep: StochasticSeparation,
-                        weather: StochasticWeatherProcess, wiener_sig: float, prev_class: int, cost_fn: Cost) -> Tuple[List[float], List[List[int]]]:
+def simulate_sequences(GA_Info: List[SequenceInfo], tm: float, Ac_Info: List[FlightInfo], Ac_queue: List[int], trajecs: list[StochasticTrajectory], sep: StochasticSeparation,
+                        weather: StochasticWeatherProcess, prev_class: int, cost_fn: Cost) -> Tuple[List[float], List[List[int]]]:
     """
     Simulates landing times and associated costs of a set of sequences using common random numbers.
 
@@ -51,7 +49,7 @@ def simulate_sequences(GA_Info: List[SequenceInfo], tm: float, Ac_Info: List[Fli
         # sched=int(10*round(Ac_Infoi.eta-tm,1))
         # trav_time=wiener_cdf[sched][z]
         # sched = int(round(info.eta - tm, 1)) # similar to NOT_READY case
-        trav_time = Ac_Infoi.travel_time if tm >= Ac_Infoi.eta else np.random.wald(tau, (tau/wiener_sig)**2)
+        trav_time = trajecs[AC].simulate_travel_time(tm, Ac_Infoi)
         if i == 0:
             min_sep = sep.sample_conditional_separation(tm - prev_ld, prev_class, Ac_Infoi.ac_class, Ac_Infoi.weather_state)
         else:
@@ -73,20 +71,10 @@ def simulate_sequences(GA_Info: List[SequenceInfo], tm: float, Ac_Info: List[Fli
     # Generate arrival, travel and normalized service times for flights in sequences
     for AC in seq_ACs:
         info = Ac_Info[AC]
-        match info.status:
-            case FlightStatus.NOT_READY:
-                sched = int(round(Ac_Info[AC].eta-(tm+tau),1)) # JF Question: what is this?
-                if sched<=0:
-                    arr_time = tm
-                else:
-                    arr_time = np.random.wald(sched,(sched/wiener_sig)**2) + tm
-            case FlightStatus.IN_POOL:
-                arr_time = max(0, Ac_Info[AC].eta - tau) # JF Question: Time aircraft arrives in Pool - could this not be replaced with Ac_Info[AC].pool_time?
-            case _:
-                raise RuntimeError(f'Aircraft {AC} is in a sequence but has status {info.status}')
-        trav_time = np.random.wald(tau, (tau / wiener_sig)**2)
-        serv_time=sep.sample_normalized_separation()
-        ac_attrs[AC] = (arr_time, trav_time, serv_time)
+        pool_time = trajecs[AC].simulate_pool_time(tm, info)
+        trav_time = trajecs[AC].simulate_travel_time(tm, info)
+        serv_time = sep.sample_normalized_separation()
+        ac_attrs[AC] = (pool_time, trav_time, serv_time)
 
     costs = []
     xi_lists = []
@@ -103,16 +91,16 @@ def simulate_sequences(GA_Info: List[SequenceInfo], tm: float, Ac_Info: List[Fli
         # no_ACs = min(Max_LookAhead, len(perm)) # JF Question: can this not just be len(perm)? Also, don't we want to evaluate full length of sequence?
         xi_list = [] # for each flight indicates whether or not it goes straight to service - called xi in paper
         for AC in perm:
-            arr_time, trav_time, serv_time = ac_attrs[AC]
+            pool_time, trav_time, serv_time = ac_attrs[AC]
             Ac_Infoi = Ac_Info[AC]
             perm_class = Ac_Infoi.ac_class
-            reltime = max(latest_tm, arr_time)
+            reltime = max(latest_tm, pool_time)
             weather_state = weather_sample(reltime)
             
             min_sep = sep.sample_separation(perm_prev_class, perm_class, weather_state, norm_service_time = serv_time)
             AC_FinishTime, straight_into_service = landing_time(prev_ld, min_sep, reltime, trav_time)
             xi_list.append(straight_into_service)
-            permcost += cost_fn(Ac_Infoi.orig_sched_time, arr_time, trav_time, AC_FinishTime, Ac_Infoi.passenger_weight)
+            permcost += cost_fn(Ac_Infoi.orig_sched_time, pool_time, trav_time, AC_FinishTime, Ac_Infoi.passenger_weight)
             #latest_tm = reltime # JF Question - I don't think this needs updating - all flights should join queue now or when they enter pool
 
             prev_ld = AC_FinishTime
@@ -121,63 +109,6 @@ def simulate_sequences(GA_Info: List[SequenceInfo], tm: float, Ac_Info: List[Fli
         xi_lists.append(xi_list)
 
     return costs, xi_lists
-
-def generate_trajectory(Dep_time: float, Ps_time: float, tau: int, wiener_sig: float, freq: int):
-    """
-    Generates a trajectory for an aircraft.
-
-    Parameters
-    ----------
-    Dep_time: time at which Brownian motion starts being used to predict ETA (called h in paper)
-    Ps_time: pre-scheduled arrival time at destination airport plus pre-tactical delay
-    tau: flight is considered to have joined pool when current time >= ETA - tau
-    wiener_sig: standard deviation of Brownian motion
-    freq: frequency (per minute) at which trajectories are updated
-
-    Returns
-    -------
-    pool_arr_time: float
-        time at which flight arrives in pool
-    travel_time: float
-        time to travel from pool threshold to runway
-    brown_motion: List[float]
-        Brownian motion. Element j is the ETA at time j/freq.
-    """
-
-    brown_motion = []
-    # For flights with scheduled departure less than 0 we need to initially simulate where BM would be at time 0
-    if Dep_time < 0:
-        ETA = random.gauss(Ps_time, math.sqrt(0-Dep_time)*wiener_sig) # Update the latest ETAs for ACs that already had their dep time before time zero
-    else:
-        ETA = Ps_time # ETA = pre-scheduled time
-    brown_motion.append(ETA)
-
-    # i.e. when ETA is within 30 minutes of current time (0)
-    # JF note: perhaps add a check for aircraft already arriving at runway
-    if 0 >= ETA-tau:
-        pool_arr_time = 0
-        chk = 1
-        ETA = tau # JF Question - is this right?
-    else:
-        chk = 0
-
-    j = 0
-    while True:
-        j += 1 # step forward in increments of 1/freq minutes
-        if j > Dep_time*freq: # only update ETA if we've gone beyond the AC's departure time
-            ETA = random.gauss(ETA, 0.1*wiener_sig)
-        brown_motion.append(ETA)
-        if j/freq >= ETA-tau and chk == 0:
-            pool_arr_time = round(j/freq,2) # pool arrival time - j/freq is the 'current time'
-            chk = 1
-        elif j/freq >= ETA and chk == 1:
-            runway_time = round(j/freq,2)
-            # Plane arrives at runway
-            travel_time = runway_time - pool_arr_time # travel time between entering pool and arriving at runway
-            chk = 2
-            break
-
-    return pool_arr_time, travel_time, brown_motion
 
 def Calculate_FCFS(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, weather_process: WeatherProcess, NoA: int, w_rho: float, k: int, Time_Sep: List[List[int]], cost_fn: Cost):
 
@@ -255,8 +186,8 @@ def round_down(tm: float, freq: int) -> float:
     return i*int_size
 
 
-def Update_ETAs(Ac_Info: List[FlightInfo], Arr_NotReady: List[int], Ac_queue: List[int], 
-                tm: float, Brown_Motion: List[List[float]], Arr_Pool: List[int], tau: float,
+def Update_ETAs(Ac_Info: list[FlightInfo], Arr_NotReady: list[int], Ac_queue: List[int], 
+                tm: float, trajecs: list[StochasticTrajectory], Arr_Pool: list[int], tau: float,
                 freq: int):
     
     # JF Question: this only updates ETAs for aircraft not ready, which join the pool, or are in the queue.
@@ -275,14 +206,14 @@ def Update_ETAs(Ac_Info: List[FlightInfo], Arr_NotReady: List[int], Ac_queue: Li
             Arr_Pool.append(AC)
             to_remove.append(i)
             Ac_Infoi.status = FlightStatus.IN_POOL
-            Ac_Infoi.eta = Ac_Infoi.pool_time + tau # JF Question: is this necessary?
+            Ac_Infoi.eta = Ac_Infoi.pool_time + tau # JF Question: should this be tm + tau?
 
             msg = '* Added aircraft '+str(AC)+' to the arrival pool at time '+str(tm)+' (new readiness time is '+str(Ac_Infoi.pool_time+tau)+')'+'\n'+'\n'
             stepthrough_logger.info(msg)
             step_summ_logger.info(msg)
             step_new_logger.info(msg)
         else:
-            Ac_Infoi.eta = Brown_Motion[AC][int(tm*freq)]
+            Ac_Infoi.eta = trajecs[AC].expected_eta(tm, Ac_Infoi)
     for i in reversed(to_remove):
         Arr_NotReady.pop(i)
 
@@ -301,7 +232,7 @@ def Update_ETAs(Ac_Info: List[FlightInfo], Arr_NotReady: List[int], Ac_queue: Li
                 step_summ_logger.info(msg)
                 Ac_Infoi.travel_time_indicator = True
             else:
-                Ac_Infoi.eta = Brown_Motion[AC][int((Ac_Infoi.pool_time + rounded_trav_so_far) * freq)]
+                Ac_Infoi.eta = trajecs[AC].expected_eta(tm, Ac_Infoi)
 
 def Update_Stats(tm: float, AC: int, Ac_Info: List[FlightInfo], Ac_queue: List[int], real_queue_complete: float, weather_process: WeatherProcess, latest_class, next_completion_time, sep: StochasticSeparation, SubPolicy: str):
     """

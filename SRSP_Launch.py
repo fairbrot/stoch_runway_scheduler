@@ -9,7 +9,7 @@ import os
 
 import numpy as np
 
-from stoch_runway_scheduler import BrownianWeatherProcess, generate_trajectory, read_flight_data, sample_pretac_delay, Genetic, Genetic_determ, Populate, Repopulate_VNS, Perm_Heur, Perm_Heur_New, Calculate_FCFS, Posthoc_Check, Update_Stats, Update_ETAs, Serv_Completions, FlightInfo, FlightStatus, Cost, ErlangSeparation
+from stoch_runway_scheduler import BrownianWeatherProcess, BrownianTrajectory, read_flight_data, sample_pretac_delay, SimHeur, Genetic_determ, Populate, Repopulate_VNS, Perm_Heur, Perm_Heur_New, Calculate_FCFS, Posthoc_Check, Update_Stats, Update_ETAs, Serv_Completions, FlightInfo, FlightStatus, Cost, ErlangSeparation
 
 #################
 # CONIFIGUATION # 
@@ -38,7 +38,7 @@ t = 15 # length of a time slot in minutes
 NoC = 4 # no. of aircraft classes
 # Time separations in seconds taken from Bennell et al (2017) with H, U, M, S as the 4 classes; 
 # the 5th array is for the situation where there is no leading aircraft
-Time_Sep = [[97,121,121,145],[72,72,72,97,97],[72,72,72,72],[72,72,72,72],[72,72,72,72]] 
+Time_Sep = [[97,121,121,145],[72,72,72,97,97],[72,72,72,72],[72,72,72,72],[72,72,72,72]]
 # JF: Time_Sep is List[List[int]]
 
 # k controls variances of service times - larger means less variance
@@ -49,8 +49,9 @@ pot_k = [16, 25, 44, 100, 400] # Potential set of k values to sample from
 pot_lam1 = [0.1, 0.3, 0.5, 0.7, 0.9] # Potential set of values for lambda 1 to sample from
 
 # These correspond to gamma^S (thres1) and gamma^W (thres2) in paper
-pot_thres1 = [0,15] # potential set of values of thres1 to sample from
+pot_thres1 = [0, 15] # potential set of values of thres1 to sample from
 thres2 = 0
+
 
 # Min and max prescheduled time to consider in solution approach
 # Measured in minutes from from midnight? (6AM-2PM is when simulation runs between)
@@ -85,7 +86,11 @@ Max_LookAhead = 15 # NoA # This is the length of a sequence, equivalent to param
 pool_max = 6 # Used as a parameter for "perm heuristic" which searches for the best landing sequence under perfect information, i.e. assumes all random information already known
 list_min = 6 # Also used only for the "perm heuristic""
 
+n_rel = 50
+n_repop = 500
+r = 50
 GA_PopSize = 20 # Initial number of sequences in the population, written as S in paper (see Section 3.1)
+S_min = 10 # Length of shortlist JF - Perhaps move to parameters
 VNS_limit = 25 # important parameter, determines how many non-improving heuristic moves need to be made before a mutation is carried out; this is written as m_{mut} in paper (see the flow chart, Figure 3)
 
 # JF Note: Important - should these two things be linked?
@@ -126,9 +131,6 @@ f.write('Policy'+',''Rep'+','+'AC'+','+'Flight Num'+','+'Prev Class'+','+'Cur Cl
 ##################
 # INITIALISATION #
 ##################
-
-VNS_counter = 0 # this counts how many non-improving heuristic moves we've made since the last reset
-tot_mut = 0 # counts how many total mutations we've made; really just for output purposes
 
 # Presumably indicates for each aircraft whether it has landed yet
 # 'finished' means aircraft has completed landing, i.e. service time has finished
@@ -196,7 +198,7 @@ while rep < no_reps:
 
     # These are random for similar reasons pax_weight (g_i in paper) - results may be stratified by this as well
     # lam1 and lam2 are the weights of scheduling delay and airborne holding delays - these are called theta^S and theta^W in the paper
-    lam1 = random.choice(pot_lam1)     # Random lam1
+    lam1 = random.choice(pot_lam1) # Random lam1
     lam2 = 1-lam1
     print('lam1: '+str(lam1)+' lam2: '+str(lam2))
 
@@ -226,13 +228,13 @@ while rep < no_reps:
     print('*** Generating the ETA trajectory array...')
     # Trajectories are generated for whole 8 hour period for each flight
 
-    Brown_Motion = []
+    trajecs = []
     for i in range(NoA):
         Ps_time, Dep_time,  = Ac_Info[i].ps_time, Ac_Info[i].sched_dep_time
-        pool_arr_time, travel_time, brown_motion = generate_trajectory(Dep_time, Ps_time, tau, wiener_sig, freq=freq)
-        Ac_Info[i].travel_time = travel_time
-        Ac_Info[i].pool_time = pool_arr_time
-        Brown_Motion.append(brown_motion)
+        trajec = BrownianTrajectory(Dep_time, Ps_time, tau, wiener_sig, freq=freq)
+        Ac_Info[i].travel_time = trajec.travel_time
+        Ac_Info[i].pool_time = trajec.pool_time
+        trajecs.append(trajec)
 
     header = ['AC', 'Class', 'PS time', 'Pool arrival', 'Travel time', 'Runway time']
     stepthrough_logger.info(', '.join(header))
@@ -257,31 +259,6 @@ while rep < no_reps:
 
     stepthrough_logger.info('wlb_tm: %d wub_tm: %d', weather_process.wlb, weather_process.wub)
 
-    # Generate the initial population of sequences
-    print('Generating initial population of sequences...')
-
-    # Should probably just be Max_LookAhead as values haven't changed at this point
-    no_ACs = min(Max_LookAhead, NoA) # JF: perhaps change this name to be clearer (it is sequence length)
-    # JF Question: should this be FCFS? No - this is first scheduled first served
-    FSFS_seq = [i for i in range(no_ACs)]
-
-    # Arg 3 is Arr_Pool which is initially empty at this point
-    GA_Info = Populate(Ac_Info, FSFS_seq, [], FSFS_seq, GA_PopSize, Max_LookAhead)
-
-    # Opt_Seq = FSFS_seq[:]
-    OptCost = 1000000 # initial cost
-    queue_probs = [0] * NoA # JF Question: this is shared between solutions? Should this really be the case? Possibly is independent of sequence
-    S_min = 10 # Length of shortlist JF - Perhaps move to parameters
-
-    GA_Check_Increment = GA_LoopSize / 10 # Called r in paper - how often to do ranking and selection
-    # Is done for every iteration for VNSD
-
-    GA_counter = 0 # called n in paper (number of trajectories sampled so far)
-
-    stepthrough_logger.info('Initial population of sequences:')
-    for (j, info) in enumerate(GA_Info):
-        stepthrough_logger.info("%d, %s\n", j, info.sequence)
-
     for AC in range(NoA):
         print(f'AC: {AC} Class: {Ac_Info[AC].ac_class} Orig Ps time: {Ac_Info[AC].orig_sched_time} Ps time: {Ac_Info[AC].ps_time} Arrives in pool: {Ac_Info[AC].pool_time} Travel time: {Ac_Info[AC].travel_time}')
 
@@ -296,20 +273,16 @@ while rep < no_reps:
     latest_class = 4 # class of latest aircraft to be added to the queue, initially set to 4 (dummy value)
     prev_class = 4 # class of previous aircraft to be served, initially set to 4 (dummy value)
     Ac_added = [] # aircraft to be added to the queue
-    counter = 0
     weather_state = 0 # 0 means it's good weather, 1 means bad weather, 2 means good weather again
     real_queue_complete = 0 # stores time last place was serviced
     next_completion_time = 0
-    Pop_elap = 0 # Used to track time spent in certain functions - used to update simulation clock
-    tot_mut = 0 # number of times we have done mutation step
 
     tot_arr_cost = 0
     tot_dep_cost = 0
+ 
 
-    Loop_Nums = 0
-    Loop_Evals = 0
-
-
+    release_policy = SimHeur(Ac_Info, Arr_NotReady, Arr_Pool, Ac_queue, trajecs, sep, weather_process,
+                             cost_fn, GA_PopSize, Max_LookAhead, n_rel, r, n_repop, S_min, VNS_limit)
 
     # Generate the initial pool and notready arrays
     print('*** Generating the initial pool...')
@@ -328,86 +301,31 @@ while rep < no_reps:
 
     print(f'*** Into main loop for rep {rep} and policy {SubPolicy}...')
     begin_time = time.time()
-    mv_time = 0 # some sort of indicator
     if policy_index == 0:
         gg.write(str(rep)+','+str(conv_factor)+','+str(wiener_sig)+','+str(k)+','+str(lam1)+','+str(lam2)+','+str(wlb)+','+str(wub)+','+str(weather_process.wlb)+','+str(weather_process.wub)+','+str(thres1)+','+str(thres2)+',')
 
     initial_time = time.time()
 
     while totserv < NoA:
-
-        stepthrough_logger.info('tm is %d', tm)
-        stepthrough_logger.info('Arr_NotReady is %s', Arr_NotReady)
-        stepthrough_logger.info('Arr_Pool is %s', Arr_Pool)
-        stepthrough_logger.info('Ac_queue is %s', Ac_queue)
-        stepthrough_logger.info('Left_queue is %s', Left_queue)
-        stepthrough_logger.info('Ac_added is %s', Ac_added)
-
         # If one aircraft needs releasing and the first aircraft to be released is in the pool
         # tm >= may be redundant
-        if tm >= 0 and len(Ac_added) > 0 and Ac_added[0] in Arr_Pool:
-            # First, find best sequence
-            GA_Info.sort(key=lambda x: x.v)
-            # Set up base sequence and pred_cost (latest predicted cost)
-            if len(GA_Info) > 0: # JF Question: is this condition needed?
-                base_seq = GA_Info[0].sequence[:]
-                pred_cost = GA_Info[0].v
+        if len(Ac_added) > 0:
             # For each aircraft being released...
             for AC in Ac_added:
-                if AC in Arr_Pool:
-                    Arr_Pool.remove(AC)
-                    Ac_queue.append(AC)
-                    Ac_Info[AC].pred_cost = pred_cost
-                    base_seq.remove(AC)
-                    # Gets important statistics about aircraft being released and serviced
-                    # some of these outputs are used for simulation itself
-                    real_queue_complete, next_completion_time, latest_class = Update_Stats(tm, AC, Ac_Info, Ac_queue, real_queue_complete, weather_process, latest_class, next_completion_time, sep, SubPolicy)
-
-                else:
-                    # Important: if aircraft not in the pool then don't consider any others (order in Ac_Added comes from a sequence and is important)
-                    break
-
-            # We have released flights so we need to reinitialise population (Step 4A in paper)
-            GA_Info = Populate(Ac_Info, base_seq, Arr_Pool, Arr_NotReady, GA_PopSize, Max_LookAhead)
-            queue_probs = [0]*(len(Arr_Pool)+len(Arr_NotReady))
-
-            GA_counter = 0 # reset counter
-
-
-        # JF Question: what does this part do?
-        Repop_elap = 0
-        if len(Arr_Pool) + len(Arr_NotReady) > 0: #4: # JF Question - Should this condition be automatically satisfied? See condition on outermost loop
-            # Condition for step 4C in paper
-            if GA_counter >= GA_LoopSize or len(GA_Info) <= S_min:
-                Loop_Nums+=1
-                Loop_Evals += GA_counter
-                # Create more seqeuences from best current sequence
-                VNS_counter, tot_mut = Repopulate_VNS(GA_Info, GA_PopSize, S_min,
-                                                        VNS_counter, VNS_limit, tot_mut)
-                GA_counter = 0
-                mv_time = 1
-        else:
-            mv_time = 1 # May be redundant
-
-
-        # First, get the AC List
-
-        # JF Question: what is the condition?
-        # if tm >= 0 and tm <= wub_tm and int(tm*freq) != int(old_tm*freq):
-        #     # Permute and update the weather forecast
-        #     wlb = weather_lb[int(tm*freq)] # random.gauss(wlb, 0.05)
-        #     wub = weather_ub[int(tm*freq)]
+                assert Ac_Info[AC].status == FlightStatus.IN_POOL
+                Arr_Pool.remove(AC)
+                Ac_queue.append(AC)
+                # Gets important statistics about aircraft being released and serviced
+                # some of these outputs are used for simulation itself
+                real_queue_complete, next_completion_time, latest_class = Update_Stats(tm, AC, Ac_Info, Ac_queue, real_queue_complete, weather_process, latest_class, next_completion_time, sep, SubPolicy)
 
         if len(Arr_Pool) + len(Arr_NotReady) > 0:
             if SubPolicy == 'VNS':
                 # JF Question: should we be inputting wlb_tm and wub_tm rather than wlb and wub here?
-                Ac_added, GA_counter = Genetic(Ac_Info, Ac_queue, max(tm,0), sep, prev_class, GA_Info, GA_counter, tot_arr_cost + tot_dep_cost, weather_process, tau, cost_fn, GA_Check_Increment, S_min, wiener_sig)
-                stepthrough_logger.info('GA_counter is %d', GA_counter)
-            elif SubPolicy=='VNSD':
-                exp_weather = weather_process.expected_process(tm)
-                Ac_added, counter, stored_queue_complete = Genetic_determ(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, max(tm,0), NoA, k, prev_class, GA_Info, exp_weather, tau, Max_LookAhead, Time_Sep, cost_fn, tot_arr_cost + tot_dep_cost, w_rho)
-                GA_counter += 1
-                stepthrough_logger.info('GA_counter is %d', GA_counter)
+                Ac_added = release_policy.run(tm, prev_class, tot_arr_cost + tot_dep_cost)
+            # elif SubPolicy=='VNSD':
+            #     exp_weather = weather_process.expected_process(tm)
+            #     Ac_added, counter, stored_queue_complete = Genetic_determ(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, max(tm,0), NoA, k, prev_class, GA_Info, exp_weather, tau, Max_LookAhead, Time_Sep, cost_fn, tot_arr_cost + tot_dep_cost, w_rho)
 
         else:
             Ac_added, elap = [], 0.1
@@ -417,7 +335,7 @@ while rep < no_reps:
         # JF Question: what is this condition? freq replaced 100 here
         if int(tm*freq) != int(old_tm*freq):
             # JF Question: should this use latest_time rather than tm? Rob thinks it is fine, but will check if necessary
-            Update_ETAs(Ac_Info, Arr_NotReady, Ac_queue, tm, Brown_Motion, Arr_Pool, tau, freq)
+            Update_ETAs(Ac_Info, Arr_NotReady, Ac_queue, tm, trajecs, Arr_Pool, tau, freq)
 
         if len(Ac_queue) > 0 and tm >= next_completion_time: #len(Ac_queue)>0:
             arr_cost, dep_cost, totserv, prev_class, Ac_finished, next_completion_time = Serv_Completions(Ac_Info, Ac_queue, prev_class, totserv, Ac_finished, latest_time, next_completion_time, cost_fn, f, SubPolicy, rep, Left_queue)
@@ -430,7 +348,6 @@ while rep < no_reps:
     print('Final cost is '+str(tot_arr_cost+tot_dep_cost))
     gg.write(str(SubPolicy)+','+str(tot_arr_cost+tot_dep_cost)+',')
     gg.write(str(time.time()-begin_time)+',')
-    gg.write(str(Loop_Nums)+','+str(tot_mut)+',')
 
     ArrTime = [0]*NoA
     ArrTime_Sorted = [0]*NoA
