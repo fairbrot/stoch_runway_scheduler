@@ -7,6 +7,6 @@ from .annealing_cost import Annealing_Cost
 from .perm import Perm_Heur, Perm_Heur_New
 from .trajectory import BrownianTrajectory
 from .simulate import Calculate_FCFS, Posthoc_Check, Update_ETAs, Update_Stats, Serv_Completions
-from .genetic import SimHeur
+from .sim_heur import SimHeur
 from .genetic_det import Genetic_determ
 from .populate import Populate, Repopulate_VNS
