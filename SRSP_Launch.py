@@ -263,9 +263,7 @@ while rep < no_reps:
     for AC in range(NoA):
         print(f'AC: {AC} Class: {Ac_Info[AC].ac_class} Orig Ps time: {Ac_Info[AC].orig_sched_time} Ps time: {Ac_Info[AC].ps_time} Arrives in pool: {Ac_Info[AC].pool_time} Travel time: {Ac_Info[AC].travel_time}')
 
-    tot_arr_cost = 0
-    tot_dep_cost = 0
- 
+    tot_cost = 0
 
     release_policy = SimHeur(trajecs, sep, weather_process, cost_fn, GA_PopSize, Max_LookAhead, 
                              n_rel, r, n_repop, S_min, VNS_limit)
@@ -295,13 +293,12 @@ while rep < no_reps:
         if len(state.Arr_Pool) + len(state.Arr_NotReady) > 0:
             if SubPolicy == 'VNS':
                 # JF Question: should we be inputting wlb_tm and wub_tm rather than wlb and wub here?
-                Ac_added = release_policy.run(state, tot_arr_cost + tot_dep_cost)
+                Ac_added = release_policy.run(state, tot_cost)
             # elif SubPolicy=='VNSD':
             #     exp_weather = weather_process.expected_process(tm)
-            #     Ac_added = Genetic_determ(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, max(tm,0), NoA, sep, prev_class, GA_Info, exp_weather, tau, Max_LookAhead, cost_fn, tot_arr_cost + tot_dep_cost)
-
+            #     Ac_added = Genetic_determ(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, max(tm,0), NoA, sep, prev_class, GA_Info, exp_weather, tau, Max_LookAhead, cost_fn, tot_cost)
         else:
-            Ac_added, elap = [], 0.1
+            Ac_added = []
 
         latest_time = (time.time() - initial_time)/conv_factor
 
@@ -311,15 +308,14 @@ while rep < no_reps:
             Update_ETAs(state, trajecs, tau, freq)
 
         if len(state.Ac_queue) > 0 and state.tm >= state.next_completion_time: #len(Ac_queue)>0:
-            arr_cost, dep_cost = Serv_Completions(state, cost_fn)
-            tot_arr_cost += arr_cost
-            tot_dep_cost += dep_cost
+            arr_cost = Serv_Completions(state, cost_fn)
+            tot_cost += arr_cost
         old_tm = state.tm
 
         state.tm = latest_time
 
-    print('Final cost is '+str(tot_arr_cost+tot_dep_cost))
-    gg.write(str(SubPolicy)+','+str(tot_arr_cost+tot_dep_cost)+',')
+    print('Final cost is '+str(tot_cost))
+    gg.write(str(SubPolicy)+','+str(tot_cost)+',')
     gg.write(str(time.time()-begin_time)+',')
 
     ArrTime = [0]*NoA

@@ -112,8 +112,6 @@ def Serv_Completions(state: State, cost_fn: Cost):
     # print('ESC tm: '+str(tm)+' next_completion_time: '+str(next_completion_time))
 
     arr_cost=0
-    dep_cost=0
-
     j=0
 
     while len(state.Ac_queue) > 0:
@@ -146,4 +144,4 @@ def Serv_Completions(state: State, cost_fn: Cost):
         else:
             break
 
-    return arr_cost, dep_cost
+    return arr_cost
