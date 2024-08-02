@@ -1,7 +1,7 @@
 from typing import List, Tuple, Optional, Protocol
 import numpy as np
 from .weather import WeatherStatus
-from .gamma import sample_cond_gamma
+from .gamma import sample_cond_gamma, gamma_cond_exp
 
 class StochasticSeparation(Protocol):
 
@@ -49,6 +49,39 @@ class StochasticSeparation(Protocol):
         ...
 
 
+    def expected_conditional_seperation(self, t_elapsed: float,
+                                        prev_class: int, cur_class: int,
+                                        weather_state: WeatherStatus) -> float:
+        """
+        Calculate expected separation time between current flight and previous one,
+        conditional on a given amount of time having elapsed from previous completion.
+
+
+        Arguments:
+        ---------
+
+        t_elapsed: amount of time elapsed since previous completion
+        prev_class: weight class of previous flight
+        cur_class: weight class of current flight
+        weather_state: current state of weather
+        """
+        ...
+
+    def expected_separation(self, prev_class: int, cur_class: int, 
+                            weather_state: WeatherStatus) -> float:
+        """
+        Calculate expected minimum separation time between current flight and previous one.
+
+        This is used when flight is not already in service.
+
+        Arguments:
+        ---------
+        prev_class: weight class of previous flight
+        cur_class: weight class of current flight
+        weather_state: code for current state of weather (0, 1 or 2)
+        """
+        ...
+
 class ErlangSeparation(StochasticSeparation):
 
     def __init__(self, Time_Sep: List[List[int]], k: int, w_rho: float):
@@ -94,6 +127,20 @@ class ErlangSeparation(StochasticSeparation):
         cond_serv = sample_cond_gamma(t_elapsed, self.k, rate)
         return cond_serv
 
+    def expected_conditional_seperation(self, t_elapsed: float,
+                                        prev_class: int, cur_class: int,
+                                        weather_state: WeatherStatus) -> float:
+        rate = self.k/(self.Time_Sep[prev_class][cur_class]/60)
+        if weather_state == WeatherStatus.BAD:
+            rate *= 1/self.w_rho
+        return gamma_cond_exp(t_elapsed, self.k, rate)
+
+    def expected_separation(self, prev_class: int, cur_class: int, 
+                            weather_state: WeatherStatus) -> float:
+        mn = self.Time_Sep[prev_class][cur_class]/60
+        if weather_state == WeatherStatus.BAD:
+            mn *= self.w_rho
+        return mn
 
 def landing_time(prev_comp: float, min_sep: float,
                  rel_time: float, trav_time: float) -> Tuple[float, int]:

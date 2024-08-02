@@ -325,7 +325,7 @@ while rep < no_reps:
                 Ac_added = release_policy.run(tm, prev_class, tot_arr_cost + tot_dep_cost)
             # elif SubPolicy=='VNSD':
             #     exp_weather = weather_process.expected_process(tm)
-            #     Ac_added, counter, stored_queue_complete = Genetic_determ(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, max(tm,0), NoA, k, prev_class, GA_Info, exp_weather, tau, Max_LookAhead, Time_Sep, cost_fn, tot_arr_cost + tot_dep_cost, w_rho)
+            #     Ac_added = Genetic_determ(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, max(tm,0), NoA, sep, prev_class, GA_Info, exp_weather, tau, Max_LookAhead, cost_fn, tot_arr_cost + tot_dep_cost)
 
         else:
             Ac_added, elap = [], 0.1
