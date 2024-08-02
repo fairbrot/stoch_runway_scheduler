@@ -129,8 +129,8 @@ def Calculate_FCFS(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_mi
     return FCFS_cost
 
 # JF Question: what does this do?
-def Posthoc_Check(seq, Ac_Info, ArrTime, ServTime, ArrTime_Sorted, weather_process: WeatherProcess, output, NoA: int, w_rho: float, k: int, Time_Sep: List[List[int]], cost_fn: Cost):
-
+def Posthoc_Check(seq: list[int], Ac_Info, ArrTime, ServTime, ArrTime_Sorted, weather_process: WeatherProcess, output, NoA: int, w_rho: float, k: int, Time_Sep: List[List[int]], cost_fn: Cost):
+    # seq: order in which flights were served
     perm=seq
     perm_cost=0
     latest_tm=0
@@ -175,66 +175,7 @@ def Posthoc_Check(seq, Ac_Info, ArrTime, ServTime, ArrTime_Sorted, weather_proce
     return perm_cost
 
 
-def round_down(tm: float, freq: int) -> float:
-    """Rounds tm down to beginning of interval defined by freq.
-
-    For example, if freq is 100, then we round down for step size of 0.01,
-    that is 0.32453 would become 0.32.
-    """
-    int_size = 1/freq
-    i = tm // int_size
-    return i*int_size
-
-
-def Update_ETAs(Ac_Info: list[FlightInfo], Arr_NotReady: list[int], Ac_queue: List[int], 
-                tm: float, trajecs: list[StochasticTrajectory], Arr_Pool: list[int], tau: float,
-                freq: int):
-    
-    # JF Question: this only updates ETAs for aircraft not ready, which join the pool, or are in the queue.
-    # It does not seemingly update the ETAs for flights aleady in the pool.
-    
-    stepthrough_logger = logging.getLogger('stepthrough')
-    step_summ_logger = logging.getLogger('step_summ')
-    step_new_logger = logging.getLogger('step_new')
-
-    i = 0
-    # Updates flights not aleady in Pool
-    to_remove = []
-    for i, AC in enumerate(Arr_NotReady):
-        Ac_Infoi = Ac_Info[AC]
-        if tm >= Ac_Infoi.pool_time:
-            Arr_Pool.append(AC)
-            to_remove.append(i)
-            Ac_Infoi.status = FlightStatus.IN_POOL
-            Ac_Infoi.eta = Ac_Infoi.pool_time + tau # JF Question: should this be tm + tau?
-
-            msg = '* Added aircraft '+str(AC)+' to the arrival pool at time '+str(tm)+' (new readiness time is '+str(Ac_Infoi.pool_time+tau)+')'+'\n'+'\n'
-            stepthrough_logger.info(msg)
-            step_summ_logger.info(msg)
-            step_new_logger.info(msg)
-        else:
-            Ac_Infoi.eta = trajecs[AC].expected_eta(tm, Ac_Infoi)
-    for i in reversed(to_remove):
-        Arr_NotReady.pop(i)
-
-    # Updates flights which are in the queue
-    for i, AC in enumerate(Ac_queue):
-        Ac_Infoi = Ac_Info[AC]
-        if not Ac_Infoi.travel_time_indicator:
-            rel_time = Ac_Infoi.release_time
-            trav_so_far = tm - rel_time # amount of time spent travelling to the runway so far
-            # JF Question: why round? Should this be round down? Is this related to freq?
-            # I think we need rounding down to the beginning of interval defined by freq
-            rounded_trav_so_far = round_down(trav_so_far, freq)
-            if rounded_trav_so_far >= Ac_Infoi.travel_time:
-                msg = '* Aircraft '+str(AC)+' has finished its travel time at '+str(tm)+'; still waiting for service time.'+'\n'+'\n'
-                stepthrough_logger.info(msg)
-                step_summ_logger.info(msg)
-                Ac_Infoi.travel_time_indicator = True
-            else:
-                Ac_Infoi.eta = trajecs[AC].expected_eta(tm, Ac_Infoi)
-
-def Update_Stats(tm: float, AC: int, Ac_Info: List[FlightInfo], Ac_queue: List[int], real_queue_complete: float, weather_process: WeatherProcess, latest_class, next_completion_time, sep: StochasticSeparation, SubPolicy: str):
+def Update_Stats(tm: float, AC: int, Ac_Info: List[FlightInfo], Ac_queue: List[int], real_queue_complete: float, weather_process: WeatherProcess, latest_class, next_completion_time, sep: StochasticSeparation):
     """
     Updates various states when after flight is released into queue.
 
@@ -291,59 +232,3 @@ def Update_Stats(tm: float, AC: int, Ac_Info: List[FlightInfo], Ac_queue: List[i
 
     return real_queue_complete, next_completion_time, latest_class
 
-def Serv_Completions(Ac_Info, Ac_queue, prev_class, totserv, Ac_finished, tm, next_completion_time, cost_fn: Cost, f: TextIO, SubPolicy, rep, Left_queue):
-
-    stepthrough_logger = logging.getLogger('stepthrough')
-    step_summ_logger = logging.getLogger('step_summ')
-    # print('Entered Serv_Completions')
-    # print('ESC tm: '+str(tm)+' next_completion_time: '+str(next_completion_time))
-
-    arr_cost=0
-    dep_cost=0
-
-    j=0
-
-    while len(Ac_queue) > 0:
-
-        AC = Ac_queue[0]
-        Ac_Infoi = Ac_Info[AC]
-
-        finish_time = Ac_Infoi.service_completion_time
-        current_class = Ac_Infoi.ac_class
-
-        #print('finish_time: '+str(finish_time))
-
-        if tm >= finish_time: #release_time+trav_time and phase==k:
-            #print('* Service phase '+str(phase)+' completed for aircraft '+str(Ac_queue[0])+' at time '+str(tm+delta))
-            Ac_finished[AC] = finish_time
-            #print('* Service completion finished for aircraft '+str(AC))
-            stepthrough_logger.info('* Service completion finished for aircraft '+str(AC)+'\n'+'\n')
-            step_summ_logger.info('* Service completion finished for aircraft '+str(AC)+'\n'+'\n')
-            if Ac_Infoi.status == FlightStatus.IN_QUEUE:
-                Ac_Infoi.status = FlightStatus.FINISHED
-                arr_cost += cost_fn(Ac_Infoi.orig_sched_time, Ac_Infoi.pool_time, Ac_Infoi.travel_time, finish_time, Ac_Infoi.passenger_weight)
-                totserv+=1
-            else: # JF Question: is this clause needed?
-                Ac_Infoi.status = FlightStatus.FINISHED
-                arr_cost += cost_fn(Ac_Infoi.orig_sched_time, Ac_Infoi.pool_time, Ac_Infoi.travel_time, finish_time, Ac_Infoi.passenger_weight)
-
-            #f.write(str(SubPolicy)+','+str(rep)+','+str(AC)+','+str(Ac_Infoi.flight_id)+','+str(prev_class)+','+str(current_class)+','+str(Time_Sep[prev_class][current_class]/60)+','+str(Ac_Infoi.orig_sched_time)+','+str(Ac_Infoi.ps_time)+','+str(Ac_Infoi.pool_time)+','+str(Ac_Infoi.release_time)+','+str(Ac_Infoi.travel_time)+','+str(Ac_Infoi.weather_state)+','+str(Ac_Infoi.enters_service)+','+str(Ac_Infoi.service_time)+','+str(Ac_Infoi.service_completion_time)+','+str(max(0,finish_time-(Ac_Infoi.ps_time+cost_fn.thres1)))+','+str(finish_time-(Ac_Infoi.pool_time+Ac_Infoi.travel_time))+','+str(Ac_Infoi.passenger_weight)+','+str(cost_fn(Ac_Infoi.ps_time, Ac_Infoi.pool_time, Ac_Infoi.travel_time, finish_time, Ac_Infoi.passenger_weight))+',')
-
-            f.write(str(Ac_Infoi.pred_cost)+',')
-            f.write('\n')
-
-            prev_class = current_class
-
-            Left_queue.append(AC)
-            Ac_queue.remove(AC)
-
-            print(str(SubPolicy)+' totserv: '+str(totserv))
-
-            if len(Ac_queue)>0:
-                New_AC=Ac_queue[0]
-                next_completion_time=Ac_Info[New_AC].service_completion_time
-
-        else:
-            break
-
-    return arr_cost, dep_cost, totserv, prev_class, Ac_finished, next_completion_time

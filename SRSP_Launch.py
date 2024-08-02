@@ -9,7 +9,7 @@ import os
 
 import numpy as np
 
-from stoch_runway_scheduler import BrownianWeatherProcess, BrownianTrajectory, read_flight_data, sample_pretac_delay, SimHeur, Genetic_determ, Populate, Repopulate_VNS, Perm_Heur, Perm_Heur_New, Calculate_FCFS, Posthoc_Check, Update_Stats, Update_ETAs, Serv_Completions, FlightInfo, FlightStatus, Cost, ErlangSeparation
+from stoch_runway_scheduler import State, BrownianWeatherProcess, BrownianTrajectory, read_flight_data, sample_pretac_delay, SimHeur, Genetic_determ, Populate, Repopulate_VNS, Perm_Heur, Perm_Heur_New, Calculate_FCFS, Posthoc_Check, Update_Stats, Update_ETAs, Serv_Completions, FlightInfo, FlightStatus, Cost, ErlangSeparation
 
 #################
 # CONIFIGUATION # 
@@ -132,9 +132,6 @@ f.write('Policy'+',''Rep'+','+'AC'+','+'Flight Num'+','+'Prev Class'+','+'Cur Cl
 # INITIALISATION #
 ##################
 
-# Presumably indicates for each aircraft whether it has landed yet
-# 'finished' means aircraft has completed landing, i.e. service time has finished
-Ac_finished = [0]*NoA
 Ac_Info = [0]*NoA
 pax_weight = [0]*NoA # stores the randomly-generated cost weightings for aircraft, based on (hypothetical) numbers of passengers carried; written as g_i in the paper (see objective function (13))
 
@@ -225,6 +222,8 @@ while rep < no_reps:
 
     Ac_Info.sort(key=lambda x: x.ps_time)
 
+
+
     print('*** Generating the ETA trajectory array...')
     # Trajectories are generated for whole 8 hour period for each flight
 
@@ -235,6 +234,8 @@ while rep < no_reps:
         Ac_Info[i].travel_time = trajec.travel_time
         Ac_Info[i].pool_time = trajec.pool_time
         trajecs.append(trajec)
+
+
 
     header = ['AC', 'Class', 'PS time', 'Pool arrival', 'Travel time', 'Runway time']
     stepthrough_logger.info(', '.join(header))
@@ -262,42 +263,21 @@ while rep < no_reps:
     for AC in range(NoA):
         print(f'AC: {AC} Class: {Ac_Info[AC].ac_class} Orig Ps time: {Ac_Info[AC].orig_sched_time} Ps time: {Ac_Info[AC].ps_time} Arrives in pool: {Ac_Info[AC].pool_time} Travel time: {Ac_Info[AC].travel_time}')
 
-    Ac_queue = [] # flights currently in queue for landing
-    Left_queue = [] # Aircraft which have landed
-    Arr_Pool = [] # Aircraft in Pool
-    Arr_NotReady = [] # Aircraft that haven't joined pool yet
-
-    tm = 0  # tm is current time (in minutes)
-    old_tm = tm # previous time
-    totserv = 0 # counter of number of aircraft served (landed)
-    latest_class = 4 # class of latest aircraft to be added to the queue, initially set to 4 (dummy value)
-    prev_class = 4 # class of previous aircraft to be served, initially set to 4 (dummy value)
-    Ac_added = [] # aircraft to be added to the queue
-    weather_state = 0 # 0 means it's good weather, 1 means bad weather, 2 means good weather again
-    real_queue_complete = 0 # stores time last place was serviced
-    next_completion_time = 0
-
     tot_arr_cost = 0
     tot_dep_cost = 0
  
 
-    release_policy = SimHeur(Ac_Info, Arr_NotReady, Arr_Pool, Ac_queue, trajecs, sep, weather_process,
-                             cost_fn, GA_PopSize, Max_LookAhead, n_rel, r, n_repop, S_min, VNS_limit)
+    release_policy = SimHeur(trajecs, sep, weather_process, cost_fn, GA_PopSize, Max_LookAhead, 
+                             n_rel, r, n_repop, S_min, VNS_limit)
+    state = State(Ac_Info)
+    state.initialise_pool(tau)
 
-    # Generate the initial pool and notready arrays
-    print('*** Generating the initial pool...')
-    for i in range(NoA):
-        Ac_Infoi = Ac_Info[i]
-        if Ac_Infoi.eta - tau <= 0:
-            Arr_Pool.append(i)
-            print('Aircraft '+str(i)+' initially included in pool (ETA is '+str(Ac_Infoi.eta)+')')
-            Ac_Infoi.status = FlightStatus.IN_POOL
-        else:
-            Arr_NotReady.append(i)
+    old_tm = state.tm # previous time
+    Ac_added = [] # aircraft to be added to the queue
 
-    print('Arr_Pool:', Arr_Pool)
-    print('Ac_queue:', Ac_queue)
-    print('Arr_NotReady:', Arr_NotReady)
+    print('Arr_Pool:', state.Arr_Pool)
+    print('Ac_queue:', state.Ac_queue)
+    print('Arr_NotReady:', state.Arr_NotReady)
 
     print(f'*** Into main loop for rep {rep} and policy {SubPolicy}...')
     begin_time = time.time()
@@ -306,23 +286,16 @@ while rep < no_reps:
 
     initial_time = time.time()
 
-    while totserv < NoA:
+    while state.num_remaining_flights() > 0:
+        if Ac_added:
+            print(f"Time: {state.tm}, released: {Ac_added}")
         # If one aircraft needs releasing and the first aircraft to be released is in the pool
         # tm >= may be redundant
-        if len(Ac_added) > 0:
-            # For each aircraft being released...
-            for AC in Ac_added:
-                assert Ac_Info[AC].status == FlightStatus.IN_POOL
-                Arr_Pool.remove(AC)
-                Ac_queue.append(AC)
-                # Gets important statistics about aircraft being released and serviced
-                # some of these outputs are used for simulation itself
-                real_queue_complete, next_completion_time, latest_class = Update_Stats(tm, AC, Ac_Info, Ac_queue, real_queue_complete, weather_process, latest_class, next_completion_time, sep, SubPolicy)
-
-        if len(Arr_Pool) + len(Arr_NotReady) > 0:
+        state.release_flights(Ac_added, weather_process, sep)
+        if len(state.Arr_Pool) + len(state.Arr_NotReady) > 0:
             if SubPolicy == 'VNS':
                 # JF Question: should we be inputting wlb_tm and wub_tm rather than wlb and wub here?
-                Ac_added = release_policy.run(tm, prev_class, tot_arr_cost + tot_dep_cost)
+                Ac_added = release_policy.run(state, tot_arr_cost + tot_dep_cost)
             # elif SubPolicy=='VNSD':
             #     exp_weather = weather_process.expected_process(tm)
             #     Ac_added = Genetic_determ(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, max(tm,0), NoA, sep, prev_class, GA_Info, exp_weather, tau, Max_LookAhead, cost_fn, tot_arr_cost + tot_dep_cost)
@@ -332,18 +305,18 @@ while rep < no_reps:
 
         latest_time = (time.time() - initial_time)/conv_factor
 
-        # JF Question: what is this condition? freq replaced 100 here
-        if int(tm*freq) != int(old_tm*freq):
+        # Don't bother updating ETAs if enough time hasn't elapsed for ETA to change
+        if int(state.tm*freq) != int(old_tm*freq):
             # JF Question: should this use latest_time rather than tm? Rob thinks it is fine, but will check if necessary
-            Update_ETAs(Ac_Info, Arr_NotReady, Ac_queue, tm, trajecs, Arr_Pool, tau, freq)
+            Update_ETAs(state, trajecs, tau, freq)
 
-        if len(Ac_queue) > 0 and tm >= next_completion_time: #len(Ac_queue)>0:
-            arr_cost, dep_cost, totserv, prev_class, Ac_finished, next_completion_time = Serv_Completions(Ac_Info, Ac_queue, prev_class, totserv, Ac_finished, latest_time, next_completion_time, cost_fn, f, SubPolicy, rep, Left_queue)
+        if len(state.Ac_queue) > 0 and state.tm >= state.next_completion_time: #len(Ac_queue)>0:
+            arr_cost, dep_cost = Serv_Completions(state, cost_fn)
             tot_arr_cost += arr_cost
             tot_dep_cost += dep_cost
+        old_tm = state.tm
 
-        old_tm = tm
-        tm = latest_time
+        state.tm = latest_time
 
     print('Final cost is '+str(tot_arr_cost+tot_dep_cost))
     gg.write(str(SubPolicy)+','+str(tot_arr_cost+tot_dep_cost)+',')
@@ -359,11 +332,8 @@ while rep < no_reps:
 
     ArrTime_Sorted.sort(key=lambda x: x[0])
     # Posthoc check validates that flight statistics are consistent with costs
-    posthoc_cost = Posthoc_Check(Left_queue, Ac_Info, ArrTime, ServTime, ArrTime_Sorted, weather_process, 0, NoA, w_rho, k, Time_Sep, cost_fn)
-    gg.write('Posthoc Check'+','+str(posthoc_cost)+',')
-
-    for i in range(NoA):
-        g.write(str(i)+','+','+str(Ac_finished[i])+'\n')
+    # posthoc_cost = Posthoc_Check(Left_queue, Ac_Info, ArrTime, ServTime, ArrTime_Sorted, weather_process, 0, NoA, w_rho, k, Time_Sep, cost_fn)
+    # gg.write('Posthoc Check'+','+str(posthoc_cost)+',')
 
     print('Done!')
 

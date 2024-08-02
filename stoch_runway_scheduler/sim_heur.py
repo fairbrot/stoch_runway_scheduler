@@ -1,4 +1,5 @@
 from .utils import FlightInfo, Cost, FlightStatus
+from .state import State
 from .weather import StochasticWeatherProcess
 from .sequence import SequenceInfo
 from .separation import StochasticSeparation
@@ -44,12 +45,12 @@ from .populate import Populate, Repopulate_VNS
 
 class SimHeur:
 
-    def __init__(self, Ac_Info: list[FlightInfo], Arr_NotReady: list[int], Arr_Pool: list[int], Ac_queue: list[int], trajecs: list[StochasticTrajectory], sep: StochasticSeparation, weather: StochasticWeatherProcess, cost_fn: Cost, GA_PopSize: int, Max_LookAhead:int, n_rel: int, r: int, n_repop: int, S_min: int, VNS_limit: int):
+    def __init__(self, trajecs: list[StochasticTrajectory], sep: StochasticSeparation, weather: StochasticWeatherProcess, cost_fn: Cost, GA_PopSize: int, Max_LookAhead:int, n_rel: int, r: int, n_repop: int, S_min: int, VNS_limit: int):
         # State
-        self.Ac_Info = Ac_Info
-        self.Arr_NotReady = Arr_NotReady
-        self.Arr_Pool = Arr_Pool
-        self.Ac_queue = Ac_queue
+        # self.Ac_Info = Ac_Info
+        # self.Arr_NotReady = Arr_NotReady
+        # self.Arr_Pool = Arr_Pool
+        # self.Ac_queue = Ac_queue
         self.trajecs = trajecs
         # For simulation
         self.sep = sep
@@ -73,18 +74,18 @@ class SimHeur:
         self.reset_pop = True
         self.GA_Info = []
 
-        NoA = len(self.Ac_Info)
+        NoA = len(self.trajecs)
         no_ACs = min(Max_LookAhead, NoA)
         self.base_seq = [i for i in range(no_ACs)] # Initial value assumes AcInfo is ordered by Ps_time
         "Base sequence from which a new population is generated"
 
-    def run(self, tm: float, prev_class: int, basecost: float) -> list[int]:
+    def run(self, state: State, basecost: float) -> list[int]:
         # Can't run SimHeur if no flights remain
-        assert len(self.Arr_Pool) + len(self.Arr_NotReady) > 0
+        assert len(state.Arr_Pool) + len(state.Arr_NotReady) > 0
 
         # Step 4A - Type 1 Repopulation
         if self.reset_pop:
-            self.GA_Info = Populate(self.Ac_Info, self.base_seq, self.Arr_Pool, self.Arr_NotReady, self.GA_PopSize, self.Max_LookAhead)
+            self.GA_Info = Populate(state.Ac_Info, self.base_seq, state.Arr_Pool, state.Arr_NotReady, self.GA_PopSize, self.Max_LookAhead)
             self.GA_counter = 0 # reset counter
             self.reset_pop = False
 
@@ -96,7 +97,7 @@ class SimHeur:
 
         # Step 2A - Simulation and Evaluation
         # JF Note: tm really should be replaced with time last service ended - this might have been an issue with the original code
-        costs, xi_lists = simulate_sequences(self.GA_Info, tm, self.Ac_Info, self.Ac_queue, self.trajecs, self.sep, self.weather, prev_class, self.cost_fn)
+        costs, xi_lists = simulate_sequences(self.GA_Info, state.tm, state.Ac_Info, state.Ac_queue, self.trajecs, self.sep, self.weather, state.prev_class, self.cost_fn)
         for info, cost, xi_list in zip(self.GA_Info, costs, xi_lists):
             info.add_observation(cost + basecost, xi_list)
 
@@ -119,7 +120,7 @@ class SimHeur:
             for (j, AC) in enumerate(perm.sequence):
                 if perm.queue_probs[j] <= 0: # JF Question: in paper this check is only done on first element - modifying this to be the case could allow for simplifications
                     break
-                if self.Ac_Info[AC].status != FlightStatus.IN_POOL:
+                if state.Ac_Info[AC].status != FlightStatus.IN_POOL:
                     break
                 Ac_added.append(AC)
 
@@ -132,6 +133,6 @@ class SimHeur:
                 self.base_seq.remove(AC)
             # Previously reported - perhaps update this later or remove
             pred_cost = self.GA_Info[0].v
-            self.Ac_Info[AC].pred_cost = pred_cost
+            state.Ac_Info[AC].pred_cost = pred_cost
 
         return Ac_added
