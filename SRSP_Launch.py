@@ -9,10 +9,10 @@ import os
 
 import numpy as np
 
-from stoch_runway_scheduler import State, BrownianWeatherProcess, BrownianTrajectory, read_flight_data, sample_pretac_delay, SimHeur, Genetic_determ, Populate, Repopulate_VNS, Perm_Heur, Perm_Heur_New, Calculate_FCFS, Posthoc_Check, Update_Stats, Update_ETAs, Serv_Completions, FlightInfo, FlightStatus, Cost, ErlangSeparation
+from stoch_runway_scheduler import Simulation, BrownianWeatherProcess, BrownianTrajectory, read_flight_data, sample_pretac_delay, SimHeur, Genetic_determ, Perm_Heur, Perm_Heur_New, Calculate_FCFS, Posthoc_Check, Cost, ErlangSeparation
 
 #################
-# CONIFIGUATION # 
+# CONIFIGUATION #
 #################
 
 no_reps = 10000 # total number of random scenarios that we will simulate; in each scenario we evaluate the performances of different algorithms such as SimHeur, DetHeur, FCFS
@@ -96,6 +96,7 @@ VNS_limit = 25 # important parameter, determines how many non-improving heuristi
 # JF Note: Important - should these two things be linked?
 conv_factor = 1 # no. of seconds in a minute for conversion purposes
 freq = 100 # number of updates for each minute
+resolution = 0.1
 
 ###########
 # LOGGING #
@@ -132,9 +133,6 @@ f.write('Policy'+',''Rep'+','+'AC'+','+'Flight Num'+','+'Prev Class'+','+'Cur Cl
 # INITIALISATION #
 ##################
 
-Ac_Info = [0]*NoA
-pax_weight = [0]*NoA # stores the randomly-generated cost weightings for aircraft, based on (hypothetical) numbers of passengers carried; written as g_i in the paper (see objective function (13))
-
 # if Policy=='Alternate':
 #   SubPolicy='Perm'
 # else:
@@ -142,6 +140,10 @@ pax_weight = [0]*NoA # stores the randomly-generated cost weightings for aircraf
 
 rep = 0 #counter of which scenario we're currently on
 policy_index = 0 # indicates which policy we're currently evaluating, e.g. SimHeur, DetHeur etc (if this is zero then we take the first policy from the list of policies to be evaluated)
+
+
+flight_data, Alpha_Ps, Beta_Ps, late_means = read_flight_data(DATA_DIR + '/flight_pretac_data.csv',
+                                                            min_ps_time, max_ps_time, wiener_sig)
 
 #for rep in range(no_reps):
 # JF Question Why is for loop not used?: Rob not sure - may be fine to change back to for loop
@@ -155,35 +157,31 @@ while rep < no_reps:
     #---------------------------------------------------------#
     # Orig_Ps = sched arrival time
     # Dep_Ps = time at which tactical delay begins (called h in paper)
-    flight_id, Ac_class, Orig_Ps, Dep_Ps, Alpha_Ps, Beta_Ps, late_means = read_flight_data(DATA_DIR + '/flight_pretac_data.csv',
-                                                                                            min_ps_time, max_ps_time, wiener_sig)
-    pretac_delays = [sample_pretac_delay(alpha, beta, a, h, x_bar) for (alpha, beta, a, h, x_bar) in zip(Alpha_Ps, Beta_Ps, Orig_Ps, Dep_Ps, late_means)]
-    # this stores the adjusted scheduled times for aircraft after applying the random pre-tactical delay
-    Arr_Ps = [orig_ps + pretac_d for (orig_ps, pretac_d) in zip(Orig_Ps, pretac_delays)]
 
-    NoA = len(flight_id)
+    pretac_delays = [sample_pretac_delay(alpha, beta, fdata.arr_sched, fdata.dep_sched, x_bar) for (alpha, beta, fdata, x_bar) in zip(Alpha_Ps, Beta_Ps, flight_data, late_means)]
+    # this stores the adjusted scheduled times for aircraft after applying the random pre-tactical delay
+    ps_time = [fdata.arr_sched + pretac_d for (fdata, pretac_d) in zip(flight_data, pretac_delays)]
+
+    NoA = len(flight_data)
     print('No. of ACs: '+str(NoA))
 
     # --------------------------- #
     # Random parameter generation #
     #-----------------------------#
+    pax_weight = [0]*NoA # stores the randomly-generated cost weightings for aircraft, based on (hypothetical) numbers of passengers carried; written as g_i in the paper (see objective function (13))
     for i in range(NoA):
         # Passenger weight: this is called g_i in the paper
         # In objective? Shouldn't these be the same for every run? Rob says perhaps, but decided to use random ones for each replication.
         # Rob views this as similar to changing the weather
-        if Ac_class[i] == 0:
-            pax_weight[i] = 0.2*random.random() + 0.8 # Flights in the 'heavy' class have a passenger weight between 0.8 and 1
-        elif Ac_class[i] == 1 or Ac_class[i] == 2:
-            pax_weight[i] = 0.2*random.random() + 0.6 # Flights in the 'upper medium' or 'lower medium' class have a passenger weight between 0.6 and 0.8 
-        else:
-            pax_weight[i] = 0.2*random.random() + 0.4 # Flights in the 'small' class have a passenger weight between 0.4 and 0.6
+        match flight_data[i].ac_class:
+            case 0:
+                pax_weight[i] = 0.2*random.random() + 0.8 # Flights in the 'heavy' class have a passenger weight between 0.8 and 1
+            case 1 | 2:
+                pax_weight[i] = 0.2*random.random() + 0.6 # Flights in the 'upper medium' or 'lower medium' class have a passenger weight between 0.6 and 0.8 
+            case _:
+                pax_weight[i] = 0.2*random.random() + 0.4 # Flights in the 'small' class have a passenger weight between 0.4 and 0.6
 
     SubPolicy = Policies[policy_index] # SubPolicy indicates the policy we are currently considering (e.g. SimHeur, DetHeur)
-
-    if SubPolicy == 'VNS':
-        GA_LoopSize = 500 # This is
-    elif SubPolicy == 'VNSD':
-        GA_LoopSize = 1
 
     # Randomly generate the Erlang service time parameter
 
@@ -205,44 +203,13 @@ while rep < no_reps:
 
     cost_fn = Cost(thres1, thres2, lam1, lam2)
 
-    print('*** Generating initial aircraft info...')
-    # this will be a multi-dimensional list storing lots of information about each aircraft; see later
-    Ac_Info = [0]*NoA
-
-    for i in range(NoA):
-        # Generating service times for arrivals - these are scheduled to have the right mean later
-        # JF Question: What is ServPercs? Below RS says this is RNs used for service time
-        ServPercs = np.random.gamma(k,1)
-
-        Ac_Info[i] = FlightInfo(FlightStatus.NOT_READY, Ac_class[i], Arr_Ps[i], Arr_Ps[i],
-                        0, 0, 0, ServPercs,
-                        0, 0, pax_weight[i], False,
-                        1, 0, 0, Dep_Ps[i], Orig_Ps[i], flight_id[i])
-
-
-    Ac_Info.sort(key=lambda x: x.ps_time)
-
-
-
     print('*** Generating the ETA trajectory array...')
     # Trajectories are generated for whole 8 hour period for each flight
 
     trajecs = []
     for i in range(NoA):
-        Ps_time, Dep_time,  = Ac_Info[i].ps_time, Ac_Info[i].sched_dep_time
-        trajec = BrownianTrajectory(Dep_time, Ps_time, tau, wiener_sig, freq=freq)
-        Ac_Info[i].travel_time = trajec.travel_time
-        Ac_Info[i].pool_time = trajec.pool_time
+        trajec = BrownianTrajectory(flight_data[i].dep_sched, ps_time[i], tau, wiener_sig, freq=freq)
         trajecs.append(trajec)
-
-
-
-    header = ['AC', 'Class', 'PS time', 'Pool arrival', 'Travel time', 'Runway time']
-    stepthrough_logger.info(', '.join(header))
-    for AC in range(NoA):
-        Ac_Infoi = Ac_Info[AC]
-        stepthrough_logger.info('%s, %s, %s, %s, %s, %s, %s', AC, Ac_Infoi.ac_class, Ac_Infoi.ps_time, Ac_Infoi.pool_time, Ac_Infoi.travel_time, Ac_Infoi.pool_time, Ac_Infoi.travel_time)
-    stepthrough_logger.info('\n')
 
     print('*** Generating the weather transition array...')
 
@@ -260,106 +227,59 @@ while rep < no_reps:
 
     stepthrough_logger.info('wlb_tm: %d wub_tm: %d', weather_process.wlb, weather_process.wub)
 
-    for AC in range(NoA):
-        print(f'AC: {AC} Class: {Ac_Info[AC].ac_class} Orig Ps time: {Ac_Info[AC].orig_sched_time} Ps time: {Ac_Info[AC].ps_time} Arrives in pool: {Ac_Info[AC].pool_time} Travel time: {Ac_Info[AC].travel_time}')
-
-    tot_cost = 0
-
     release_policy = SimHeur(trajecs, sep, weather_process, cost_fn, GA_PopSize, Max_LookAhead, 
                              n_rel, r, n_repop, S_min, VNS_limit)
-    state = State(Ac_Info)
-    state.initialise_pool(tau)
-
-    old_tm = state.tm # previous time
-    Ac_added = [] # aircraft to be added to the queue
-
-    print('Arr_Pool:', state.Arr_Pool)
-    print('Ac_queue:', state.Ac_queue)
-    print('Arr_NotReady:', state.Arr_NotReady)
-
+    simulation = Simulation(flight_data, ps_time, pax_weight, trajecs, sep, weather_process, tau, release_policy,
+                            conv_factor, resolution)
     print(f'*** Into main loop for rep {rep} and policy {SubPolicy}...')
-    begin_time = time.time()
-    if policy_index == 0:
-        gg.write(str(rep)+','+str(conv_factor)+','+str(wiener_sig)+','+str(k)+','+str(lam1)+','+str(lam2)+','+str(wlb)+','+str(wub)+','+str(weather_process.wlb)+','+str(weather_process.wub)+','+str(thres1)+','+str(thres2)+',')
+    simulation.run()
 
-    initial_time = time.time()
 
-    while state.num_remaining_flights() > 0:
-        if Ac_added:
-            print(f"Time: {state.tm}, released: {Ac_added}")
-        # If one aircraft needs releasing and the first aircraft to be released is in the pool
-        # tm >= may be redundant
-        state.release_flights(Ac_added, weather_process, sep)
-        if len(state.Arr_Pool) + len(state.Arr_NotReady) > 0:
-            if SubPolicy == 'VNS':
-                # JF Question: should we be inputting wlb_tm and wub_tm rather than wlb and wub here?
-                Ac_added = release_policy.run(state, tot_cost)
-            # elif SubPolicy=='VNSD':
-            #     exp_weather = weather_process.expected_process(tm)
-            #     Ac_added = Genetic_determ(Ac_Info, Arr_Pool, Arr_NotReady, Ac_queue, max(tm,0), NoA, sep, prev_class, GA_Info, exp_weather, tau, Max_LookAhead, cost_fn, tot_cost)
-        else:
-            Ac_added = []
+    # print('Final cost is '+str(tot_cost))
 
-        latest_time = (time.time() - initial_time)/conv_factor
 
-        # Don't bother updating ETAs if enough time hasn't elapsed for ETA to change
-        if int(state.tm*freq) != int(old_tm*freq):
-            # JF Question: should this use latest_time rather than tm? Rob thinks it is fine, but will check if necessary
-            Update_ETAs(state, trajecs, tau, freq)
+    # ArrTime = [0]*NoA
+    # ArrTime_Sorted = [0]*NoA
+    # ServTime = [0]*NoA
+    # for i in range(NoA):
+    #     ArrTime[i] = [Ac_Info[i].pool_time,i]
+    #     ArrTime_Sorted[i] = [Ac_Info[i].pool_time,i]
+    #     ServTime[i] = Ac_Info[i].service_rns
 
-        if len(state.Ac_queue) > 0 and state.tm >= state.next_completion_time: #len(Ac_queue)>0:
-            arr_cost = Serv_Completions(state, cost_fn)
-            tot_cost += arr_cost
-        old_tm = state.tm
+    # ArrTime_Sorted.sort(key=lambda x: x[0])
+    # # Posthoc check validates that flight statistics are consistent with costs
+    # # posthoc_cost = Posthoc_Check(Left_queue, Ac_Info, ArrTime, ServTime, ArrTime_Sorted, weather_process, 0, NoA, w_rho, k, Time_Sep, cost_fn)
+    # # gg.write('Posthoc Check'+','+str(posthoc_cost)+',')
 
-        state.tm = latest_time
-
-    print('Final cost is '+str(tot_cost))
-    gg.write(str(SubPolicy)+','+str(tot_cost)+',')
-    gg.write(str(time.time()-begin_time)+',')
-
-    ArrTime = [0]*NoA
-    ArrTime_Sorted = [0]*NoA
-    ServTime = [0]*NoA
-    for i in range(NoA):
-        ArrTime[i] = [Ac_Info[i].pool_time,i]
-        ArrTime_Sorted[i] = [Ac_Info[i].pool_time,i]
-        ServTime[i] = Ac_Info[i].service_rns
-
-    ArrTime_Sorted.sort(key=lambda x: x[0])
-    # Posthoc check validates that flight statistics are consistent with costs
-    # posthoc_cost = Posthoc_Check(Left_queue, Ac_Info, ArrTime, ServTime, ArrTime_Sorted, weather_process, 0, NoA, w_rho, k, Time_Sep, cost_fn)
-    # gg.write('Posthoc Check'+','+str(posthoc_cost)+',')
-
-    print('Done!')
+    # print('Done!')
 
     # JF Question: What is happening here?
     policy_index += 1
     if policy_index == len(Policies):
         # Do Perm Heuristic
-        ArrTime = [0]*NoA
-        ArrTime_Sorted = [0]*NoA
-        ServTime = [0]*NoA
-        for i in range(NoA):
-            ArrTime[i] = [Ac_Info[i].pool_time,i]
-            ArrTime_Sorted[i] = [Ac_Info[i].pool_time,i]
-            ServTime[i] = Ac_Info[i].service_rns
+        # ArrTime = [0]*NoA
+        # ArrTime_Sorted = [0]*NoA
+        # ServTime = [0]*NoA
+        # for i in range(NoA):
+        #     ArrTime[i] = [Ac_Info[i].pool_time,i]
+        #     ArrTime_Sorted[i] = [Ac_Info[i].pool_time,i]
+        #     ServTime[i] = Ac_Info[i].service_rns
 
-        ArrTime_Sorted.sort(key=lambda x: x[0])
+        # ArrTime_Sorted.sort(key=lambda x: x[0])
 
-        FCFS_cost = Calculate_FCFS(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, weather_process, NoA, w_rho, k, Time_Sep, cost_fn)
-        gg.write('FCFS'+','+str(FCFS_cost)+',')
+        # FCFS_cost = Calculate_FCFS(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, weather_process, NoA, w_rho, k, Time_Sep, cost_fn)
+        # gg.write('FCFS'+','+str(FCFS_cost)+',')
 
-        perm_heur_cost, AC_Used = Perm_Heur(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, weather_process, NoA, w_rho, k, Time_Sep, cost_fn, f1)
-        gg.write('Perm Heuristic'+','+str(perm_heur_cost)+',')
+        # perm_heur_cost, AC_Used = Perm_Heur(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, weather_process, NoA, w_rho, k, Time_Sep, cost_fn, f1)
+        # gg.write('Perm Heuristic'+','+str(perm_heur_cost)+',')
 
-        perm_heur_cost, AC_Used = Perm_Heur_New(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, weather_process, NoA, w_rho, k, Time_Sep, cost_fn)
-        gg.write('New Perm Heuristic'+','+str(perm_heur_cost)+',')
+        # perm_heur_cost, AC_Used = Perm_Heur_New(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, weather_process, NoA, w_rho, k, Time_Sep, cost_fn)
+        # gg.write('New Perm Heuristic'+','+str(perm_heur_cost)+',')
 
-        gg.write('\n')
-        gg.flush()
+        # gg.write('\n')
+        # gg.flush()
 
-        policy_index=0
+        # policy_index=0
 
         rep += 1
 

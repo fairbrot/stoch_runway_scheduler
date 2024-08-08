@@ -78,13 +78,14 @@ class BrownianTrajectory(StochasticTrajectory):
         while True:
             j += 1 # step forward in increments of 1/freq minutes
             if j > h*freq: # only update ETA if we've gone beyond the AC's departure time
-                ETA = random.gauss(ETA, 0.1*wiener_sig)
+                # JF Note: this update should be related to freq!
+                ETA = random.gauss(ETA, 0.1 * wiener_sig)
             brown_motion.append(ETA)
             if j/freq >= ETA-tau and chk == 0:
-                pool_arr_time = round(j/freq,2) # pool arrival time - j/freq is the 'current time'
+                pool_arr_time = round(j/freq, 2) # pool arrival time - j/freq is the 'current time'
                 chk = 1
             elif j/freq >= ETA and chk == 1:
-                runway_time = round(j/freq,2)
+                runway_time = round(j/freq, 2)
                 # Plane arrives at runway
                 travel_time = runway_time - pool_arr_time # travel time between entering pool and arriving at runway
                 chk = 2
@@ -110,21 +111,21 @@ class BrownianTrajectory(StochasticTrajectory):
                 return self.brown_motion[int(tm * self.freq)]
             case FlightStatus.IN_POOL:
                 return tm + self.tau
-            case FlightStatus.IN_QUEUE:
-                rel_time = flight_info.release_time
-                trav_so_far = tm - rel_time # amount of time spent travelling to the runway so far
-                # JF Question: why round? Should this be round down? Is this related to freq?
-                # I think we need rounding down to the beginning of interval defined by freq
-                rounded_trav_so_far = round_down(trav_so_far, self.freq)
-                if rounded_trav_so_far >= flight_info.travel_time:
-                    return flight_info.pool_time + flight_info.travel_time
+            case FlightStatus.IN_QUEUE | FlightStatus.IN_SERVICE:
+                if (trav_time := flight_info.travel_time): # in this case travel time to runway complete
+                    return flight_info.pool_time + trav_time
                 else:
+                    rel_time = flight_info.release_time
+                    trav_so_far = tm - rel_time # amount of time spent travelling to the runway so far
+                    # JF Question: why round? Should this be round down? Is this related to freq?
+                    # I think we need rounding down to the beginning of interval defined by freq
+                    rounded_trav_so_far = round_down(trav_so_far, self.freq)
                     return self.brown_motion[int((flight_info.pool_time + rounded_trav_so_far) * self.freq)]
 
 
     def simulate_travel_time(self, tm: float, flight_info: FlightInfo) -> float:
-        if tm >= flight_info.eta:
-            return flight_info.travel_time
+        if (trav_time := flight_info.travel_time):
+            return trav_time
         else:
             return np.random.wald(self.tau, (self.tau/self.wiener_sig)**2)
 

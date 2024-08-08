@@ -265,7 +265,7 @@ def heuristic_move(base_seq: List) -> List:
     return new_seq
 
 def extend_sequence(base_seq: List[int], eta_list: List[float],
-                    Arr_Pool: List[int], Arr_NotReady: List[int],
+                    Arr_Pool: set[int], Arr_NotReady: set[int],
                     seq_length: int) -> List[int]:
     """
     Extends sequence to be of required length.
@@ -281,8 +281,7 @@ def extend_sequence(base_seq: List[int], eta_list: List[float],
     assert len(Arr_Pool) + len(Arr_NotReady) >= seq_length
 
     new_seq = base_seq[:]
-    ArrTime_Sorted = Arr_Pool + Arr_NotReady
-    ArrTime_Sorted.sort(key = lambda ac: eta_list[ac])
+    ArrTime_Sorted = sorted(Arr_Pool | Arr_NotReady, key = lambda ac: eta_list[ac])
 
     InScope_ACs = ArrTime_Sorted[:seq_length]
     for AC in new_seq:

@@ -163,10 +163,10 @@ def landing_time(prev_comp: float, min_sep: float,
     t2 = prev_comp + min_sep
 
     if t1 < t2:
-        straight_into_service=0
+        straight_into_service = 0
         t_out = t2
     else:
-        straight_into_service=1
+        straight_into_service = 1
         t_out = t1
 
     return t_out, straight_into_service

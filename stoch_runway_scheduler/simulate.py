@@ -1,5 +1,6 @@
 from typing import List, TextIO, Tuple
 import logging
+from collections import deque
 from .utils import FlightStatus, FlightInfo, Cost
 from .sequence import SequenceInfo
 from .weather import WeatherProcess, StochasticWeatherProcess
@@ -8,8 +9,8 @@ from .separation import StochasticSeparation, landing_time
 from .annealing_cost import Annealing_Cost
 
 
-def simulate_sequences(GA_Info: List[SequenceInfo], tm: float, Ac_Info: List[FlightInfo], Ac_queue: List[int], trajecs: list[StochasticTrajectory], sep: StochasticSeparation,
-                        weather: StochasticWeatherProcess, prev_class: int, cost_fn: Cost) -> Tuple[List[float], List[List[int]]]:
+def simulate_sequences(GA_Info: List[SequenceInfo], tm: float, Ac_Info: tuple[FlightInfo], Ac_queue: deque[int], trajecs: tuple[StochasticTrajectory], sep: StochasticSeparation,
+                        weather: StochasticWeatherProcess, prev_ld: float, prev_class: int, cost_fn: Cost) -> Tuple[List[float], List[List[int]]]:
     """
     Simulates landing times and associated costs of a set of sequences using common random numbers.
 
@@ -23,6 +24,7 @@ def simulate_sequences(GA_Info: List[SequenceInfo], tm: float, Ac_Info: List[Fli
     sep: object for sampling normalized separation times
     weather: object for generating random weather process conditional on state at current time
     wiener_sig: standard deviation of Brownian motion
+    prev_ld: time of previous landing (service completion)
     prev_class: class of previous aircraft to land
     cost_fn: function for calculating costs of flight
 
@@ -37,7 +39,6 @@ def simulate_sequences(GA_Info: List[SequenceInfo], tm: float, Ac_Info: List[Fli
 
      # The case where queue is empty needs fixing - the same issue existed before refactoring Genetic
      # This function needs to know time of last landing in order to set prev_landing here
-    prev_ld = tm if not Ac_queue else Ac_Info[Ac_queue[0]].enters_service
 
     # Simulate current queue
     for i, AC in enumerate(Ac_queue):
@@ -173,62 +174,3 @@ def Posthoc_Check(seq: list[int], Ac_Info, ArrTime, ServTime, ArrTime_Sorted, we
         j+=1
 
     return perm_cost
-
-
-def Update_Stats(tm: float, AC: int, Ac_Info: List[FlightInfo], Ac_queue: List[int], real_queue_complete: float, weather_process: WeatherProcess, latest_class, next_completion_time, sep: StochasticSeparation):
-    """
-    Updates various states when after flight is released into queue.
-
-    Arguments
-    ---------
-    real_queue_complete: time last aircraft to join queue was or will be serviced
-    weather_process: object which can be queried for weather state at given time
-    latest_class: class of previous aircraft to join queue
-    next_completion_time: time of next service in queue
-    k: Erlang service parameter
-    Time_Sep: time separation array
-    w_rho: bad weather multiplier
-    Subpolicy:
-
-    Returns
-    -------
-    real_queue_complete: time aircraft currently joining queue will be finished being served (function argument is updated)
-    next_completion_time: time of next service in queue (function argument is updated)
-    latest_class: class of flight just added (function argument is updated)
-    """
-    # Function which produces statistics about a flight which has just been released - also calculates
-    # when this flight will be finished being serviced
-
-    Ac_Infoi = Ac_Info[AC]
-
-    Ac_Infoi.status = FlightStatus.IN_QUEUE
-    release_time = tm # release time
-    #begin_serv = max(release_time, real_queue_complete) # JF Question: is this a mistake - I think we should use below
-    begin_serv = real_queue_complete # JF: i.e. time previous aircraft lands
-    cur_class = Ac_Infoi.ac_class
-
-    # Weather state at time flight joins queue
-    weather_state = weather_process(release_time)
-
-    # Separation/Service time for flight to land (once it is being processed)
-    actual_serv = sep.sample_separation(latest_class, cur_class, weather_state, norm_service_time=Ac_Infoi.service_rns)
-
-    trav_time = Ac_Infoi.travel_time
-    finish_time, straight_into_service = landing_time(begin_serv, actual_serv, release_time, trav_time)
-
-    real_queue_complete = finish_time
-
-    Ac_Infoi.release_time = release_time
-    Ac_Infoi.enters_service = begin_serv
-    Ac_Infoi.weather_state = weather_state
-    Ac_Infoi.service_time = actual_serv
-    Ac_Infoi.service_completion_time = finish_time
-
-    latest_class = cur_class
-
-    # I.e. if flight just added to the queue is only flight in queue
-    if len(Ac_queue) == 1:
-        next_completion_time = finish_time
-
-    return real_queue_complete, next_completion_time, latest_class
-

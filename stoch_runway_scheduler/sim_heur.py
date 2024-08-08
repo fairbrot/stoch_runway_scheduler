@@ -26,8 +26,6 @@ from .populate import Populate, Repopulate_VNS
 # It is reset to zero after running Populate and Repopulate
 # It is also incremented by 1 after Genetic_determ is run
 #
-# basecost is an input which isn't changed by Genetic
-#
 # tau is a constant input used for simulating sequences
 # 
 # Max_Lookahead is no longer used
@@ -79,7 +77,7 @@ class SimHeur:
         self.base_seq = [i for i in range(no_ACs)] # Initial value assumes AcInfo is ordered by Ps_time
         "Base sequence from which a new population is generated"
 
-    def run(self, state: State, basecost: float) -> list[int]:
+    def run(self, state: State) -> list[int]:
         # Can't run SimHeur if no flights remain
         assert len(state.Arr_Pool) + len(state.Arr_NotReady) > 0
 
@@ -97,9 +95,12 @@ class SimHeur:
 
         # Step 2A - Simulation and Evaluation
         # JF Note: tm really should be replaced with time last service ended - this might have been an issue with the original code
-        costs, xi_lists = simulate_sequences(self.GA_Info, state.tm, state.Ac_Info, state.Ac_queue, self.trajecs, self.sep, self.weather, state.prev_class, self.cost_fn)
+        costs, xi_lists = simulate_sequences(self.GA_Info, state.tm, state.Ac_Info, 
+                                            state.Ac_queue, self.trajecs, self.sep, 
+                                            self.weather, state.prev_completion,
+                                            state.prev_class, self.cost_fn)
         for info, cost, xi_list in zip(self.GA_Info, costs, xi_lists):
-            info.add_observation(cost + basecost, xi_list)
+            info.add_observation(cost, xi_list)
 
         self.GA_Info.sort(key=lambda x: x.v)
         self.GA_counter += 1
