@@ -29,7 +29,6 @@ weather_sig = wiener_sig # this assumption is being made in the paper for simpli
 print('wiener_sig: '+str(wiener_sig))
 
 tau = 30 # Determines when an aircraft is deemed to have entered the pool. E.g. if tau=30, aircraft enters pool when its ETA is 30 minutes away from the current time.
-t = 15 # length of a time slot in minutes
 
 NoC = 4 # no. of aircraft classes
 # Time separations in seconds taken from Bennell et al (2017) with H, U, M, S as the 4 classes; 
@@ -76,17 +75,17 @@ if Use_VNSD == 1:
 
 # JF Question: what is this? Would be good to avoid setting it to NoA before data has been read
 
-Max_LookAhead = 15 # NoA # This is the length of a sequence, equivalent to parameter l in paper  - in paper this is 15
 
 pool_max = 6 # Used as a parameter for "perm heuristic" which searches for the best landing sequence under perfect information, i.e. assumes all random information already known
 list_min = 6 # Also used only for the "perm heuristic""
 
+l = 15 # NoA # This is the length of a sequence, equivalent to parameter l in paper  - in paper this is 15
 n_rel = 50
 n_repop = 500
 r = 50
-GA_PopSize = 20 # Initial number of sequences in the population, written as S in paper (see Section 3.1)
+S = 20 # Initial number of sequences in the population, written as S in paper (see Section 3.1)
 S_min = 10 # Length of shortlist JF - Perhaps move to parameters
-VNS_limit = 25 # important parameter, determines how many non-improving heuristic moves need to be made before a mutation is carried out; this is written as m_{mut} in paper (see the flow chart, Figure 3)
+m_mut = 25 # important parameter, determines how many non-improving heuristic moves need to be made before a mutation is carried out; this is written as m_{mut} in paper (see the flow chart, Figure 3)
 
 # JF Note: Important - should these two things be linked?
 conv_factor = 1 # no. of seconds in a minute for conversion purposes
@@ -195,8 +194,8 @@ def main():
         T = (max_ps_time - min_ps_time) * 2 # The factor 2 here is probably a bit over cautious
         weather_process = BrownianWeatherProcess(wlb, wub, T, weather_sig, freq=freq)
 
-        release_policy = SimHeur(trajecs, sep, weather_process, cost_fn, GA_PopSize, Max_LookAhead, 
-                                n_rel, r, n_repop, S_min, VNS_limit)
+        release_policy = SimHeur(trajecs, sep, weather_process, cost_fn, S, l, 
+                                n_rel, r, n_repop, S_min, m_mut)
         simulation = Simulation(flight_data, ps_time, pax_weight, trajecs, sep, weather_process, tau, release_policy,
                                 conv_factor, resolution)
         print(f'*** Into main loop for rep {rep} and policy {SubPolicy}...')

@@ -43,19 +43,16 @@ from .populate import Populate, Repopulate_VNS
 
 class SimHeur:
 
-    def __init__(self, trajecs: list[StochasticTrajectory], sep: StochasticSeparation, weather: StochasticWeatherProcess, cost_fn: Cost, GA_PopSize: int, Max_LookAhead:int, n_rel: int, r: int, n_repop: int, S_min: int, VNS_limit: int):
-        # State
-        # self.Ac_Info = Ac_Info
-        # self.Arr_NotReady = Arr_NotReady
-        # self.Arr_Pool = Arr_Pool
-        # self.Ac_queue = Ac_queue
-        self.trajecs = trajecs
+    def __init__(self, trajecs: list[StochasticTrajectory], sep: StochasticSeparation, weather: StochasticWeatherProcess, cost_fn: Cost, S: int, l:int, n_rel: int, r: int, n_repop: int, S_min: int, m_mut: int):
+
         # For simulation
+        self.trajecs = trajecs
         self.sep = sep
         self.weather = weather
-        self.cost_fn = cost_fn
+
         # Algorithm params
-        self.GA_PopSize = GA_PopSize
+        self.cost_fn = cost_fn
+        self.S = S
         self.n_repop = n_repop
         "Number of samples between filter and repopulate (type 2)"
         self.r = r
@@ -63,8 +60,9 @@ class SimHeur:
         self.n_rel = n_rel
         "Minimum number of samples before allowing flights to be released to queue"
         self.S_min = S_min
-        self.Max_LookAhead = Max_LookAhead
-        self.VNS_limit = VNS_limit
+        self.l = l
+        self.m_mut = m_mut
+        
         # Internal variables
         self.GA_counter = 0
         self.VNS_counter = 0
@@ -73,7 +71,7 @@ class SimHeur:
         self.GA_Info = []
 
         NoA = len(self.trajecs)
-        no_ACs = min(Max_LookAhead, NoA)
+        no_ACs = min(l, NoA)
         self.base_seq = [i for i in range(no_ACs)] # Initial value assumes AcInfo is ordered by Ps_time
         "Base sequence from which a new population is generated"
 
@@ -83,14 +81,14 @@ class SimHeur:
 
         # Step 4A - Type 1 Repopulation
         if self.reset_pop:
-            self.GA_Info = Populate(state.Ac_Info, self.base_seq, state.Arr_Pool, state.Arr_NotReady, self.GA_PopSize, self.Max_LookAhead)
+            self.GA_Info = Populate(state.Ac_Info, self.base_seq, state.Arr_Pool, state.Arr_NotReady, self.S, self.l)
             self.GA_counter = 0 # reset counter
             self.reset_pop = False
 
         # Steps 4B and 4C - Filter and Repopulate (Type 2)
         if self.GA_counter >= self.n_repop or len(self.GA_Info) < self.S_min:
-            self.VNS_counter, self.tot_mut = Repopulate_VNS(self.GA_Info, self.GA_PopSize, self.S_min,
-                                                  self.VNS_counter, self.VNS_limit, self.tot_mut)
+            self.VNS_counter, self.tot_mut = Repopulate_VNS(self.GA_Info, self.S, self.S_min,
+                                                  self.VNS_counter, self.m_mut, self.tot_mut)
             self.GA_counter = 0
 
         # Step 2A - Simulation and Evaluation
