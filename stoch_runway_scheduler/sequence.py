@@ -49,11 +49,14 @@ class SequenceInfo:
         self.n_traj = 0
         self.v = 0
         self.w = 0
-        for (i, qp) in enumerate(self.queue_probs):
+        for i, _ in enumerate(self.queue_probs):
             self.queue_probs[i] = 0
 
     @staticmethod
     def rank_and_select(info_list: List[SequenceInfo]) -> List[int]:
+        # JF TODO:
+        # - Add unit test for this function
+        # - Add extra argument for confidence level
         """Uses rank and select procedure to identify sequences which should be removed.
 
         Arguments
@@ -73,8 +76,6 @@ class SequenceInfo:
                 mn1 = info.mean_cost()
                 n1 = info.n_traj
                 var1 = info.var_cost()
-
-                # This is in Section 3.1 (2B of algorithm) of the paper (Equations 14-17)
                 for (j, infoj) in enumerate(info_list):
                     if keep[j]:
                         mn2 = infoj.v

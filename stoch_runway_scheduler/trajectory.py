@@ -23,7 +23,6 @@ class StochasticTrajectory(Protocol):
 
         If flight has already reached runway threshold then returns actual arrival time.
         """
-        pass
     
 
     def simulate_travel_time(self, tm: float, flight_info: FlightInfo) -> float:
@@ -32,7 +31,6 @@ class StochasticTrajectory(Protocol):
 
         If flight has already ready runway threshold returns actual travel time.
         """
-        pass
 
     def simulate_pool_time(self, tm: float, flight_info: FlightInfo) -> float:
         """
@@ -40,7 +38,6 @@ class StochasticTrajectory(Protocol):
 
         If flight has previously entered pool then returns actual pool arrival time.
         """
-        pass
 
 
 class BrownianTrajectory(StochasticTrajectory):

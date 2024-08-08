@@ -1,4 +1,4 @@
-from typing import List, Tuple, Optional
+from typing import Optional
 from enum import Enum
 from dataclasses import dataclass
 import csv
@@ -49,7 +49,7 @@ class FlightInfo:
                    pax_weight, ps_time, FlightStatus.NOT_READY, ps_time)
 
 
-def read_flight_data(data_fn: str, min_time: int, max_time: int, wiener_sig: float) -> Tuple[list[FlightData], list[float], list[float], list[float]]:
+def read_flight_data(data_fn: str, min_time: int, max_time: int, wiener_sig: float) -> tuple[list[FlightData], list[float], list[float], list[float]]:
     """
     Reads flight data from CSV file.
 
@@ -120,7 +120,7 @@ def read_flight_data(data_fn: str, min_time: int, max_time: int, wiener_sig: flo
                 
 
                 # scheduled flight dur, i.e. difference between scheduled departure and arrival time
-                sched_dur = int(inputdata[i][5]) # JF Question: This doesn't seem to be used at the moment?
+                # sched_dur = int(inputdata[i][5]) # JF Question: This doesn't seem to be used at the moment?
                 lateness_mn = float(inputdata[i][6]) # mean lateness based on historical data
                 lateness_var = float(inputdata[i][7]) # variance of lateness based on historical data
 

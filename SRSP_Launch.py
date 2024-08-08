@@ -4,10 +4,6 @@
 from __future__ import print_function, division
 import logging
 import random
-import time
-import os
-
-import numpy as np
 
 from stoch_runway_scheduler import Simulation, BrownianWeatherProcess, BrownianTrajectory, read_flight_data, sample_pretac_delay, SimHeur, Genetic_determ, Perm_Heur, Perm_Heur_New, Calculate_FCFS, Posthoc_Check, Cost, ErlangSeparation
 

@@ -10,7 +10,6 @@ class StochasticSeparation(Protocol):
 
         This is useful for simulating with common random numbers.
         """
-        ...
 
     def sample_separation(self, prev_class: int, cur_class: int, 
                           weather_state: WeatherStatus,
@@ -28,7 +27,6 @@ class StochasticSeparation(Protocol):
         norm_service_time: if provided, this value is appropriately scaled and used as the service time for the flight.
                     If not provided, service time is sampled directly from distribution.
         """
-        ...
 
     def sample_conditional_separation(self, t_elapsed: float, 
                                       prev_class: int, cur_class: int,
@@ -46,7 +44,6 @@ class StochasticSeparation(Protocol):
         cur_class: weight class of current flight
         weather_state: current state of weather
         """
-        ...
 
 
     def expected_conditional_seperation(self, t_elapsed: float,
@@ -65,7 +62,6 @@ class StochasticSeparation(Protocol):
         cur_class: weight class of current flight
         weather_state: current state of weather
         """
-        ...
 
     def expected_separation(self, prev_class: int, cur_class: int, 
                             weather_state: WeatherStatus) -> float:
@@ -80,7 +76,7 @@ class StochasticSeparation(Protocol):
         cur_class: weight class of current flight
         weather_state: code for current state of weather (0, 1 or 2)
         """
-        ...
+
 
 class ErlangSeparation(StochasticSeparation):
 

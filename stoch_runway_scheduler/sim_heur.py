@@ -1,4 +1,4 @@
-from .utils import FlightInfo, Cost, FlightStatus
+from .utils import Cost, FlightStatus
 from .state import State
 from .weather import StochasticWeatherProcess
 from .sequence import SequenceInfo

@@ -1,7 +1,5 @@
-from typing import List, TextIO, Tuple
-import logging
 from collections import deque
-from .utils import FlightStatus, FlightInfo, Cost
+from .utils import FlightInfo, Cost
 from .sequence import SequenceInfo
 from .weather import WeatherProcess, StochasticWeatherProcess
 from .trajectory import StochasticTrajectory
@@ -9,8 +7,8 @@ from .separation import StochasticSeparation, landing_time
 from .annealing_cost import Annealing_Cost
 
 
-def simulate_sequences(GA_Info: List[SequenceInfo], tm: float, Ac_Info: tuple[FlightInfo], Ac_queue: deque[int], trajecs: tuple[StochasticTrajectory], sep: StochasticSeparation,
-                        weather: StochasticWeatherProcess, prev_ld: float, prev_class: int, cost_fn: Cost) -> Tuple[List[float], List[List[int]]]:
+def simulate_sequences(GA_Info: list[SequenceInfo], tm: float, Ac_Info: tuple[FlightInfo], Ac_queue: deque[int], trajecs: tuple[StochasticTrajectory], sep: StochasticSeparation,
+                        weather: StochasticWeatherProcess, prev_ld: float, prev_class: int, cost_fn: Cost) -> tuple[list[float], list[list[int]]]:
     """
     Simulates landing times and associated costs of a set of sequences using common random numbers.
 
@@ -111,7 +109,7 @@ def simulate_sequences(GA_Info: List[SequenceInfo], tm: float, Ac_Info: tuple[Fl
 
     return costs, xi_lists
 
-def Calculate_FCFS(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, weather_process: WeatherProcess, NoA: int, w_rho: float, k: int, Time_Sep: List[List[int]], cost_fn: Cost):
+def Calculate_FCFS(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, weather_process: WeatherProcess, NoA: int, w_rho: float, k: int, Time_Sep: list[list[int]], cost_fn: Cost):
 
     tm=0
 
@@ -130,7 +128,7 @@ def Calculate_FCFS(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_mi
     return FCFS_cost
 
 # JF Question: what does this do?
-def Posthoc_Check(seq: list[int], Ac_Info, ArrTime, ServTime, ArrTime_Sorted, weather_process: WeatherProcess, output, NoA: int, w_rho: float, k: int, Time_Sep: List[List[int]], cost_fn: Cost):
+def Posthoc_Check(seq: list[int], Ac_Info, ArrTime, ServTime, ArrTime_Sorted, weather_process: WeatherProcess, output, NoA: int, w_rho: float, k: int, Time_Sep: list[list[int]], cost_fn: Cost):
     # seq: order in which flights were served
     perm=seq
     perm_cost=0
