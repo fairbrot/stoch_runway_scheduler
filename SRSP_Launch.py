@@ -75,7 +75,6 @@ if Use_VNSD == 1:
 #   Policies.append('FCFS')
 
 # JF Question: what is this? Would be good to avoid setting it to NoA before data has been read
-max_FCFS = NoA # int(NoA/2)
 
 Max_LookAhead = 15 # NoA # This is the length of a sequence, equivalent to parameter l in paper  - in paper this is 15
 
@@ -107,122 +106,106 @@ resolution = 0.1
 # else:
 #   SubPolicy=Policy
 
-rep = 0 #counter of which scenario we're currently on
-policy_index = 0 # indicates which policy we're currently evaluating, e.g. SimHeur, DetHeur etc (if this is zero then we take the first policy from the list of policies to be evaluated)
+def main():
+
+    rep = 0 #counter of which scenario we're currently on
+    policy_index = 0 # indicates which policy we're currently evaluating, e.g. SimHeur, DetHeur etc (if this is zero then we take the first policy from the list of policies to be evaluated)
 
 
-flight_data, Alpha_Ps, Beta_Ps, late_means = read_flight_data(DATA_DIR + '/flight_pretac_data.csv',
-                                                            min_ps_time, max_ps_time, wiener_sig)
+    flight_data, Alpha_Ps, Beta_Ps, late_means = read_flight_data(DATA_DIR + '/flight_pretac_data.csv',
+                                                                min_ps_time, max_ps_time, wiener_sig)
 
-#for rep in range(no_reps):
-# JF Question Why is for loop not used?: Rob not sure - may be fine to change back to for loop
-while rep < no_reps:
+    #for rep in range(no_reps):
+    # JF Question Why is for loop not used?: Rob not sure - may be fine to change back to for loop
+    while rep < no_reps:
 
-    repn = rep # int(rep/100+1)
-    random.seed(repn*100) #set the random seed for generating random parameter values; seed in set according to the replication (scenario) number
-    print('*** Importing the flight data...')
-    #---------------------------------------------------------#
-    # Read flight data file and initialise pretactical delays #
-    #---------------------------------------------------------#
-    # Orig_Ps = sched arrival time
-    # Dep_Ps = time at which tactical delay begins (called h in paper)
+        repn = rep # int(rep/100+1)
+        random.seed(repn*100) #set the random seed for generating random parameter values; seed in set according to the replication (scenario) number
+        print('*** Importing the flight data...')
+        #---------------------------------------------------------#
+        # Read flight data file and initialise pretactical delays #
+        #---------------------------------------------------------#
+        # Orig_Ps = sched arrival time
+        # Dep_Ps = time at which tactical delay begins (called h in paper)
 
-    pretac_delays = [sample_pretac_delay(alpha, beta, fdata.arr_sched, fdata.dep_sched, x_bar) for (alpha, beta, fdata, x_bar) in zip(Alpha_Ps, Beta_Ps, flight_data, late_means)]
-    # this stores the adjusted scheduled times for aircraft after applying the random pre-tactical delay
-    ps_time = [fdata.arr_sched + pretac_d for (fdata, pretac_d) in zip(flight_data, pretac_delays)]
+        pretac_delays = [sample_pretac_delay(alpha, beta, fdata.arr_sched, fdata.dep_sched, x_bar) for (alpha, beta, fdata, x_bar) in zip(Alpha_Ps, Beta_Ps, flight_data, late_means)]
+        # this stores the adjusted scheduled times for aircraft after applying the random pre-tactical delay
+        ps_time = [fdata.arr_sched + pretac_d for (fdata, pretac_d) in zip(flight_data, pretac_delays)]
 
-    NoA = len(flight_data)
-    print('No. of ACs: '+str(NoA))
+        NoA = len(flight_data)
+        print('No. of ACs: '+str(NoA))
 
-    # --------------------------- #
-    # Random parameter generation #
-    #-----------------------------#
-    pax_weight = [0]*NoA # stores the randomly-generated cost weightings for aircraft, based on (hypothetical) numbers of passengers carried; written as g_i in the paper (see objective function (13))
-    for i in range(NoA):
-        # Passenger weight: this is called g_i in the paper
-        # In objective? Shouldn't these be the same for every run? Rob says perhaps, but decided to use random ones for each replication.
-        # Rob views this as similar to changing the weather
-        match flight_data[i].ac_class:
-            case 0:
-                pax_weight[i] = 0.2*random.random() + 0.8 # Flights in the 'heavy' class have a passenger weight between 0.8 and 1
-            case 1 | 2:
-                pax_weight[i] = 0.2*random.random() + 0.6 # Flights in the 'upper medium' or 'lower medium' class have a passenger weight between 0.6 and 0.8 
-            case _:
-                pax_weight[i] = 0.2*random.random() + 0.4 # Flights in the 'small' class have a passenger weight between 0.4 and 0.6
+        # --------------------------- #
+        # Random parameter generation #
+        #-----------------------------#
+        pax_weight = [0]*NoA # stores the randomly-generated cost weightings for aircraft, based on (hypothetical) numbers of passengers carried; written as g_i in the paper (see objective function (13))
+        for i in range(NoA):
+            # Passenger weight: this is called g_i in the paper
+            # In objective? Shouldn't these be the same for every run? Rob says perhaps, but decided to use random ones for each replication.
+            # Rob views this as similar to changing the weather
+            match flight_data[i].ac_class:
+                case 0:
+                    pax_weight[i] = 0.2*random.random() + 0.8 # Flights in the 'heavy' class have a passenger weight between 0.8 and 1
+                case 1 | 2:
+                    pax_weight[i] = 0.2*random.random() + 0.6 # Flights in the 'upper medium' or 'lower medium' class have a passenger weight between 0.6 and 0.8 
+                case _:
+                    pax_weight[i] = 0.2*random.random() + 0.4 # Flights in the 'small' class have a passenger weight between 0.4 and 0.6
 
-    SubPolicy = Policies[policy_index] # SubPolicy indicates the policy we are currently considering (e.g. SimHeur, DetHeur)
+        SubPolicy = Policies[policy_index] # SubPolicy indicates the policy we are currently considering (e.g. SimHeur, DetHeur)
 
-    # Randomly generate the Erlang service time parameter
+        # Randomly generate the Erlang service time parameter
 
-    # Results can be stratified by k (roughlt 1 fifth of runs for each value of k)
-    k = random.choice(pot_k)
-    print('k: '+str(k))
+        # Results can be stratified by k (roughlt 1 fifth of runs for each value of k)
+        k = random.choice(pot_k)
+        print('k: '+str(k))
 
-    sep = ErlangSeparation(Time_Sep, k, w_rho)
+        sep = ErlangSeparation(Time_Sep, k, w_rho)
 
-    # These are random for similar reasons pax_weight (g_i in paper) - results may be stratified by this as well
-    # lam1 and lam2 are the weights of scheduling delay and airborne holding delays - these are called theta^S and theta^W in the paper
-    lam1 = random.choice(pot_lam1) # Random lam1
-    lam2 = 1-lam1
-    print('lam1: '+str(lam1)+' lam2: '+str(lam2))
+        # These are random for similar reasons pax_weight (g_i in paper) - results may be stratified by this as well
+        # lam1 and lam2 are the weights of scheduling delay and airborne holding delays - these are called theta^S and theta^W in the paper
+        lam1 = random.choice(pot_lam1) # Random lam1
+        lam2 = 1-lam1
+        print('lam1: '+str(lam1)+' lam2: '+str(lam2))
 
-    # Randomly generate thres1 (thres2 is set above)
-    # Random so results could potentially be stratified
-    thres1 = random.choice(pot_thres1) # 15 means allow 15 minutes schedule delay
+        # Randomly generate thres1 (thres2 is set above)
+        # Random so results could potentially be stratified
+        thres1 = random.choice(pot_thres1) # 15 means allow 15 minutes schedule delay
 
-    cost_fn = Cost(thres1, thres2, lam1, lam2)
+        cost_fn = Cost(thres1, thres2, lam1, lam2)
 
-    print('*** Generating the ETA trajectory array...')
-    # Trajectories are generated for whole 8 hour period for each flight
+        print('*** Generating the ETA trajectory array...')
+        # Trajectories are generated for whole 8 hour period for each flight
 
-    trajecs = []
-    for i in range(NoA):
-        trajec = BrownianTrajectory(flight_data[i].dep_sched, ps_time[i], tau, wiener_sig, freq=freq)
-        trajecs.append(trajec)
+        trajecs = []
+        for i in range(NoA):
+            trajec = BrownianTrajectory(flight_data[i].dep_sched, ps_time[i], tau, wiener_sig, freq=freq)
+            trajecs.append(trajec)
 
-    print('*** Generating the weather transition array...')
+        print('*** Generating the weather transition array...')
 
-    # 4 possible cases: no bad weather, 30 minutes of bad weather, 60 minutes of bad weather or 120 minutes of bad weather 
-    # (bad weather is always forecast for the middle of the day)
-    # E.g. 300 is 10AM according to the rescaling of time used earlier
-    # *Predicted* start and end times of bad weather
-    # Random for result stratification wlb is T_0(0) and wub is T_1(0) in paper
-    wlb, wub = random.choice([(0,0), (285, 315), (270, 330), (240, 360)])
+        # 4 possible cases: no bad weather, 30 minutes of bad weather, 60 minutes of bad weather or 120 minutes of bad weather 
+        # (bad weather is always forecast for the middle of the day)
+        # E.g. 300 is 10AM according to the rescaling of time used earlier
+        # *Predicted* start and end times of bad weather
+        # Random for result stratification wlb is T_0(0) and wub is T_1(0) in paper
+        wlb, wub = random.choice([(0,0), (285, 315), (270, 330), (240, 360)])
 
-    # Long time period over which to generate weather predictions
-    # We make longer in case bad weather finish time falls outside of time horizon
-    T = (max_ps_time - min_ps_time) * 2 # The factor 2 here is probably a bit over cautious
-    weather_process = BrownianWeatherProcess(wlb, wub, T, weather_sig, freq=freq)
+        # Long time period over which to generate weather predictions
+        # We make longer in case bad weather finish time falls outside of time horizon
+        T = (max_ps_time - min_ps_time) * 2 # The factor 2 here is probably a bit over cautious
+        weather_process = BrownianWeatherProcess(wlb, wub, T, weather_sig, freq=freq)
 
-    release_policy = SimHeur(trajecs, sep, weather_process, cost_fn, GA_PopSize, Max_LookAhead, 
-                             n_rel, r, n_repop, S_min, VNS_limit)
-    simulation = Simulation(flight_data, ps_time, pax_weight, trajecs, sep, weather_process, tau, release_policy,
-                            conv_factor, resolution)
-    print(f'*** Into main loop for rep {rep} and policy {SubPolicy}...')
-    simulation.run()
-
-
-    # print('Final cost is '+str(tot_cost))
+        release_policy = SimHeur(trajecs, sep, weather_process, cost_fn, GA_PopSize, Max_LookAhead, 
+                                n_rel, r, n_repop, S_min, VNS_limit)
+        simulation = Simulation(flight_data, ps_time, pax_weight, trajecs, sep, weather_process, tau, release_policy,
+                                conv_factor, resolution)
+        print(f'*** Into main loop for rep {rep} and policy {SubPolicy}...')
+        simulation.run()
 
 
-    # ArrTime = [0]*NoA
-    # ArrTime_Sorted = [0]*NoA
-    # ServTime = [0]*NoA
-    # for i in range(NoA):
-    #     ArrTime[i] = [Ac_Info[i].pool_time,i]
-    #     ArrTime_Sorted[i] = [Ac_Info[i].pool_time,i]
-    #     ServTime[i] = Ac_Info[i].service_rns
+        # print('Final cost is '+str(tot_cost))
 
-    # ArrTime_Sorted.sort(key=lambda x: x[0])
-    # # Posthoc check validates that flight statistics are consistent with costs
-    # # posthoc_cost = Posthoc_Check(Left_queue, Ac_Info, ArrTime, ServTime, ArrTime_Sorted, weather_process, 0, NoA, w_rho, k, Time_Sep, cost_fn)
 
-    # print('Done!')
-
-    # JF Question: What is happening here?
-    policy_index += 1
-    if policy_index == len(Policies):
-        # Do Perm Heuristic
         # ArrTime = [0]*NoA
         # ArrTime_Sorted = [0]*NoA
         # ServTime = [0]*NoA
@@ -232,9 +215,30 @@ while rep < no_reps:
         #     ServTime[i] = Ac_Info[i].service_rns
 
         # ArrTime_Sorted.sort(key=lambda x: x[0])
-        # FCFS_cost = Calculate_FCFS(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, weather_process, NoA, w_rho, k, Time_Sep, cost_fn)
-        # perm_heur_cost, AC_Used = Perm_Heur(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, weather_process, NoA, w_rho, k, Time_Sep, cost_fn, f1)
-        # perm_heur_cost, AC_Used = Perm_Heur_New(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, weather_process, NoA, w_rho, k, Time_Sep, cost_fn)
-        # policy_index=0
+        # # Posthoc check validates that flight statistics are consistent with costs
+        # # posthoc_cost = Posthoc_Check(Left_queue, Ac_Info, ArrTime, ServTime, ArrTime_Sorted, weather_process, 0, NoA, w_rho, k, Time_Sep, cost_fn)
 
-        rep += 1
+        # print('Done!')
+
+        # JF Question: What is happening here?
+        policy_index += 1
+        if policy_index == len(Policies):
+            # Do Perm Heuristic
+            # ArrTime = [0]*NoA
+            # ArrTime_Sorted = [0]*NoA
+            # ServTime = [0]*NoA
+            # for i in range(NoA):
+            #     ArrTime[i] = [Ac_Info[i].pool_time,i]
+            #     ArrTime_Sorted[i] = [Ac_Info[i].pool_time,i]
+            #     ServTime[i] = Ac_Info[i].service_rns
+
+            # ArrTime_Sorted.sort(key=lambda x: x[0])
+            # FCFS_cost = Calculate_FCFS(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, weather_process, NoA, w_rho, k, Time_Sep, cost_fn)
+            # perm_heur_cost, AC_Used = Perm_Heur(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, weather_process, NoA, w_rho, k, Time_Sep, cost_fn, f1)
+            # perm_heur_cost, AC_Used = Perm_Heur_New(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, weather_process, NoA, w_rho, k, Time_Sep, cost_fn)
+            # policy_index=0
+
+            rep += 1
+
+if __name__ == '__main__':
+    main()
