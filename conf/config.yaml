@@ -1,0 +1,8 @@
+sim_heur:
+  l: 15 # length of a sequence
+  n_rel: 50 # min number of samples flights can be released to queue
+  n_repop: 500 # "number of samples between filter and repopulate (type 2)"
+  r: 50  # number of samples between running rank and select
+  s: 20  # number of sequences to generate
+  s_min: 10 # minimum number of seqeuences in population
+  m_mut: 25 # how many non-improving heuristic moves need to be made before a mutation is carried out;

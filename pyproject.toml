@@ -10,6 +10,7 @@ packages = [{include = "stoch_runway_scheduler"}]
 python = "^3.11"
 numpy = "^1.26.4"
 scipy = "^1.13.0"
+hydra-core = "^1.3.2"
 
 
 [tool.poetry.group.test.dependencies]

@@ -1,9 +1,10 @@
 # This is set up to run numerical experiments with a preset value of wiener_sig (also used as the weather variance parameter) and randomly-
 # -generated values of k, thres1, pax weights, start & end times for bad weather (& need to also include random lam1 & lam2)
 
-from __future__ import print_function, division
-import logging
+#from __future__ import print_function, division
 import random
+import hydra
+from omegaconf import DictConfig, OmegaConf
 
 from stoch_runway_scheduler import Simulation, BrownianWeatherProcess, BrownianTrajectory, read_flight_data, sample_pretac_delay, SimHeur, Genetic_determ, Perm_Heur, Perm_Heur_New, Calculate_FCFS, Posthoc_Check, Cost, ErlangSeparation
 
@@ -79,33 +80,19 @@ if Use_VNSD == 1:
 pool_max = 6 # Used as a parameter for "perm heuristic" which searches for the best landing sequence under perfect information, i.e. assumes all random information already known
 list_min = 6 # Also used only for the "perm heuristic""
 
-l = 15 # NoA # This is the length of a sequence, equivalent to parameter l in paper  - in paper this is 15
-n_rel = 50
-n_repop = 500
-r = 50
-S = 20 # Initial number of sequences in the population, written as S in paper (see Section 3.1)
-S_min = 10 # Length of shortlist JF - Perhaps move to parameters
-m_mut = 25 # important parameter, determines how many non-improving heuristic moves need to be made before a mutation is carried out; this is written as m_{mut} in paper (see the flow chart, Figure 3)
-
 # JF Note: Important - should these two things be linked?
 conv_factor = 1 # no. of seconds in a minute for conversion purposes
 freq = 100 # number of updates for each minute
 resolution = 0.1
 
-###########
-# LOGGING #
-###########
 
 ##################
 # INITIALISATION #
 ##################
 
-# if Policy=='Alternate':
-#   SubPolicy='Perm'
-# else:
-#   SubPolicy=Policy
-
-def main():
+@hydra.main(version_base=None, config_path="conf", config_name="config")
+def main(cfg: DictConfig):
+    print(OmegaConf.to_yaml(cfg))
 
     rep = 0 #counter of which scenario we're currently on
     policy_index = 0 # indicates which policy we're currently evaluating, e.g. SimHeur, DetHeur etc (if this is zero then we take the first policy from the list of policies to be evaluated)
@@ -194,8 +181,9 @@ def main():
         T = (max_ps_time - min_ps_time) * 2 # The factor 2 here is probably a bit over cautious
         weather_process = BrownianWeatherProcess(wlb, wub, T, weather_sig, freq=freq)
 
-        release_policy = SimHeur(trajecs, sep, weather_process, cost_fn, S, l, 
-                                n_rel, r, n_repop, S_min, m_mut)
+        release_policy = SimHeur(trajecs, sep, weather_process, cost_fn, cfg.sim_heur.s, cfg.sim_heur.l, 
+                                cfg.sim_heur.n_rel, cfg.sim_heur.r, cfg.sim_heur.n_repop, 
+                                cfg.sim_heur.s_min, cfg.sim_heur.m_mut)
         simulation = Simulation(flight_data, ps_time, pax_weight, trajecs, sep, weather_process, tau, release_policy,
                                 conv_factor, resolution)
         print(f'*** Into main loop for rep {rep} and policy {SubPolicy}...')
