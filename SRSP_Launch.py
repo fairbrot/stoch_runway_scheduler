@@ -98,33 +98,6 @@ resolution = 0.1
 # LOGGING #
 ###########
 
-# JF: these three options seem to be for logging purposes
-#     they are broken for now as a separate output stream is created for each one, and all these currently
-#     need to be passed a function where they are used.
-stepthrough = 0
-step_summ = 0
-step_new = 0
-
-# Logs can similarly be set up for step_summ and step_new
-stepthrough_logger = logging.getLogger('stepthrough')
-stepthrough_logger.setLevel(level=logging.ERROR)
-c_handler = logging.FileHandler("SRSP_stepthrough.log", mode='w')
-# c_format = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
-# c_handler.setFormatter(c_format)
-stepthrough_logger.addHandler(c_handler)
-
-step_summ_logger = logging.getLogger('step_summ')
-step_new_logger = logging.getLogger('step_new')
-
-f = open("SRSP_out_%s_%s.csv" % (Policy, conv_factor), "w") # detailed results - for each rep what happened for each aircraft
-g = open("AC_predictions_%s_%s.csv" % (Policy, conv_factor), "w")
-#h = open("cost_log_%s_%s.csv" % (Policy, conv_factor), "w")
-gg = open("SRSP_rep_results_%s_%s.csv" % (Policy, conv_factor), "w") # summaries for each rep
-
-f1 = open("Perm_Heur_out_%s_%s.csv" % (Policy, conv_factor), "w") # output from a particular heuristic - may not be needed (can remove if you like)
-
-f.write('Policy'+',''Rep'+','+'AC'+','+'Flight Num'+','+'Prev Class'+','+'Cur Class'+','+'Time Sep'+','+'Orig PS time'+','+'PS time'+','+'Pool Arrival'+','+'Release Time'+','+'Travel Time'+','+'Weather Coeff'+','+'Enters Serv'+','+'Actual Serv'+','+'Ends Serv'+','+'Lateness'+','+'Queue Delay'+','+'Pax Weight'+','+'Cost'+','+'counter'+','+'Predicted total'+'\n')
-
 ##################
 # INITIALISATION #
 ##################
@@ -221,8 +194,6 @@ while rep < no_reps:
     T = (max_ps_time - min_ps_time) * 2 # The factor 2 here is probably a bit over cautious
     weather_process = BrownianWeatherProcess(wlb, wub, T, weather_sig, freq=freq)
 
-    stepthrough_logger.info('wlb_tm: %d wub_tm: %d', weather_process.wlb, weather_process.wub)
-
     release_policy = SimHeur(trajecs, sep, weather_process, cost_fn, GA_PopSize, Max_LookAhead, 
                              n_rel, r, n_repop, S_min, VNS_limit)
     simulation = Simulation(flight_data, ps_time, pax_weight, trajecs, sep, weather_process, tau, release_policy,
@@ -245,7 +216,6 @@ while rep < no_reps:
     # ArrTime_Sorted.sort(key=lambda x: x[0])
     # # Posthoc check validates that flight statistics are consistent with costs
     # # posthoc_cost = Posthoc_Check(Left_queue, Ac_Info, ArrTime, ServTime, ArrTime_Sorted, weather_process, 0, NoA, w_rho, k, Time_Sep, cost_fn)
-    # # gg.write('Posthoc Check'+','+str(posthoc_cost)+',')
 
     # print('Done!')
 
@@ -262,25 +232,9 @@ while rep < no_reps:
         #     ServTime[i] = Ac_Info[i].service_rns
 
         # ArrTime_Sorted.sort(key=lambda x: x[0])
-
         # FCFS_cost = Calculate_FCFS(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, weather_process, NoA, w_rho, k, Time_Sep, cost_fn)
-        # gg.write('FCFS'+','+str(FCFS_cost)+',')
-
         # perm_heur_cost, AC_Used = Perm_Heur(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, weather_process, NoA, w_rho, k, Time_Sep, cost_fn, f1)
-        # gg.write('Perm Heuristic'+','+str(perm_heur_cost)+',')
-
         # perm_heur_cost, AC_Used = Perm_Heur_New(Ac_Info, ArrTime, ServTime, ArrTime_Sorted, pool_max, list_min, weather_process, NoA, w_rho, k, Time_Sep, cost_fn)
-        # gg.write('New Perm Heuristic'+','+str(perm_heur_cost)+',')
-
-        # gg.write('\n')
-        # gg.flush()
-
         # policy_index=0
 
         rep += 1
-
-
-f.close()
-g.close()
-gg.close()
-f1.close()
