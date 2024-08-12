@@ -21,3 +21,10 @@ separation:
   # separation multiplier for bad weather (multiplies mean, not rate, so should be >1); 
   # we have used a reduction of 10% due to bad weather based on Odoni et al (2011) cited in Shone et al (2021)
   w_rho: 1.111
+weather:
+  # Predicted start and end times of bad weather
+  # Times in minutes from start of time horizon
+  wlb: 270
+  wub: 330
+  weather_sig: 0.1 # standard deviation of Brownian motion for weather process
+  freq: 100 # number of updates for each minute

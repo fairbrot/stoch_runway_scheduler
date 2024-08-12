@@ -24,7 +24,6 @@ DATA_DIR = '/home/jamie/Insync/fairbrot@lancaster.ac.uk/OneDrive Biz - Shared/SR
 NoA = 700 # number of aircraft - temporary value which will get changed later
 
 wiener_sig = 0.1 # standard deviation for Brownian motion
-weather_sig = wiener_sig # this assumption is being made in the paper for simplicity
 print('wiener_sig: '+str(wiener_sig))
 
 tau = 30 # Determines when an aircraft is deemed to have entered the pool. E.g. if tau=30, aircraft enters pool when its ETA is 30 minutes away from the current time.
@@ -97,13 +96,11 @@ def main(cfg: DictConfig):
 
         repn = rep # int(rep/100+1)
         random.seed(repn*100) #set the random seed for generating random parameter values; seed in set according to the replication (scenario) number
+
         print('*** Importing the flight data...')
         #---------------------------------------------------------#
         # Read flight data file and initialise pretactical delays #
         #---------------------------------------------------------#
-        # Orig_Ps = sched arrival time
-        # Dep_Ps = time at which tactical delay begins (called h in paper)
-
         pretac_delays = [sample_pretac_delay(alpha, beta, fdata.arr_sched, fdata.dep_sched, x_bar) for (alpha, beta, fdata, x_bar) in zip(Alpha_Ps, Beta_Ps, flight_data, late_means)]
         # this stores the adjusted scheduled times for aircraft after applying the random pre-tactical delay
         ps_time = [fdata.arr_sched + pretac_d for (fdata, pretac_d) in zip(flight_data, pretac_delays)]
@@ -151,20 +148,14 @@ def main(cfg: DictConfig):
 
         print('*** Generating the weather transition array...')
 
-        # 4 possible cases: no bad weather, 30 minutes of bad weather, 60 minutes of bad weather or 120 minutes of bad weather 
-        # (bad weather is always forecast for the middle of the day)
-        # E.g. 300 is 10AM according to the rescaling of time used earlier
-        # *Predicted* start and end times of bad weather
-        # Random for result stratification wlb is T_0(0) and wub is T_1(0) in paper
-        wlb, wub = random.choice([(0,0), (285, 315), (270, 330), (240, 360)])
-
         # Long time period over which to generate weather predictions
         # We make longer in case bad weather finish time falls outside of time horizon
         T = (max_ps_time - min_ps_time) * 2 # The factor 2 here is probably a bit over cautious
-        weather_process = BrownianWeatherProcess(wlb, wub, T, weather_sig, freq=freq)
+        weather_process = BrownianWeatherProcess(cfg.weather.wlb, cfg.weather.wub, T,
+                                                 cfg.weather.weather_sig, freq=cfg.weather.freq)
 
-        release_policy = SimHeur(trajecs, sep, weather_process, cost_fn, cfg.sim_heur.s, cfg.sim_heur.l, 
-                                cfg.sim_heur.n_rel, cfg.sim_heur.r, cfg.sim_heur.n_repop, 
+        release_policy = SimHeur(trajecs, sep, weather_process, cost_fn, cfg.sim_heur.s, cfg.sim_heur.l,
+                                cfg.sim_heur.n_rel, cfg.sim_heur.r, cfg.sim_heur.n_repop,
                                 cfg.sim_heur.s_min, cfg.sim_heur.m_mut)
         simulation = Simulation(flight_data, ps_time, pax_weight, trajecs, sep, weather_process, tau, release_policy,
                                 conv_factor, resolution)
