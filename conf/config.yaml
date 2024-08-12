@@ -6,3 +6,18 @@ sim_heur:
   s: 20  # number of sequences to generate
   s_min: 10 # minimum number of seqeuences in population
   m_mut: 25 # how many non-improving heuristic moves need to be made before a mutation is carried out;
+separation:
+  # Time separations in seconds taken from Bennell et al (2017) with H, U, M, S as the 4 classes; 
+  # the 5th array is for the situation where there is no leading aircraft
+  time_sep:
+    - [97, 121, 121, 145]
+    - [72, 72, 72, 97, 97]
+    - [72, 72, 72, 72]
+    - [72, 72, 72, 72]
+    - [72, 72, 72, 72]
+  # Erlang shape parameters
+  # k controls variances of service times - larger means less variance
+  k: 16
+  # separation multiplier for bad weather (multiplies mean, not rate, so should be >1); 
+  # we have used a reduction of 10% due to bad weather based on Odoni et al (2011) cited in Shone et al (2021)
+  w_rho: 1.111
