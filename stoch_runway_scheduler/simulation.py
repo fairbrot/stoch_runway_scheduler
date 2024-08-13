@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 import heapq
+import logging
 from enum import Enum
 import time
 from .utils import FlightInfo, FlightStatus, FlightData
@@ -9,6 +10,8 @@ from .weather import StochasticWeatherProcess
 from .state import State
 from .sim_heur import SimHeur
 
+# A logger for this file
+log = logging.getLogger(__name__)
 
 class EventType(Enum):
     JOINS_POOL = 0
@@ -65,11 +68,15 @@ class Simulation:
 
     def run_scheduled_events(self):
         "Process all events in schedule up to current time"
+        flg = False
         while self.event_list:
             if self.event_list[0].time > self.state.tm:
                 break
             event = heapq.heappop(self.event_list)
             self.process_event(event)
+            flg = True
+        if flg: # Only log if something has happened
+            log.info("Time: %.2f, Arrival Pool: %s, Queue: %s", self.state.tm, self.state.Arr_Pool, self.state.Ac_queue)
 
     def update_state(self):
         for (i, flight) in enumerate(self.state.Ac_Info):
@@ -100,7 +107,7 @@ class Simulation:
 
     def process_event(self, event: Event):
         assert self.state.tm >= event.time
-        print(f"Processing {event}")
+        log.info("Processing %s", event)
         etype = event.type
         etime = event.time
         i = event.i

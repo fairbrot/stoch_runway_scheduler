@@ -28,22 +28,6 @@ def Repopulate_VNS(GA_Info: List[SequenceInfo], GA_PopSize: int, S_min: int, VNS
     for info in GA_Info:
         info.age += 1
 
-    # VNS_counter counts how many non-improving heuristic moves we've made since the last reset
-
-    # Logging
-    stepthrough_logger = logging.getLogger('stepthrough')
-    step_summ_logger = logging.getLogger('step_summ')
-    step_new_logger = logging.getLogger('step_new')
-
-    stepthrough_logger.info('Repopulating...')
-    step_summ_logger.info('Repopulating...')
-    step_new_logger.info('Repopulating...')
-    stepthrough_logger.info('Here are the sequences and their costs so far:')
-    step_summ_logger.info('Here are the sequences and their costs so far:')
-    for j, info in enumerate(GA_Info):
-        flight_msg = str(j) + ',' + str(info.v) +',' + str(info.sequence) + '\n'
-        stepthrough_logger.info(flight_msg)
-        step_summ_logger.info(flight_msg)
     
     # no_ACs = min(Max_LookAhead, AC_remaining)
     assert len(GA_Info) != 0 # JF Question: can this not be the case?
@@ -64,7 +48,6 @@ def Repopulate_VNS(GA_Info: List[SequenceInfo], GA_PopSize: int, S_min: int, VNS
     best_seq_info = GA_Info[0]
     if best_seq_info.age > 1:
         VNS_counter += 1
-        step_new_logger.info('VNS_counter increased to %d', VNS_counter)
     else:
         VNS_counter = 0
     Best_Seq = best_seq_info.sequence
@@ -82,7 +65,6 @@ def Repopulate_VNS(GA_Info: List[SequenceInfo], GA_PopSize: int, S_min: int, VNS
     # Step c in 4C - apply mutate to ceate a new base sequence
     if VNS_counter >= VNS_limit:
         tot_mut += 1 # total mutations - only for logging purposes
-        step_new_logger.info('Mutation performed!')
         # Perturb the optimal sequence
         Opt_Seq = Best_Seq[:]
         Best_Seq = mutate_sequence(Opt_Seq)
@@ -108,15 +90,6 @@ def Repopulate_VNS(GA_Info: List[SequenceInfo], GA_PopSize: int, S_min: int, VNS
 
     GA_PopList_sorted=GA_PopList[:]
     GA_PopList_sorted.sort()
-
-    # More logging
-    msg = 'Here is the new pop list after adding new sequences and sorting in sequence order:'
-    stepthrough_logger.info(msg)
-    stepthrough_logger.info(msg)
-    for j in range(len(GA_PopList)):
-        seq_msg = str(j)+','+str(GA_PopList_sorted[j])
-        stepthrough_logger.info(seq_msg)
-        step_summ_logger.info(seq_msg)
 
     return VNS_counter, tot_mut
 
