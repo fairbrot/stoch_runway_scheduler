@@ -6,6 +6,11 @@ sim_heur:
   s: 20  # number of sequences to generate
   s_min: 10 # minimum number of seqeuences in population
   m_mut: 25 # how many non-improving heuristic moves need to be made before a mutation is carried out;
+cost:
+  lambda_1: 0.1 # weight of scheduling delay
+  lambda_2: 0.9 # weight of airborne delay
+  threshold_1: 15 # tolerance for schedule delay - gamma^S in paper
+  threshold_2: 0 # tolerance for airborne delay - gamma^W in paper
 separation:
   # Time separations in seconds taken from Bennell et al (2017) with H, U, M, S as the 4 classes; 
   # the 5th array is for the situation where there is no leading aircraft
@@ -15,7 +20,7 @@ separation:
     - [72, 72, 72, 72]
     - [72, 72, 72, 72]
     - [72, 72, 72, 72]
-  # Erlang shape parameters
+  # Erlang shape parameter
   # k controls variances of service times - larger means less variance
   k: 16
   # separation multiplier for bad weather (multiplies mean, not rate, so should be >1); 
@@ -27,4 +32,16 @@ weather:
   wlb: 270
   wub: 330
   weather_sig: 0.1 # standard deviation of Brownian motion for weather process
+  freq: 100 # number of updates for each minute
+problem:
+  # Path to CSV file containing flight data
+  flight_data: /home/jamie/Insync/fairbrot@lancaster.ac.uk/OneDrive Biz - Shared/SRSP data files/flight_pretac_data.csv
+  # Min and max prescheduled time to consider in solution approach
+  # Measured in minutes from from midnight? (6AM-2PM is when simulation runs between)
+  min_ps_time: 360 # inclusive
+  max_ps_time: 840 # exclusive
+  # Determines when an aircraft is deemed to have entered the pool. E.g. if tau=30, aircraft enters pool when its ETA is 30 minutes away from the current time.
+  tau: 30
+trajectory:
+  wiener_sig: 0.1 # standard deviation for Brownian motion
   freq: 100 # number of updates for each minute

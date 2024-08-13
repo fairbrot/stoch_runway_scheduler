@@ -12,33 +12,7 @@ from stoch_runway_scheduler import Simulation, BrownianWeatherProcess, BrownianT
 # CONIFIGUATION #
 #################
 
-no_reps = 10000 # total number of random scenarios that we will simulate; in each scenario we evaluate the performances of different algorithms such as SimHeur, DetHeur, FCFS
-
-#-----------------#
-# Problem Options #
-#-----------------#
-
-DATA_DIR = '/home/jamie/Insync/fairbrot@lancaster.ac.uk/OneDrive Biz - Shared/SRSP data files'
-
-# JF: should remove this when we can as NoA is set after reading data file
-NoA = 700 # number of aircraft - temporary value which will get changed later
-
-wiener_sig = 0.1 # standard deviation for Brownian motion
-print('wiener_sig: '+str(wiener_sig))
-
-tau = 30 # Determines when an aircraft is deemed to have entered the pool. E.g. if tau=30, aircraft enters pool when its ETA is 30 minutes away from the current time.
-
-# lam1 and lam2 are the weights of scheduling delay and airborne holding delays - these are called theta^S and theta^W in the paper
-pot_lam1 = [0.1, 0.3, 0.5, 0.7, 0.9] # Potential set of values for lambda 1 to sample from
-
-# These correspond to gamma^S (thres1) and gamma^W (thres2) in paper
-pot_thres1 = [0, 15] # potential set of values of thres1 to sample from
-thres2 = 0
-
-# Min and max prescheduled time to consider in solution approach
-# Measured in minutes from from midnight? (6AM-2PM is when simulation runs between)
-min_ps_time = 360 # inclusive
-max_ps_time = 840 # non-inclusive
+NO_REPS = 10000 # total number of random scenarios that we will simulate; in each scenario we evaluate the performances of different algorithms such as SimHeur, DetHeur, FCFS
 
 #-------------------#
 # Algorithm Options #
@@ -57,24 +31,14 @@ if Use_VNS == 1:
     Policies.append('VNS')
 if Use_VNSD == 1:
     Policies.append('VNSD')
-# if Use_FCFS==1:
-#   Policies.append('FCFS')
-
-# JF Question: what is this? Would be good to avoid setting it to NoA before data has been read
-
 
 pool_max = 6 # Used as a parameter for "perm heuristic" which searches for the best landing sequence under perfect information, i.e. assumes all random information already known
 list_min = 6 # Also used only for the "perm heuristic""
 
 # JF Note: Important - should these two things be linked?
 conv_factor = 1 # no. of seconds in a minute for conversion purposes
-freq = 100 # number of updates for each minute
 resolution = 0.1
 
-
-##################
-# INITIALISATION #
-##################
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
 def main(cfg: DictConfig):
@@ -84,15 +48,17 @@ def main(cfg: DictConfig):
     policy_index = 0 # indicates which policy we're currently evaluating, e.g. SimHeur, DetHeur etc (if this is zero then we take the first policy from the list of policies to be evaluated)
 
 
-    flight_data, Alpha_Ps, Beta_Ps, late_means = read_flight_data(DATA_DIR + '/flight_pretac_data.csv',
-                                                                min_ps_time, max_ps_time, wiener_sig)
+    flight_data, Alpha_Ps, Beta_Ps, late_means = read_flight_data(cfg.problem.flight_data,
+                                                                  cfg.problem.min_ps_time,
+                                                                  cfg.problem.max_ps_time, 
+                                                                  cfg.trajectory.wiener_sig)
 
     sep_cfg = cfg.separation
     sep = ErlangSeparation(sep_cfg.time_sep, sep_cfg.k, sep_cfg.w_rho)
 
     #for rep in range(no_reps):
     # JF Question Why is for loop not used?: Rob not sure - may be fine to change back to for loop
-    while rep < no_reps:
+    while rep < NO_REPS:
 
         repn = rep # int(rep/100+1)
         random.seed(repn*100) #set the random seed for generating random parameter values; seed in set according to the replication (scenario) number
@@ -126,39 +92,32 @@ def main(cfg: DictConfig):
 
         SubPolicy = Policies[policy_index] # SubPolicy indicates the policy we are currently considering (e.g. SimHeur, DetHeur)
 
-        # These are random for similar reasons pax_weight (g_i in paper) - results may be stratified by this as well
-        # lam1 and lam2 are the weights of scheduling delay and airborne holding delays - these are called theta^S and theta^W in the paper
-        lam1 = random.choice(pot_lam1) # Random lam1
-        lam2 = 1-lam1
-        print('lam1: '+str(lam1)+' lam2: '+str(lam2))
-
-        # Randomly generate thres1 (thres2 is set above)
-        # Random so results could potentially be stratified
-        thres1 = random.choice(pot_thres1) # 15 means allow 15 minutes schedule delay
-
-        cost_fn = Cost(thres1, thres2, lam1, lam2)
+        cost_fn = Cost(cfg.cost.threshold_1, cfg.cost.threshold_2, 
+                       cfg.cost.lambda_1, cfg.cost.lambda_2)
 
         print('*** Generating the ETA trajectory array...')
         # Trajectories are generated for whole 8 hour period for each flight
 
         trajecs = []
         for i in range(NoA):
-            trajec = BrownianTrajectory(flight_data[i].dep_sched, ps_time[i], tau, wiener_sig, freq=freq)
+            trajec = BrownianTrajectory(flight_data[i].dep_sched, ps_time[i], cfg.problem.tau, 
+                                        cfg.trajectory.wiener_sig, 
+                                        freq=cfg.trajectory.freq)
             trajecs.append(trajec)
 
         print('*** Generating the weather transition array...')
 
         # Long time period over which to generate weather predictions
         # We make longer in case bad weather finish time falls outside of time horizon
-        T = (max_ps_time - min_ps_time) * 2 # The factor 2 here is probably a bit over cautious
+        T = (cfg.problem.max_ps_time - cfg.problem.min_ps_time) * 2 # The factor 2 here is probably a bit over cautious
         weather_process = BrownianWeatherProcess(cfg.weather.wlb, cfg.weather.wub, T,
                                                  cfg.weather.weather_sig, freq=cfg.weather.freq)
 
         release_policy = SimHeur(trajecs, sep, weather_process, cost_fn, cfg.sim_heur.s, cfg.sim_heur.l,
                                 cfg.sim_heur.n_rel, cfg.sim_heur.r, cfg.sim_heur.n_repop,
                                 cfg.sim_heur.s_min, cfg.sim_heur.m_mut)
-        simulation = Simulation(flight_data, ps_time, pax_weight, trajecs, sep, weather_process, tau, release_policy,
-                                conv_factor, resolution)
+        simulation = Simulation(flight_data, ps_time, pax_weight, trajecs, sep, weather_process, cfg.problem.tau,
+                                release_policy, conv_factor, resolution)
         print(f'*** Into main loop for rep {rep} and policy {SubPolicy}...')
         simulation.run()
 
