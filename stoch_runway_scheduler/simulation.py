@@ -142,8 +142,8 @@ class Simulation:
             case EventType.SERVICE_ENDS:
                 serv_time = event.kwargs['service_time']
                 self.state.flight_leaves_service(etime, i, serv_time)
-                log.info("Flight %d lands. Joined pool: % .2f, Released: %.2f, Travel time: %.2f, Separation: %.2f",
-                         i, eflight.pool_time, eflight.release_time, eflight.travel_time, eflight.service_time)
+                log.info("Flight %d lands. Orig. Sched. Arr.: %.2f, PS Time: %.2f, Joined pool: % .2f, Released: %.2f, Travel time: %.2f, Separation: %.2f",
+                         i, eflight.orig_sched_time, eflight.ps_time, eflight.pool_time, eflight.release_time, eflight.travel_time, eflight.service_time)
                 if len(self.state.Ac_queue) != 0:
                     flight = self.state.Ac_queue[0]
                     serv_event = Event(etime, EventType.SERVICE_BEGINS, flight)
