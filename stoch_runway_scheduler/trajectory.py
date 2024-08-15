@@ -79,10 +79,10 @@ class BrownianTrajectory(StochasticTrajectory):
                 ETA = random.gauss(ETA, 0.1 * wiener_sig)
             brown_motion.append(ETA)
             if j/freq >= ETA-tau and chk == 0:
-                pool_arr_time = round(j/freq, 2) # pool arrival time - j/freq is the 'current time'
+                pool_arr_time = j/freq # pool arrival time - j/freq is the 'current time'
                 chk = 1
             elif j/freq >= ETA and chk == 1:
-                runway_time = round(j/freq, 2)
+                runway_time = j/freq
                 # Plane arrives at runway
                 travel_time = runway_time - pool_arr_time # travel time between entering pool and arriving at runway
                 chk = 2
@@ -105,7 +105,7 @@ class BrownianTrajectory(StochasticTrajectory):
         status = flight_info.status
         match status:
             case FlightStatus.NOT_READY:
-                return self.brown_motion[int(tm * self.freq)]
+                return self.brown_motion[int(math.floor(tm * self.freq))]
             case FlightStatus.IN_POOL:
                 return tm + self.tau
             case FlightStatus.IN_QUEUE | FlightStatus.IN_SERVICE:
@@ -130,10 +130,9 @@ class BrownianTrajectory(StochasticTrajectory):
         status = flight_info.status
         match status:
             case FlightStatus.NOT_READY:
-                sched = int(round(flight_info.eta - (tm + self.tau), 1)) # JF Question: what is this?
-                if sched <= 0:
-                    return tm
-                else:
-                    return np.random.wald(sched, (sched/self.wiener_sig)**2) + tm
+                # clock needs rounding down to last update time (otherwise we may have sched < 0)
+                sched = (flight_info.eta - self.tau) - round_down(tm, self.freq)
+                assert sched >= 0
+                return np.random.wald(sched, (sched/self.wiener_sig)**2) + tm
             case _:
                 return flight_info.pool_time
