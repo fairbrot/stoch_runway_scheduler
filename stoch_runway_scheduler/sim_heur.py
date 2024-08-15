@@ -74,10 +74,17 @@ class SimHeur:
         self.GA_Info.sort(key=lambda x: x.v)
         self.GA_counter += 1
 
+        
+
         # Step 2B - Rank and Select
         if self.GA_counter % self.r == 0:
+            log.debug("Best sequence (out of %s) is %s (v = %.2f, var = %.2f, n_traj = %d)", 
+                    len(self.GA_Info), self.GA_Info[0].sequence, self.GA_Info[0].v,
+                    self.GA_Info[0].var_cost(), self.GA_Info[0].n_traj)
             to_remove = SequenceInfo.rank_and_select(self.GA_Info)
             to_remove.sort(reverse=True)
+            log.debug("Rank and select removes sequences with costs: %s",
+                     [self.GA_Info[i].v for i in to_remove])
             for i in to_remove:
                 info = self.GA_Info.pop(i)
 
@@ -85,13 +92,17 @@ class SimHeur:
         Ac_added = []
         assert len(self.GA_Info) > 0
         # JF Question: why is second condition necessary here?
-        if self.GA_counter >= self.n_rel or (len(self.GA_Info) <= self.S_min):
-            perm = self.GA_Info[0]
-            for (j, AC) in enumerate(perm.sequence):
-                if perm.queue_probs[j] <= 0: # JF Question: in paper this check is only done on first element - modifying this to be the case could allow for simplifications
+        if self.GA_counter % self.n_rel == 0 or (len(self.GA_Info) <= self.S_min):
+            seq_info = self.GA_Info[0]
+            log.debug("Checking flights for release...")
+            log.debug("%s", seq_info)
+            log.debug("Status of flights in sequence: %s", ', '.join(str(state.Ac_Info[i].status) for i in seq_info.sequence))
+            for (j, AC) in enumerate(seq_info.sequence):
+                if seq_info.queue_probs[j] <= 0: # JF Question: in paper this check is only done on first element - modifying this to be the case could allow for simplifications
                     break
                 if state.Ac_Info[AC].status != FlightStatus.IN_POOL:
                     break
+                log.debug("Mark flight %d for release ()", j)
                 Ac_added.append(AC)
 
         # If flights will be removed we need to update base_seq in order to reset sequence population
