@@ -91,9 +91,12 @@ class Simulation:
         # Puts given flights in pool
         while self.state.num_remaining_flights() > 0:
             Ac_added = self.release_policy.run(self.state)
-            for i in Ac_added:
-                event = Event(self.state.tm, EventType.RELEASE_FLIGHT, i)
-                self.schedule_event(event)
+            if Ac_added:
+                for i in Ac_added:
+                    event = Event(self.state.tm, EventType.RELEASE_FLIGHT, i)
+                    self.schedule_event(event)
+                self.run_scheduled_events() # Need to update states immediately if flights have been marked for release
+
             latest_time = (time.time() - start)/self.conv_factor
             if latest_time - self.state.tm > self.resolution:
                 self.state.tm = latest_time
