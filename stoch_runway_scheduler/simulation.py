@@ -48,9 +48,10 @@ class Simulation:
             info = FlightInfo.from_flight_data(datai, psi, pwi)
             Ac_Info.append(info)
 
-        # Sort Ac_Info and trajecs according to order of ps_time
-        Ac_Info, self.trajecs = zip(*sorted(((Ac_Infoi, traj) for Ac_Infoi, traj in zip(Ac_Info, trajecs)),
-                                                 key=lambda tp: tp[0].ps_time))
+        # # Sort Ac_Info and trajecs according to order of ps_time
+        # Ac_Info, self.trajecs = zip(*sorted(((Ac_Infoi, traj) for Ac_Infoi, traj in zip(Ac_Info, trajecs)),
+        #                                          key=lambda tp: tp[0].ps_time))
+        self.trajecs = trajecs
         self.norm_service_time = [sep.sample_normalized_separation()
                                     for info in Ac_Info]
 
@@ -141,6 +142,8 @@ class Simulation:
             case EventType.SERVICE_ENDS:
                 serv_time = event.kwargs['service_time']
                 self.state.flight_leaves_service(etime, i, serv_time)
+                log.info("Flight %d lands. Joined pool: % .2f, Released: %.2f, Travel time: %.2f, Separation: %.2f",
+                         i, eflight.pool_time, eflight.release_time, eflight.travel_time, eflight.service_time)
                 if len(self.state.Ac_queue) != 0:
                     flight = self.state.Ac_queue[0]
                     serv_event = Event(etime, EventType.SERVICE_BEGINS, flight)

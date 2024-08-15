@@ -71,6 +71,9 @@ def main(cfg: DictConfig):
         # this stores the adjusted scheduled times for aircraft after applying the random pre-tactical delay
         ps_time = [fdata.arr_sched + pretac_d for (fdata, pretac_d) in zip(flight_data, pretac_delays)]
 
+
+
+
         NoA = len(flight_data)
         print('No. of ACs: '+str(NoA))
 
@@ -100,10 +103,17 @@ def main(cfg: DictConfig):
 
         trajecs = []
         for i in range(NoA):
-            trajec = BrownianTrajectory(flight_data[i].dep_sched, ps_time[i], cfg.problem.tau, 
-                                        cfg.trajectory.wiener_sig, 
+            trajec = BrownianTrajectory(flight_data[i].dep_sched, ps_time[i], cfg.problem.tau,
+                                        cfg.trajectory.wiener_sig,
                                         freq=cfg.trajectory.freq)
             trajecs.append(trajec)
+
+        # Sort data by ps_time
+        # Currently SimHeur requires data in order of ps_time to perform well - should modify to avoid
+        # having to do this here
+        flight_data, trajecs, ps_time = zip(*sorted(((f_data, traj, pt) for f_data, traj, pt in zip(flight_data, trajecs, ps_time)),
+                                                 key=lambda tp: tp[2]))
+        print(ps_time)
 
         print('*** Generating the weather transition array...')
 
