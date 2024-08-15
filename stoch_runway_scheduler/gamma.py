@@ -30,9 +30,9 @@ def sample_cond_gamma(t: float, alpha: float, beta: float) -> float:
     Sample from a Gamma distribution with shape `alpha` and rate `beta`, conditional on being
     above the value t.
     """
-    q = ss.gdtr(1/beta, alpha, t) # gdtr is a fast function in scipy for evaluating cdf of gamma dist
+    q = ss.gdtr(beta, alpha, t) # gdtr is a fast function in scipy for evaluating cdf of gamma dist
     z = q + (1-q) * random.random() # Unform RN between q and 1
-    return ss.gdtrix(1/beta, alpha, z) # gdtrix is fast function for quantile
+    return ss.gdtrix(beta, alpha, z) # gdtrix is fast function for quantile
 
 
 def gamma_cond_exp(t, alpha, beta):
