@@ -6,7 +6,7 @@ import random
 import hydra
 from omegaconf import DictConfig, OmegaConf
 
-from stoch_runway_scheduler import Simulation, BrownianWeatherProcess, BrownianTrajectory, read_flight_data, sample_pretac_delay, SimHeur, Genetic_determ, Perm_Heur, Perm_Heur_New, Calculate_FCFS, Posthoc_Check, Cost, ErlangSeparation
+from stoch_runway_scheduler import ComputationalClock, Simulation, BrownianWeatherProcess, BrownianTrajectory, read_flight_data, sample_pretac_delay, SimHeur, Genetic_determ, Perm_Heur, Perm_Heur_New, Calculate_FCFS, Posthoc_Check, Cost, ErlangSeparation
 
 #################
 # CONIFIGUATION #
@@ -71,9 +71,6 @@ def main(cfg: DictConfig):
         # this stores the adjusted scheduled times for aircraft after applying the random pre-tactical delay
         ps_time = [fdata.arr_sched + pretac_d for (fdata, pretac_d) in zip(flight_data, pretac_delays)]
 
-
-
-
         NoA = len(flight_data)
         print('No. of ACs: '+str(NoA))
 
@@ -123,13 +120,13 @@ def main(cfg: DictConfig):
         weather_process = BrownianWeatherProcess(cfg.weather.wlb, cfg.weather.wub, T,
                                                  cfg.weather.weather_sig, freq=cfg.weather.freq)
 
+        clock = ComputationalClock(conv_factor, resolution)
         release_policy = SimHeur(trajecs, sep, weather_process, cost_fn, cfg.sim_heur.s, cfg.sim_heur.l,
                                 cfg.sim_heur.n_rel, cfg.sim_heur.r, cfg.sim_heur.n_repop,
                                 cfg.sim_heur.s_min, cfg.sim_heur.m_mut)
-        simulation = Simulation(flight_data, ps_time, pax_weight, trajecs, sep, weather_process, cfg.problem.tau,
-                                release_policy, conv_factor, resolution)
+        simulation = Simulation(flight_data, ps_time, pax_weight, trajecs, sep, weather_process, cfg.problem.tau)
         print(f'*** Into main loop for rep {rep} and policy {SubPolicy}...')
-        simulation.run()
+        simulation.run(release_policy, clock)
 
 
         # print('Final cost is '+str(tot_cost))
