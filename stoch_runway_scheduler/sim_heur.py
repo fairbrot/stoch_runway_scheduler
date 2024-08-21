@@ -102,7 +102,7 @@ class SimHeur:
                     break
                 if state.Ac_Info[AC].status != FlightStatus.IN_POOL:
                     break
-                log.debug("Mark flight %d for release ()", j)
+                #log.debug("Mark flight %d for release ()", j)
                 Ac_added.append(AC)
 
         # If flights will be removed we need to update base_seq in order to reset sequence population
@@ -115,5 +115,6 @@ class SimHeur:
             # Previously reported - perhaps update this later or remove
             pred_cost = self.GA_Info[0].v
             state.Ac_Info[AC].pred_cost = pred_cost
+            log.info("Flights %s marked for release. New base sequence %s", Ac_added, self.base_seq)
 
         return Ac_added
