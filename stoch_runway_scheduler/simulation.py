@@ -9,7 +9,7 @@ from .separation import StochasticSeparation, landing_time
 from .clock import Clock
 from .weather import StochasticWeatherProcess
 from .state import State
-from .sim_heur import SimHeur
+from .fcfs import ReleasePolicy
 
 # A logger for this file
 log = logging.getLogger(__name__)
@@ -70,7 +70,7 @@ class Simulation:
                 flight.eta = traj.expected_eta(state.tm, flight)
         state.weather = self.weather_process(state.tm)
 
-    def run(self, release_policy: SimHeur, clock: Clock) -> list[FlightInfo]:
+    def run(self, release_policy: ReleasePolicy, clock: Clock) -> list[FlightInfo]:
 
         # Initialisation
         self.event_list.clear()

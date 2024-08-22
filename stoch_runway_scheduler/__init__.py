@@ -13,3 +13,4 @@ from .genetic_det import Genetic_determ
 from .populate import Populate, Repopulate_VNS
 from .simulation import Simulation
 from .clock import EventClock, ComputationalClock, ComputationalBudgetClock
+from .fcfs import FCFS
