@@ -120,13 +120,13 @@ def main(cfg: DictConfig):
         weather_process = BrownianWeatherProcess(cfg.weather.wlb, cfg.weather.wub, T,
                                                  cfg.weather.weather_sig, freq=cfg.weather.freq)
 
-        #clock = ComputationalClock(conv_factor, resolution)
+        clock = ComputationalClock(conv_factor, resolution)
         # clock = ComputationalBudgetClock(10, 0.05)
-        # release_policy = SimHeur(trajecs, sep, weather_process, cost_fn, cfg.sim_heur.s, cfg.sim_heur.l,
-        #                         cfg.sim_heur.n_rel, cfg.sim_heur.r, cfg.sim_heur.n_repop,
-        #                         cfg.sim_heur.s_min, cfg.sim_heur.m_mut)
-        clock = EventClock()
-        release_policy = FCFS()
+        release_policy = SimHeur(trajecs, sep, weather_process, cost_fn, cfg.sim_heur.s, cfg.sim_heur.l,
+                                cfg.sim_heur.n_rel, cfg.sim_heur.r, cfg.sim_heur.n_repop,
+                                cfg.sim_heur.s_min, cfg.sim_heur.m_mut)
+        # clock = EventClock()
+        # release_policy = FCFS()
         simulation = Simulation(flight_data, ps_time, pax_weight, trajecs, sep, weather_process, cfg.problem.tau)
         print(f'*** Into main loop for rep {rep} and policy {SubPolicy}...')
         simulation.run(release_policy, clock)

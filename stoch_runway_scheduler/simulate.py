@@ -41,14 +41,13 @@ def simulate_sequences(GA_Info: list[SequenceInfo], tm: float, Ac_Info: tuple[Fl
     # Simulate current queue
     for i, AC in enumerate(Ac_queue):
         # Need to generate service times for AC already in the queue; first consider the customer in position 0
-        AC = Ac_queue[0]
         Ac_Infoi = Ac_Info[AC]
         # JF: this code was used previously for case where tm < eta
         # z=int(random.randrange(1,999))
         # sched=int(10*round(Ac_Infoi.eta-tm,1))
         # trav_time=wiener_cdf[sched][z]
         # sched = int(round(info.eta - tm, 1)) # similar to NOT_READY case
-        trav_time = trajecs[AC].simulate_travel_time(tm, Ac_Infoi)
+        trav_time = trajecs[AC].simulate_travel_time(tm, Ac_Infoi) # JF Note: this should really be a conditional simulation
         if i == 0:
             min_sep = sep.sample_conditional_separation(tm - prev_ld, prev_class, Ac_Infoi.ac_class, Ac_Infoi.weather_state)
         else:
@@ -78,16 +77,12 @@ def simulate_sequences(GA_Info: list[SequenceInfo], tm: float, Ac_Info: tuple[Fl
     costs = []
     xi_lists = []
     for info in GA_Info:
-        # stepthrough_logger.info('Now trying sequence %s', info.sequence)
-        # stepthrough_logger.info('AC'+','+'Class'+','+'Time Sep'+','+'Arrives in pool'+','+'Release time'+','+'Travel time'+','+'Enters serv'+','+'Actual serv'+','+'Finish time'+','+'Pax weight'+','+'Cost'+'\n')
-
         permcost = new_cost
         latest_tm = tm
         perm_prev_class = stored_prev_class
         prev_ld = stored_prev_ld
 
         perm = info.sequence
-        # no_ACs = min(Max_LookAhead, len(perm)) # JF Question: can this not just be len(perm)? Also, don't we want to evaluate full length of sequence?
         xi_list = [] # for each flight indicates whether or not it goes straight to service - called xi in paper
         for AC in perm:
             pool_time, trav_time, serv_time = ac_attrs[AC]
