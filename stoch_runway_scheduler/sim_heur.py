@@ -108,7 +108,6 @@ class SimHeur:
         # If flights will be removed we need to update base_seq in order to reset sequence population
         if Ac_added:
             self.reset_pop = True
-            self.GA_Info.sort(key=lambda x: x.v)
             self.base_seq = self.GA_Info[0].sequence[:]
             for AC in Ac_added:
                 self.base_seq.remove(AC)
