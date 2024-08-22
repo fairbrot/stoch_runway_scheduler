@@ -6,7 +6,7 @@ import random
 import hydra
 from omegaconf import DictConfig, OmegaConf
 
-from stoch_runway_scheduler import FCFS, EventClock, ComputationalClock, ComputationalBudgetClock, Simulation, BrownianWeatherProcess, BrownianTrajectory, read_flight_data, sample_pretac_delay, SimHeur, Genetic_determ, Perm_Heur, Perm_Heur_New, Calculate_FCFS, Posthoc_Check, Cost, ErlangSeparation
+from stoch_runway_scheduler import FCFS, EventClock, ComputationalClock, ComputationalBudgetClock, Simulation, BrownianWeatherProcess, BrownianTrajectory, read_flight_data, sample_pretac_delay, SimHeur, DetHeur, Perm_Heur, Perm_Heur_New, Calculate_FCFS, Posthoc_Check, Cost, ErlangSeparation
 
 #################
 # CONIFIGUATION #
@@ -125,6 +125,8 @@ def main(cfg: DictConfig):
         release_policy = SimHeur(trajecs, sep, weather_process, cost_fn, cfg.sim_heur.s, cfg.sim_heur.l,
                                 cfg.sim_heur.n_rel, cfg.sim_heur.r, cfg.sim_heur.n_repop,
                                 cfg.sim_heur.s_min, cfg.sim_heur.m_mut)
+        # release_policy = DetHeur(sep, weather_process, cfg.problem.tau, cost_fn, cfg.sim_heur.s,
+        #                          cfg.sim_heur.l, cfg.sim_heur.s_min, cfg.sim_heur.m_mut)
         # clock = EventClock()
         # release_policy = FCFS()
         simulation = Simulation(flight_data, ps_time, pax_weight, trajecs, sep, weather_process, cfg.problem.tau)

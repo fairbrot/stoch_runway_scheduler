@@ -9,7 +9,7 @@ from .perm import Perm_Heur, Perm_Heur_New
 from .trajectory import BrownianTrajectory
 from .simulate import Calculate_FCFS, Posthoc_Check
 from .sim_heur import SimHeur
-from .genetic_det import Genetic_determ
+from .genetic_det import DetHeur
 from .populate import Populate, Repopulate_VNS
 from .simulation import Simulation
 from .clock import EventClock, ComputationalClock, ComputationalBudgetClock
