@@ -138,8 +138,7 @@ class ErlangSeparation(StochasticSeparation):
             mn *= self.w_rho
         return mn
 
-def landing_time(prev_comp: float, min_sep: float,
-                 rel_time: float, trav_time: float) -> Tuple[float, int]:
+def landing_time(prev_comp: float, min_sep: float, eta: float) -> Tuple[float, int]:
     """
     Calculates landing time and whether flight went straight into service on reaching runway threshold.
 
@@ -147,15 +146,14 @@ def landing_time(prev_comp: float, min_sep: float,
     ---------
     prev_comp: time previous aircraft finished landed
     min_sep: minimum separation time between current and previous aircraft
-    rel_time: time current aircraft is released into queue
-    trav_time: travel time between from leaving pool to runway threshold
+    eta: estimated time of arrival to runway threshold
 
     Returns:
     --------
     t_out: time flight is finished being served
     straight_into_service: indicates whether flight enters service immediately on joining queue
     """
-    t1 = rel_time + trav_time
+    t1 = eta
     t2 = prev_comp + min_sep
 
     if t1 < t2:

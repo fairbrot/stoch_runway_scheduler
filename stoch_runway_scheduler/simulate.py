@@ -54,7 +54,7 @@ def simulate_sequences(GA_Info: list[SequenceInfo], tm: float, Ac_Info: tuple[Fl
             # JF Question: previous code was sampling whether at release (which is in past) which didn't seem right
             min_sep = sep.sample_separation(perm_prev_class, Ac_Infoi.ac_class, Ac_Infoi.weather_state)
 
-        landing_complete, straight_into_service = landing_time(prev_ld, min_sep, Ac_Infoi.release_time, trav_time)
+        landing_complete, straight_into_service = landing_time(prev_ld, min_sep, Ac_Infoi.release_time + trav_time)
         new_cost += cost_fn(Ac_Infoi.orig_sched_time, Ac_Infoi.pool_time, trav_time, landing_complete, Ac_Infoi.passenger_weight)
 
         prev_ld = landing_complete
@@ -92,7 +92,7 @@ def simulate_sequences(GA_Info: list[SequenceInfo], tm: float, Ac_Info: tuple[Fl
             weather_state = weather_sample(reltime)
             
             min_sep = sep.sample_separation(perm_prev_class, perm_class, weather_state, norm_service_time = serv_time)
-            AC_FinishTime, straight_into_service = landing_time(prev_ld, min_sep, reltime, trav_time)
+            AC_FinishTime, straight_into_service = landing_time(prev_ld, min_sep, reltime + trav_time)
             xi_list.append(straight_into_service)
             permcost += cost_fn(Ac_Infoi.orig_sched_time, pool_time, trav_time, AC_FinishTime, Ac_Infoi.passenger_weight)
             #latest_tm = reltime # JF Question - I don't think this needs updating - all flights should join queue now or when they enter pool

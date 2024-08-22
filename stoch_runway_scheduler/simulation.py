@@ -147,7 +147,7 @@ class Simulation:
                                                     norm_service_time=norm_sep)
                 trav_time = self.trajecs[i].travel_time
                 serv_fin, _ = landing_time(state.prev_completion, min_sep,
-                                        eflight.release_time, trav_time)
+                                        eflight.release_time + trav_time)
                 fin_event = Event(serv_fin, EventType.SERVICE_ENDS, i,
                                   {'service_time': min_sep})
                 self.schedule_event(fin_event)
